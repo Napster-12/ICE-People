@@ -1,0 +1,56 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ 'Edit job' if job_id else 'New job' }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('recruitment.jobs') }}">← Job Openings</a>{% endblock %}
+{% block heading %}{{ 'Edit Job Opening' if job_id else 'New Job Opening' }}{% endblock %}
+{% block subheading %}Job details and ATS screening criteria{% endblock %}
+{% block content %}
+<form method="post" class="admin-split">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel admin-form">
+    <div class="admin-panel-head" style="margin:0"><h3>Job Details</h3></div>
+    <div class="admin-form-row"><label>Job title *</label><input type="text" name="title" required value="{{ job.title }}"></div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label>Department</label><input type="text" name="department" value="{{ job.department }}"></div>
+      <div class="admin-form-row"><label>Location</label><input type="text" name="location" value="{{ job.location }}"></div>
+      <div class="admin-form-row"><label>Employment type</label>
+        <select name="job_type">{% for t in job_types %}<option {{ 'selected' if job.job_type == t }}>{{ t }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="admin-form-row"><label>Job description *</label>
+      <textarea name="description" required style="min-height:320px">{{ job.description }}</textarea>
+      <span class="hint">The ATS also compares CVs against keywords in the title and description (10%).</span></div>
+  </section>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel admin-form">
+      <div class="admin-panel-head" style="margin:0"><h3>ATS Screening Criteria</h3></div>
+      <div class="admin-form-row"><label>Required skills <span class="weight">45%</span></label>
+        <textarea name="required_skills" style="min-height:90px" placeholder="e.g. Sales, Customer service, FAIS">{{ job.required_skills }}</textarea>
+        <span class="hint">Comma-separated. Searched for in each CV.</span></div>
+      <div class="admin-form-row"><label>Preferred skills <span class="weight">15%</span></label>
+        <textarea name="preferred_skills" style="min-height:80px" placeholder="e.g. RE5, isiZulu, Driver's licence">{{ job.preferred_skills }}</textarea></div>
+      <div class="admin-form-row"><label>Minimum years of experience <span class="weight">20%</span></label>
+        <input type="number" name="min_experience" min="0" max="40" value="{{ job.min_experience or 0 }}"></div>
+      <div class="admin-form-row"><label>Minimum qualification <span class="weight">10%</span></label>
+        <select name="min_education">
+          {% for lvl, name in education_levels %}<option value="{{ lvl }}" {{ 'selected' if (job.min_education or 0) == lvl }}>{{ name }}</option>{% endfor %}
+        </select></div>
+      <div class="review-comment" style="margin:0">Criteria left blank are skipped and the remaining weights are rescaled to 100%.</div>
+    </section>
+    <section class="admin-panel admin-form">
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label>Closing date</label><input type="date" name="closing_date" value="{{ job.closing_date or '' }}"></div>
+        <div class="admin-form-row"><label>Status</label>
+          <select name="status"><option {{ 'selected' if job.status != 'Closed' }}>Open</option>
+            <option {{ 'selected' if job.status == 'Closed' }}>Closed</option></select></div>
+      </div>
+      <button class="filter-btn">{{ 'Save Changes' if job_id else 'Publish Job' }}</button>
+    </section>
+  </div>
+</form>
+{% if job_id %}
+<form method="post" action="{{ url_for('recruitment.job_delete', job_id=job_id) }}"
+      onsubmit="return confirm('Delete this job and its applications? CVs stay in the database.')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="admin-btn-sm admin-btn-danger">{{ icon('trash') }} Delete Job</button>
+</form>
+{% endif %}
+{% endblock %}

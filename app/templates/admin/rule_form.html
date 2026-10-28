@@ -1,0 +1,32 @@
+{% extends "admin/base.html" %}
+{% block title %}Routing rule{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('admin.rules') }}">← Routing Rules</a>{% endblock %}
+{% block heading %}{{ rule.name if rule else 'New Routing Rule' }}{% endblock %}
+{% block content %}
+<form method="post" class="admin-split-rev">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel admin-form">
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="workflow_type">Workflow</label><select id="workflow_type" name="workflow_type">
+        {% for t in workflow_types %}<option {{ 'selected' if rule and rule.workflow_type == t }}>{{ t }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="level">Level</label><input id="level" type="number" min="1" max="20" name="level" value="{{ rule.level if rule else 1 }}"></div>
+      <div class="admin-form-row"><label for="sla_days">SLA (business days)</label><input id="sla_days" type="number" min="1" max="60" name="sla_days" value="{{ rule.sla_days if rule else default_sla }}"></div>
+    </div>
+    <div class="admin-form-row"><label for="name">Step name</label><input id="name" name="name" value="{{ rule.name if rule }}" required placeholder="e.g. Finance approval"></div>
+    <div class="admin-form-row"><label for="approver">Approver</label><select id="approver" name="approver">
+      {% for key, label in special.items() %}<option value="{{ key }}" {{ 'selected' if rule and rule.approver == key }}>{{ label }}</option>{% endfor %}
+      {% for r in roles %}<option {{ 'selected' if rule and rule.approver == r.name }}>{{ r.name }}</option>{% endfor %}</select></div>
+    <div class="admin-form-row"><label for="condition">Condition</label>
+      <input id="condition" name="condition" value="{{ rule.condition if rule }}" placeholder='all'>
+      <span class="hint">Leave blank for every item. Examples: <code>headcount_type == "New" or is_over_budget</code>, <code>grade >= 8</code>, <code>is_executive</code></span></div>
+    <label class="consent"><input type="checkbox" name="active" value="1" {{ 'checked' if not rule or rule.active }}> <span>Active</span></label>
+    <div><button class="filter-btn">Save rule</button></div>
+  </section>
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Fields you can use</h3></div>
+    <div class="tag-list">{% for f in fields %}<span class="tag">{{ f }}</span>{% endfor %}</div>
+    <p class="small muted" style="margin-top:12px">Operators: == != &lt; &lt;= &gt; &gt;= in, and, or, not. Text goes in "quotes".</p>
+    <p class="small muted" style="margin-top:8px">If the approver would be the originator, the step goes to the originator's manager instead.</p>
+  </section>
+</form>
+{% endblock %}

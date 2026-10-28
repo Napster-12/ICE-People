@@ -1,0 +1,18 @@
+{% extends "admin/base.html" %}
+{% block title %}Routing rules{% endblock %}
+{% block heading %}Approval Routing Rules{% endblock %}
+{% block subheading %}Each submission builds its chain from the active rules whose condition matches{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('admin.rule_form') }}">{{ icon('plus') }} New Rule</a>{% endblock %}
+{% block content %}
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Workflow</th><th>Level</th><th>Step</th><th>Approver</th><th>Condition</th><th>SLA</th><th>Active</th><th></th></tr>
+    {% for r in rows %}
+    <tr><td>{{ r.workflow_type }}</td><td><span class="rank top">{{ r.level }}</span></td><td><strong>{{ r.name }}</strong></td>
+      <td>{{ r.approver_label }}</td><td><code class="key">{{ r.condition or 'all' }}</code></td><td>{{ r.sla_days }} business day{{ '' if r.sla_days == 1 else 's' }}</td>
+      <td>{{ 'Yes' if r.active else 'No' }}</td>
+      <td><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.rule_form', rule_id=r.id) }}">Edit</a></td></tr>
+    {% else %}<tr><td colspan="8" class="empty-row">No rules.</td></tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

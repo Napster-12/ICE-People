@@ -1,0 +1,5 @@
+{% set step = 2 if request.endpoint == 'careers.apply' else 1 %}
+<ol class="apply-steps" aria-label="Application steps">
+  <li class="{{ 'active' if step == 1 else 'done' }}"><span>1</span> Eligibility check</li>
+  <li class="{{ 'active' if step == 2 }}"><span>2</span> Your application</li>
+</ol>

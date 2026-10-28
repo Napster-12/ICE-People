@@ -1,0 +1,19 @@
+{# Expects `pager` from app.paginate(); optional `anchor` like '#vacancies'. #}
+{% if pager and pager.pages > 1 %}
+{% set p = pager.page %}
+<nav class="pagination-bar" aria-label="Pagination">
+  <span class="pagination-info">Showing {{ pager.first }}–{{ pager.last }} of {{ pager.total }}</span>
+  <div class="pagination-controls">
+    {% if p > 1 %}<a class="pagination-btn" href="{{ pager.url(p - 1) }}{{ anchor }}">‹ Prev</a>
+    {% else %}<span class="pagination-btn disabled">‹ Prev</span>{% endif %}
+    {% for n in range(1, pager.pages + 1) %}
+      {% if n == 1 or n == pager.pages or (n >= p - 2 and n <= p + 2) %}
+        {% if n == p %}<span class="pagination-btn pagination-btn-active">{{ n }}</span>
+        {% else %}<a class="pagination-btn" href="{{ pager.url(n) }}{{ anchor }}">{{ n }}</a>{% endif %}
+      {% elif n == p - 3 or n == p + 3 %}<span class="pagination-ellipsis">…</span>{% endif %}
+    {% endfor %}
+    {% if p < pager.pages %}<a class="pagination-btn" href="{{ pager.url(p + 1) }}{{ anchor }}">Next ›</a>
+    {% else %}<span class="pagination-btn disabled">Next ›</span>{% endif %}
+  </div>
+</nav>
+{% endif %}

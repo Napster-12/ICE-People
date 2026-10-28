@@ -1,0 +1,22 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import util_bar with context %}
+{% block title %}Budget impact{% endblock %}
+{% block heading %}Budget Impact · {{ fy_label(fy) }}{% endblock %}
+{% block subheading %}Headcount budget and requisition demand per department{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('budget.report', fy=fy, format='csv') }}">{{ icon('download') }} CSV</a>{% endblock %}
+{% block content %}
+<form class="filter-section" method="get"><div class="filter-grid">
+  <div class="filter-field"><label for="fy">Financial year</label>
+    <select id="fy" name="fy" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}" {{ 'selected' if y == fy }}>{{ fy_label(y) }}</option>{% endfor %}</select></div>
+</div></form>
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Department</th><th>Budget</th><th>Committed</th><th>Consumed</th><th>Available</th><th>Pending approval</th><th>Requisitions</th><th>Over budget</th><th style="min-width:130px">Used</th></tr>
+    {% for r in rows %}
+    <tr><td><strong>{{ r.department.name }}</strong></td><td>{{ r.amount|money }}</td><td>{{ r.committed|money }}</td>
+      <td>{{ r.consumed|money }}</td><td><strong>{{ r.available|money }}</strong></td><td>{{ r.pending|money }}</td>
+      <td>{{ r.requisitions }}</td><td>{{ r.over_budget }}</td><td>{{ util_bar(r.utilisation) }}<span class="sub">{{ r.utilisation }}%</span></td></tr>
+    {% else %}<tr><td colspan="9" class="empty-row">No departments.</td></tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

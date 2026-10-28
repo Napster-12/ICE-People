@@ -1,0 +1,70 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import score_ring, breakdown_view, status_badge %}
+{% block title %}{{ cand.full_name }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('recruitment.candidates') }}">← CV Database</a>{% endblock %}
+{% block heading %}{{ cand.full_name }}{% endblock %}
+{% block subheading %}{{ cand.current_title or 'Candidate' }}{{ ' · ' ~ cand.location if cand.location }}{% endblock %}
+{% block actions %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('recruitment.candidate_cv', cand_id=cand.id, download=1) }}">{{ icon('download') }} Download CV</a>
+<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('recruitment.candidate_cv', cand_id=cand.id) }}" target="_blank">Open CV</a>
+{% endblock %}
+{% block content %}
+<div class="admin-split-rev">
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    {% for a in apps %}
+    <section class="admin-panel app-block" id="app-{{ a.id }}">
+      <div class="app-head">
+        <div>
+          <span class="kpi-label">{{ 'Application' if a.job_id else 'Talent Pool' }} · Ref {{ a.reference }} · {{ a.created_at|dt }}</span>
+          <h3 style="margin:4px 0 8px;font-size:20px">{% if a.job_id %}<a href="{{ url_for('recruitment.job_detail', job_id=a.job_id) }}" style="color:var(--text)">{{ a.title }}</a>{% else %}Talent pool submission{% endif %}</h3>
+          {{ status_badge(a.status) }}
+          {% if a.source == 'Talent pool' and a.job_id %}<span class="status-badge st-pool">Shortlisted from talent pool</span>{% endif %}
+        </div>
+        {% if a.job_id %}<div style="text-align:center">{{ score_ring(a.score) }}<div class="kpi-label" style="margin-top:6px">ATS Match</div></div>{% endif %}
+      </div>
+      {% if a.cover_note %}<div class="review-comment">{{ a.cover_note }}</div>{% endif %}
+      {% if a.job_id %}<details open style="margin-top:18px"><summary>ATS score breakdown</summary>
+        <div style="margin-top:12px">{{ breakdown_view(a.breakdown) }}</div></details>{% endif %}
+      <form method="post" action="{{ url_for('recruitment.application_update', app_id=a.id) }}" class="notes-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="admin-form-row"><label>Status</label>
+          <select name="status">{% for s in statuses %}<option {{ 'selected' if a.status == s }}>{{ s }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label>Internal notes</label>
+          <input type="text" name="notes" value="{{ a.notes or '' }}" placeholder="Interview feedback, availability…"></div>
+        <button class="filter-btn">Save</button>
+      </form>
+    </section>
+    {% endfor %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>CV Contents</h3><span class="results-count">{{ cand.cv_filename }}</span></div>
+      {% if cand.cv_text and cand.cv_text.strip() %}
+        <div class="cv-text">{{ cand.cv_text }}</div>
+      {% else %}
+        <div class="alert alert-info" style="margin:0">No text could be extracted (possibly a scanned document). Open the original file instead.</div>
+      {% endif %}
+    </section>
+  </div>
+  <aside style="display:flex;flex-direction:column;gap:16px">
+    <section class="admin-panel profile-card">
+      <span class="avatar lg">{{ cand.full_name|initials }}</span>
+      <h2>{{ cand.full_name }}</h2>
+      <div class="muted">{{ cand.current_title or 'Candidate' }}</div>
+      <ul class="detail-list">
+        <li>{{ icon('mail') }}<a href="mailto:{{ cand.email }}">{{ cand.email }}</a></li>
+        {% if cand.phone %}<li>{{ icon('phone') }}<a href="tel:{{ cand.phone }}">{{ cand.phone }}</a></li>{% endif %}
+        {% if cand.location %}<li>{{ icon('pin') }}{{ cand.location }}</li>{% endif %}
+        <li>{{ icon('award') }}{{ cand.years_experience ~ ' years experience' if cand.years_experience is not none else 'Experience not stated' }}</li>
+        <li>{{ icon('file') }}{{ education_labels[cand.education_level or 0] if cand.education_level else 'Qualification not stated' }}</li>
+      </ul>
+      {% if cand.skills %}<div class="skill-tags" style="justify-content:center">{% for s in cand.skills.split(',') %}<span class="skill-tag">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+      <p class="small muted" style="margin:0">In database since {{ cand.created_at|dt }} · CV updated {{ cand.updated_at|dt }}<br>
+        POPIA consent: {{ 'Given' if cand.consent else 'No' }}</p>
+    </section>
+    <form method="post" action="{{ url_for('recruitment.candidate_delete', cand_id=cand.id) }}"
+          onsubmit="return confirm('Permanently delete this candidate and their CV? This cannot be undone.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="admin-btn-sm admin-btn-danger" style="width:100%">{{ icon('trash') }} Delete Candidate (POPIA request)</button>
+    </form>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import score_badge %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Recruitment Dashboard{% endblock %}
+{% block subheading %}Careers site and ATS · {{ now_label }}{% endblock %}
+{% block content %}
+<div class="reports-kpi-grid">
+  <div class="report-kpi-card"><div class="kpi-icon">{{ icon('briefcase') }}</div>
+    <div class="kpi-content"><span class="kpi-label">Open Positions</span><span class="kpi-value">{{ stats.open_jobs }}</span></div></div>
+  <div class="report-kpi-card k-orange"><div class="kpi-icon orange">{{ icon('file') }}</div>
+    <div class="kpi-content"><span class="kpi-label">Job Applications</span><span class="kpi-value">{{ stats.applications }}</span></div></div>
+  <div class="report-kpi-card k-black"><div class="kpi-icon black">{{ icon('database') }}</div>
+    <div class="kpi-content"><span class="kpi-label">CVs in Database</span><span class="kpi-value">{{ stats.candidates }}</span></div></div>
+  <div class="report-kpi-card k-yellow"><div class="kpi-icon yellow">{{ icon('users') }}</div>
+    <div class="kpi-content"><span class="kpi-label">New This Week</span><span class="kpi-value">{{ stats.new_this_week }}</span></div></div>
+</div>
+
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Hiring Pipeline</h3>
+    <span class="results-count">{{ pipeline.values()|sum }} applications</span></div>
+  <div class="pipeline-grid">
+    {% for s in statuses %}
+    <div class="pipeline-cell st-{{ s }}"><strong>{{ pipeline.get(s, 0) }}</strong><span>{{ s }}</span></div>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="admin-split">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Open Positions{% if pager is defined %} <span class="results-count">({{ pager.total }})</span>{% endif %}</h3><a href="{{ url_for('recruitment.jobs') }}">View all jobs →</a></div>
+    <div class="table-responsive"><table class="admin-table">
+      <tr><th>Position</th><th>Applicants</th><th>Strong (75%+)</th><th>Avg Score</th></tr>
+      {% for j in jobs %}
+      <tr>
+        <td><strong><a href="{{ url_for('recruitment.job_detail', job_id=j.id) }}">{{ j.title }}</a></strong>
+          <span class="sub">{{ j.department }}{{ ' · ' if j.department and j.location }}{{ j.location }}</span></td>
+        <td>{{ j.applicants }}</td>
+        <td>{{ j.strong or 0 }}</td>
+        <td>{{ score_badge(j.avg_score) if j.applicants else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty-row">No open positions. <a href="{{ url_for('recruitment.job_form') }}">Create one</a>.</td></tr>
+      {% endfor %}
+    </table></div>
+    {% include "_pager.html" %}
+  </section>
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Latest Applications</h3></div>
+    <div class="table-responsive"><table class="admin-table">
+      <tr><th>Candidate</th><th>Score</th></tr>
+      {% for a in recent %}
+      <tr>
+        <td><strong><a href="{{ url_for('recruitment.candidate', cand_id=a.candidate_id) }}">{{ a.full_name }}</a></strong>
+          <span class="sub">{{ a.title }} · {{ a.created_at|dt }}</span></td>
+        <td>{{ score_badge(a.score) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" class="empty-row">No applications yet.</td></tr>
+      {% endfor %}
+    </table></div>
+  </section>
+</div>
+{% endblock %}

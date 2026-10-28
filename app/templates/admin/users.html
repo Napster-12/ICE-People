@@ -1,0 +1,26 @@
+{% extends "admin/base.html" %}
+{% block title %}Users{% endblock %}
+{% block heading %}Users &amp; Roles{% endblock %}
+{% block subheading %}Sign-in accounts and roles{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('admin.user_form') }}">{{ icon('plus') }} New User</a>{% endblock %}
+{% block content %}
+<form class="filter-section" method="get"><div class="filter-grid">
+  <div class="filter-field"><label for="q">Search</label><input id="q" name="q" value="{{ args.get('q', '') }}"></div>
+  <div class="filter-field"><label for="role">Role</label><select id="role" name="role"><option value="">All roles</option>
+    {% for r in roles %}<option {{ 'selected' if args.get('role') == r.name }}>{{ r.name }}</option>{% endfor %}</select></div>
+  <div class="filter-actions"><button class="filter-btn">{{ icon('search') }} Filter</button></div>
+</div></form>
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>User</th><th>Roles</th><th>Employee</th><th>Status</th><th>Last sign-in</th></tr>
+    {% for u in rows %}
+    <tr><td><strong><a href="{{ url_for('admin.user_form', user_id=u.id) }}">{{ u.full_name }}</a></strong><span class="sub">{{ u.username }}{{ ' · ' ~ u.email if u.email }}</span></td>
+      <td class="small">{{ u.role_names|sort|join(', ') or '—' }}</td>
+      <td class="small">{{ u.employee.employee_number if u.employee else '—' }}</td>
+      <td>{% if not u.active %}<span class="status-badge st-Cancelled">Inactive</span>{% else %}<span class="status-badge st-Approved">Active</span>{% endif %}</td>
+      <td>{{ u.last_login_at|dtt if u.last_login_at else '—' }}</td></tr>
+    {% else %}<tr><td colspan="5" class="empty-row">No users.</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

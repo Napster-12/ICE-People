@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import kv, status with context %}
+{% block title %}My profile{% endblock %}
+{% block heading %}My Profile{% endblock %}
+{% block subheading %}{{ current_user.full_name }} · {{ current_user.role_names|sort|join(', ') }}{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('auth.account') }}">{{ icon('shield') }} Password</a>{% endblock %}
+{% block content %}
+<div class="admin-split-rev">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Employment</h3>{% if emp %}{{ status(emp.status) }}{% endif %}</div>
+    {% if emp %}
+    <div class="kv-grid">
+      {{ kv('Employee number', emp.employee_number) }}{{ kv('Position', emp.position_title) }}
+      {{ kv('Department', emp.department.name if emp.department) }}{{ kv('Cost centre', emp.cost_centre|string if emp.cost_centre) }}
+      {{ kv('Grade', emp.job_grade|string if emp.job_grade) }}{{ kv('Manager', emp.manager.full_name if emp.manager) }}
+      {{ kv('Start date', emp.start_date|dt) }}{{ kv('Employment type', emp.employment_type) }}
+      {{ kv('Email', emp.email) }}{{ kv('Phone', emp.phone) }}
+    </div>
+    <p class="hint" style="margin-top:14px">Something wrong? Ask your HR Business Partner to update your record.</p>
+    {% else %}<p class="muted">Your account isn't linked to an employee record yet.</p>{% endif %}
+  </section>
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Assets issued</h3></div>
+    <ul class="timeline">{% for a in (emp.assets if emp else []) %}<li><strong>{{ a.asset_tag }}</strong> {{ a.description }}<span class="sub">{{ a.status }}</span></li>
+      {% else %}<li class="muted">None.</li>{% endfor %}</ul>
+    <p class="hint" style="margin-top:14px">Onboarding plan, assessments and IDP appear here as those modules go live.</p>
+  </section>
+</div>
+{% endblock %}

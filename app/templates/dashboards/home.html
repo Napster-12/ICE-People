@@ -1,0 +1,58 @@
+{% extends "admin/base.html" %}
+{% block title %}Home{% endblock %}
+{% block heading %}{{ greeting }}, {{ current_user.full_name.split()[0] }}{% endblock %}
+{% block subheading %}{{ date_label }} · {{ intro }}{% endblock %}
+
+{% macro tile(t) -%}
+<{{ 'a' if t.link else 'div' }} class="home-tile {{ t.tone }}"{% if t.link %} href="{{ t.link }}"{% endif %}>
+  <span class="home-tile-badge">{{ t.badge }}</span>
+  <h3>{{ t.title }}</h3>
+  <p>{{ t.text }}</p>
+  {% if t.later %}<span class="home-tile-link">{{ t.later }}</span>
+  {% elif t.link_label %}<span class="home-tile-link">{{ t.link_label }}{% if t.link %} →{% endif %}</span>{% endif %}
+</{{ 'a' if t.link else 'div' }}>
+{%- endmacro %}
+
+{% block content %}
+{% if banner %}
+<div class="home-banner">
+  <div><strong>{{ banner.title }}</strong><span>{{ banner.text }}</span></div>
+  <a href="{{ banner.link }}">{{ banner.link_label }}</a>
+</div>
+{% endif %}
+
+{% if stats %}
+<div class="home-stats">
+  {% for s in stats %}
+  <{{ 'a' if s.link else 'div' }} class="home-stat{{ ' is-urgent' if s.alert }}"{% if s.link %} href="{{ s.link }}"{% endif %}>
+    <strong>{{ s.value }}</strong><span>{{ s.label }}</span>
+  </{{ 'a' if s.link else 'div' }}>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if portal == 'manager' %}
+<div class="home-split">
+  <div class="home-col">
+    <section class="home-panel">
+      <h3>My tasks ({{ tasks|length }})</h3>
+      <ul class="home-tasks">
+        {% for t in tasks %}
+        <li><span class="home-pill {{ t.tone }}">{{ t.label }}</span>
+          {% if t.link %}<a href="{{ t.link }}">{{ t.text }}</a>{% else %}{{ t.text }}{% endif %}</li>
+        {% else %}<li class="muted">Nothing waiting for you.</li>{% endfor %}
+      </ul>
+    </section>
+    <section class="home-panel">
+      <h3>My team at a glance</h3>
+      <ul class="home-glance">
+        {% for value, label in glance %}<li><strong>{{ value }}</strong><span>{{ label }}</span></li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+  <div class="home-tiles two">{% for t in tiles %}{{ tile(t) }}{% endfor %}</div>
+</div>
+{% else %}
+<div class="home-tiles">{% for t in tiles %}{{ tile(t) }}{% endfor %}</div>
+{% endif %}
+{% endblock %}

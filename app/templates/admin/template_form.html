@@ -1,0 +1,16 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ tpl.name }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('admin.settings_page') }}#templates">← Settings</a>{% endblock %}
+{% block heading %}{{ tpl.name }}{% endblock %}
+{% block subheading %}Used for in-app notifications and email. Placeholders look like {{ '{{ ref }}' }}.{% endblock %}
+{% block content %}
+<section class="admin-panel">
+  <form method="post" class="admin-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="admin-form-row"><label for="subject">Subject</label><input id="subject" name="subject" value="{{ tpl.subject }}" required></div>
+    <div class="admin-form-row"><label for="body">Body</label><textarea id="body" name="body" style="min-height:220px" required>{{ tpl.body }}</textarea>
+      <span class="hint">Keep the placeholders from the original wording; unknown ones render empty.</span></div>
+    <div><button class="filter-btn">Save template</button></div>
+  </form>
+</section>
+{% endblock %}

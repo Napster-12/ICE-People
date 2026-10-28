@@ -1,0 +1,59 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import score_badge, breakdown_view, rank %}
+{% block title %}CV Database{% endblock %}
+{% block heading %}CV Database{% endblock %}
+{% block subheading %}Every CV ever submitted. Rank them against any job opening{% endblock %}
+{% block content %}
+<form class="filter-section" method="get">
+  <div class="filter-grid">
+    <div class="filter-field"><label>Rank against job</label>
+      <select name="job_id"><option value="">No ranking</option>
+        {% for j in jobs %}<option value="{{ j.id }}" {{ 'selected' if args.get('job_id')|string == j.id|string }}>{{ j.title }}{{ ' (closed)' if j.status == 'Closed' }}</option>{% endfor %}
+      </select></div>
+    <div class="filter-field"><label>Minimum score: <span class="range-out" id="cs-out">{{ args.get('min_score', 0) }}</span>%</label>
+      <input type="range" name="min_score" min="0" max="100" step="5" value="{{ args.get('min_score', 0) }}"
+             oninput="document.getElementById('cs-out').textContent=this.value"></div>
+    <div class="filter-field"><label>Keywords (all must appear)</label><input type="text" name="q" value="{{ args.get('q', '') }}" placeholder="e.g. payroll sage"></div>
+    <div class="filter-field"><label>Location</label><input type="text" name="location" value="{{ args.get('location', '') }}"></div>
+    <div class="filter-field"><label>Min. years experience</label><input type="number" name="min_exp" min="0" value="{{ args.get('min_exp', '') }}"></div>
+  </div>
+  <div class="filter-actions" style="margin-top:16px">
+    <button class="filter-btn">{{ icon('search') }} Search</button>
+    <a class="filter-btn filter-btn-secondary" href="{{ url_for('recruitment.candidates') }}">Reset</a>
+  </div>
+</form>
+
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>{{ 'Ranked for ' ~ job.title if job else 'All Candidates' }}</h3>
+    {% set total = pager.total if pager is defined else results|length %}
+    <span class="results-count">{{ total }} candidate{{ '' if total == 1 else 's' }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr>{% if job %}<th>Rank</th><th>Score</th>{% endif %}<th>Candidate</th><th>Location</th><th>Experience</th><th>Qualification</th><th>CV Updated</th><th></th></tr>
+    {% for r in results %}{% set c = r.c %}
+    <tr>
+      {% if job %}<td>{{ rank((pager.start if pager is defined else 0) + loop.index) }}</td>
+      <td>{{ score_badge(r.score) }}
+        <details style="margin-top:6px"><summary>Why?</summary><div style="min-width:280px;margin-top:10px">{{ breakdown_view(r.breakdown) }}</div></details></td>{% endif %}
+      <td><strong><a href="{{ url_for('recruitment.candidate', cand_id=c.id) }}">{{ c.full_name }}</a></strong>
+        <span class="sub">{{ c.current_title ~ ' · ' if c.current_title }}{{ c.email }}</span></td>
+      <td>{{ c.location or '—' }}</td>
+      <td>{{ c.years_experience ~ ' yrs' if c.years_experience is not none else '—' }}</td>
+      <td>{{ education_labels[c.education_level or 0] if c.education_level else '—' }}</td>
+      <td>{{ c.updated_at|dt }}</td>
+      <td><div class="row-actions">
+        <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('recruitment.candidate_cv', cand_id=c.id) }}" target="_blank">CV</a>
+        {% if job %}
+        <form method="post" action="{{ url_for('recruitment.shortlist_from_pool', job_id=job.id, cand_id=c.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-btn-sm admin-btn-primary">Shortlist</button></form>
+        {% else %}
+        <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('recruitment.candidate', cand_id=c.id) }}">View</a>
+        {% endif %}
+      </div></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty-row">No CVs match.</td></tr>
+    {% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

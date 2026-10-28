@@ -1,0 +1,118 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ req.reference if req else 'New requisition' }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('requisitions.detail', req_id=req.id) if req else url_for('requisitions.index') }}">← {{ req.reference if req else 'Requisitions' }}</a>{% endblock %}
+{% block heading %}{{ 'Edit ' ~ req.reference if req else 'New Requisition' }}{% endblock %}
+{% block subheading %}Save a draft at any time. Submitting checks every field and starts the approval chain.{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="admin-split" id="req-form" novalidate>
+  {{ form.csrf_token }}
+  <section class="admin-panel admin-form">
+    <div class="admin-panel-head" style="margin:0"><h3>Position</h3></div>
+    <div class="admin-form-row"><label for="approved_position_id">Approved position *</label>
+      <select id="approved_position_id" name="approved_position_id">
+        <option value="0">Choose a vacant position…</option>
+        {% for p in ref.positions %}<option value="{{ p.id }}" {{ 'selected' if form.approved_position_id.data == p.id }}
+          data-title="{{ p.title }}" data-dept="{{ p.department.name }}" data-cc="{{ p.cost_centre_id or 0 }}"
+          data-cc-label="{{ p.cost_centre or '—' }}" data-grade="{{ p.job_grade_id or 0 }}" data-grade-label="{{ p.job_grade or '—' }}"
+          data-branch="{{ p.branch or '—' }}" data-headcount="{{ 'Replacement' if p.last_holder_id else 'New' }}"
+          data-replacing="{{ p.last_holder.full_name if p.last_holder else '' }}"
+          data-ctc="{{ p.budgeted_ctc|money if p.budgeted_ctc is not none else '—' }}">{{ p.position_number }} · {{ p.title }} ({{ p.department.name }}{% if p.branch %}, {{ p.branch }}{% endif %})</option>{% endfor %}
+      </select>
+      <span class="hint">{% if ref.positions %}Only vacant positions you can recruit for are listed.{% else %}No vacant positions are available to you.{% endif %}
+        Not on the register? <a href="{{ url_for('positions.adhoc_new') }}">Request an ad-hoc position</a>.</span></div>
+    <div class="kv-grid" id="position-summary" hidden>
+      <div class="kv"><span class="kv-label">Title</span><span class="kv-value" data-f="title"></span></div>
+      <div class="kv"><span class="kv-label">Department</span><span class="kv-value" data-f="dept"></span></div>
+      <div class="kv"><span class="kv-label">Cost centre</span><span class="kv-value" data-f="ccLabel"></span></div>
+      <div class="kv"><span class="kv-label">Grade</span><span class="kv-value" data-f="gradeLabel"></span></div>
+      <div class="kv"><span class="kv-label">Branch / area</span><span class="kv-value" data-f="branch"></span></div>
+      <div class="kv"><span class="kv-label">Budgeted CTC</span><span class="kv-value" data-f="ctc"></span></div>
+      <div class="kv"><span class="kv-label">Headcount</span><span class="kv-value" data-f="headcount"></span></div>
+      <div class="kv" data-replacing-row><span class="kv-label">Replacing</span><span class="kv-value" data-f="replacing"></span></div>
+    </div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="employment_type">Employment type *</label>{{ form.employment_type() }}</div>
+      <div class="admin-form-row"><label for="required_start_date">Required start date *</label>{{ form.required_start_date() }}</div>
+    </div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row" data-show="Contract"><label for="contract_end_date">Contract end date *</label>{{ form.contract_end_date() }}
+        <span class="hint">CTC is pro-rated by the number of contract months.</span></div>
+      <div class="admin-form-row" data-show="Casual"><label for="estimated_hours">Estimated hours</label>{{ form.estimated_hours(min=1) }}
+        <span class="hint">CTC = grade hourly rate × hours.</span></div>
+    </div>
+    {% if show_exec %}
+    <label class="consent" style="margin-top:6px!important">{{ form.is_executive() }} <span><strong>Executive / strategic role.</strong></span></label>
+    {% endif %}
+    <div class="admin-form-row"><label for="justification">Justification * <span class="hint" id="just-count"></span></label>
+      {{ form.justification(style="min-height:160px", placeholder="Why is this role needed now? What happens if it isn't filled?") }}
+      <span class="hint">At least 50 characters.</span></div>
+  </section>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head" style="margin:0 0 12px"><h3>Budget check</h3></div>
+      <div id="budget-preview" class="muted small">Choose a position and employment type to see the CTC and the budget available.</div>
+    </section>
+    <section class="admin-panel admin-form">
+      <div class="admin-panel-head" style="margin:0"><h3>Attachments</h3></div>
+      <div class="document-file-input">
+        {{ form.attachments(multiple=true, accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png") }}
+        <div class="document-file-label">{{ icon('upload') }}<strong>Choose files</strong> or drag them here<br><span class="small">PDF, DOCX, XLSX, JPG or PNG · max 10 MB each</span></div>
+      </div>
+      <div class="document-selected-name" id="att-names"></div>
+    </section>
+    <section class="admin-panel admin-form">
+      <button class="filter-btn filter-btn-secondary" name="action" value="draft">Save draft</button>
+      <button class="filter-btn" name="action" value="submit">{{ icon('check') }} Submit for approval</button>
+      <span class="hint">Submitting takes a budget snapshot and sends the requisition to the first approver.</span>
+    </section>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var f = document.getElementById('req-form');
+  var pos = f.querySelector('#approved_position_id'), type = f.querySelector('#employment_type');
+  var summary = document.getElementById('position-summary');
+  function chosen() { return pos.options[pos.selectedIndex]; }
+  function showPosition() {
+    var o = chosen(), on = pos.value && pos.value !== '0';
+    summary.hidden = !on;
+    if (!on) return;
+    summary.querySelectorAll('[data-f]').forEach(function (el) { el.textContent = o.dataset[el.dataset.f] || '—'; });
+    summary.querySelector('[data-replacing-row]').hidden = o.dataset.headcount !== 'Replacement';
+  }
+  function toggle() {
+    f.querySelectorAll('[data-show]').forEach(function (el) { el.style.display = type.value === el.dataset.show ? '' : 'none'; });
+  }
+  var timer;
+  function preview() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      var box = document.getElementById('budget-preview'), o = chosen();
+      if (!pos.value || pos.value === '0' || !type.value) return;
+      var p = new URLSearchParams({job_grade_id: o.dataset.grade, employment_type: type.value, cost_centre_id: o.dataset.cc,
+        start: f.querySelector('#required_start_date').value, end: f.querySelector('#contract_end_date').value,
+        hours: f.querySelector('#estimated_hours').value});
+      fetch('{{ url_for('requisitions.api_budget_check') }}?' + p).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d.ok) { box.textContent = d.message; return; }
+        box.innerHTML = '<div class="kv"><span class="kv-label">Estimated CTC</span><span class="kv-value">' + d.ctc + '</span></div>' +
+          '<div class="kv"><span class="kv-label">Available in ' + d.fy + '</span><span class="kv-value">' + (d.available || '—') + '</span></div>' +
+          (d.over ? '<div class="alert alert-warning small" style="margin:10px 0 0">Over the cost centre\'s available budget.</div>' : '');
+      });
+    }, 250);
+  }
+  var just = f.querySelector('#justification'), count = document.getElementById('just-count');
+  function countChars() { count.textContent = '(' + just.value.trim().length + ' / 50)'; }
+  var att = f.querySelector('#attachments');
+  att.addEventListener('change', function () {
+    document.getElementById('att-names').textContent = Array.prototype.map.call(att.files, function (x) { return x.name; }).join(', ');
+  });
+  pos.addEventListener('change', function () { showPosition(); preview(); });
+  type.addEventListener('change', function () { toggle(); preview(); });
+  ['#required_start_date', '#contract_end_date', '#estimated_hours'].forEach(function (s) { f.querySelector(s).addEventListener('change', preview); });
+  just.addEventListener('input', countChars);
+  showPosition(); toggle(); preview(); countChars();
+})();
+</script>
+{% endblock %}

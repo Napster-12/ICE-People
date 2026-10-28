@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block site_name %}{{ system_name }}{% endblock %}
+{% block body_class %}app-body{% endblock %}
+{% block layout %}
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="shell">
+  <nav class="rail" id="rail" aria-label="Main">
+    <a class="rail-brand" href="{{ url_for('dashboards.home') }}">
+      <span class="brand-mark" aria-hidden="true">ICE</span>
+      <span class="rail-label brand-text">ICE People<small>Administration System</small></span>
+    </a>
+    <div class="rail-group">
+      {% for link in nav.links %}
+      <a class="rail-item {{ 'active' if link.active }}" href="{{ url_for(link.endpoint) }}" title="{{ link.label }}">
+        {{ icon(link.icon) }}<span class="rail-label">{{ link.label }}</span>
+        {% if link.endpoint == 'approvals.inbox' and pending_approvals %}<span class="rail-count">{{ pending_approvals }}</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% for menu in nav.menus %}
+    <div class="rail-group">
+      <div class="rail-heading">{{ menu.title }}</div>
+      {% for item in menu['items'] %}
+      <a class="rail-item {{ 'active' if item.active }}" href="{{ url_for(item.endpoint) }}" title="{{ item.label }}">
+        {{ icon(item.icon) }}<span class="rail-label">{{ item.label }}</span></a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    <div class="rail-foot rail-label">
+      <img src="{{ asset('logo.png') }}" alt="Icebolethu Group">
+    </div>
+  </nav>
+  <div class="rail-scrim" aria-hidden="true"></div>
+
+  <div class="workspace">
+    <header class="masthead">
+      <div class="toolbar">
+        <button class="tool-btn rail-toggle" type="button" aria-label="Show or hide navigation" aria-controls="rail">{{ icon('menu') }}</button>
+        {% if nav.search %}
+        <form class="toolbar-search" method="get" action="{{ url_for(nav.search) }}" role="search">
+          {{ icon('search') }}
+          <input type="search" name="q" placeholder="Search requisitions by title or REQ number" aria-label="Search requisitions"
+                 value="{{ request.args.get('q', '') if request.endpoint == nav.search }}">
+        </form>
+        {% endif %}
+        <div class="toolbar-right">
+          <a class="tool-btn" href="{{ url_for('portal.notifications') }}" title="Notifications" aria-label="Notifications">{{ icon('mail') }}
+            {% if unread_notifications %}<span class="tool-badge">{{ unread_notifications }}</span>{% endif %}</a>
+          <details class="menu">
+            <summary class="tool-user" aria-label="Your account">
+              <span class="avatar">{{ current_user.full_name|initials }}</span>
+              <span class="tool-user-name">{{ current_user.full_name }}</span>{{ icon('chevron') }}
+            </summary>
+            <div class="menu-pop menu-pop-right">
+              <div class="menu-head">
+                <span class="avatar lg">{{ current_user.full_name|initials }}</span>
+                <div><strong>{{ current_user.full_name }}</strong>
+                  <small>{{ current_user.email or current_user.username }}</small>
+                  <small>{{ current_user.role_names|sort|join(' · ') }}</small></div>
+              </div>
+              {% for item in nav.user_menu %}
+              <a class="menu-item {{ 'active' if item.active }}" href="{{ url_for(item.endpoint) }}">{{ icon(item.icon) }} {{ item.label }}</a>
+              {% endfor %}
+              <a class="menu-item" href="{{ url_for('careers.index') }}" target="_blank">{{ icon('external') }} Careers site</a>
+              <form method="post" action="{{ url_for('auth.logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="menu-item menu-signout">{{ icon('logout') }} Sign out</button>
+              </form>
+            </div>
+          </details>
+        </div>
+      </div>
+      <div class="page-head">
+        <div class="page-head-text">
+          <div class="page-crumb">{% block crumb %}{% endblock %}</div>
+          <h1 class="page-title">{% block heading %}{% endblock %}</h1>
+          <p class="page-sub">{% block subheading %}Icebolethu Group · Human Resources{% endblock %}</p>
+        </div>
+        <div class="page-actions">{% block actions %}{% endblock %}</div>
+      </div>
+    </header>
+
+    <main class="page-body" id="main">
+      {% include "_flashes.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var body = document.body, toggle = document.querySelector('.rail-toggle');
+  var narrow = window.matchMedia('(max-width: 900px)');
+  try { if (localStorage.getItem('rail') === 'collapsed') body.classList.add('rail-collapsed'); } catch (e) {}
+  toggle.addEventListener('click', function () {
+    if (narrow.matches) { body.classList.toggle('rail-open'); return; }
+    var collapsed = body.classList.toggle('rail-collapsed');
+    try { localStorage.setItem('rail', collapsed ? 'collapsed' : 'open'); } catch (e) {}
+  });
+  document.querySelector('.rail-scrim').addEventListener('click', function () { body.classList.remove('rail-open'); });
+  var menus = document.querySelectorAll('details.menu');
+  document.addEventListener('click', function (e) {
+    menus.forEach(function (m) { if (!m.contains(e.target)) m.open = false; });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { menus.forEach(function (m) { m.open = false; }); body.classList.remove('rail-open'); }
+  });
+  // Confirm dangerous actions: <form data-confirm="Are you sure?">
+  document.addEventListener('submit', function (e) {
+    var msg = e.target.getAttribute('data-confirm');
+    if (msg && !window.confirm(msg)) e.preventDefault();
+  });
+})();
+</script>
+{% block scripts %}{% endblock %}
+{% endblock %}

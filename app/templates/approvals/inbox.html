@@ -1,0 +1,43 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, act_form with context %}
+{% block title %}My Approvals{% endblock %}
+{% block heading %}My Approvals{% endblock %}
+{% block subheading %}Items waiting for your decision. A comment is required for every action.{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('approvals.delegations') }}">{{ icon('users') }} Delegation</a>{% endblock %}
+{% block content %}
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Waiting for me</h3><span class="results-count">{{ pending|length }} item{{ '' if pending|length == 1 else 's' }}</span></div>
+  {% for r in pending %}{% set s = r.step %}
+  <div class="approval-card {{ 'overdue' if r.overdue }}">
+    <div class="app-head">
+      <div>
+        <div class="small muted">Level {{ s.level }} · {{ s.name }}</div>
+        <h4 style="margin:2px 0 4px"><a href="{{ r.info.link }}">{{ r.info.ref }}</a> · {{ r.info.title }}</h4>
+        <div class="small muted">From {{ s.instance.originator.full_name }} · waiting {{ r.age }} business day{{ '' if r.age == 1 else 's' }}
+          · due {{ s.due_at|dtt }}</div>
+        {% if r.delegated_to_me %}<div class="small"><span class="tag">Delegated to you by {{ s.approver.full_name }}</span></div>{% endif %}
+        {% if r.delegated_away %}<div class="small"><span class="tag soft">Currently with {{ s.assignee.full_name }}</span></div>{% endif %}
+        {% if s.escalated_at %}<div class="small"><span class="status-badge st-Escalated">Escalated</span></div>{% endif %}
+      </div>
+      <div>{% if r.overdue %}<span class="status-badge st-Rejected">Overdue</span>{% else %}{{ status('Pending') }}{% endif %}</div>
+    </div>
+    <details style="margin-top:12px"><summary>Decide here</summary>{{ act_form(s, url_for('approvals.inbox')) }}</details>
+  </div>
+  {% else %}
+  <p class="empty-row">Nothing is waiting for you. 🎉</p>
+  {% endfor %}
+</section>
+
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>My recent decisions</h3></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Item</th><th>Step</th><th>Decision</th><th>Comment</th><th>When</th></tr>
+    {% for d in done %}
+    <tr><td><strong><a href="{{ d.info.link }}">{{ d.info.ref }}</a></strong><span class="sub">{{ d.info.title }}</span></td>
+      <td>L{{ d.step.level }} · {{ d.step.name }}</td><td>{{ status(d.step.status) }}</td>
+      <td class="small">{{ d.step.comment|truncate(80) }}</td><td>{{ d.step.acted_at|dtt }}</td></tr>
+    {% else %}<tr><td colspan="5" class="empty-row">No decisions yet.</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

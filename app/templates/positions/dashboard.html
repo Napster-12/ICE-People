@@ -1,0 +1,66 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kpi with context %}
+{% block title %}Vacancy Dashboard{% endblock %}
+{% block heading %}Vacancy Dashboard · {{ fy_label(fy) }}{% endblock %}
+{% block subheading %}Approved positions on the register, grouped by any organisational unit{% endblock %}
+{% block actions %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('positions.dashboard', fy=fy, group_by=data.group_by, format='xlsx') }}">{{ icon('download') }} Export to Excel</a>
+{% endblock %}
+{% block content %}
+{% set t = data.totals %}
+<div class="reports-kpi-grid plain">
+  {{ kpi('Approved positions', t.approved, 'briefcase') }}
+  {{ kpi('Filled', t.filled, 'users', 'black') }}
+  {{ kpi('Vacant (' ~ t.rate ~ '%)', t.vacant, 'clock', 'orange') }}
+  {{ kpi('In recruitment', t.in_recruitment, 'trending', 'yellow') }}
+  {{ kpi('Not yet advertised', t.not_advertised, 'file') }}
+  {{ kpi('Frozen', t.frozen, 'shield', 'black') }}
+  {{ kpi('Ad hoc', t.ad_hoc, 'plus', 'orange') }}
+  {{ kpi('Avg days vacant', t.avg_days_vacant, 'clock', 'yellow') }}
+</div>
+
+<form class="filter-section" method="get">
+  <div class="filter-grid">
+    <div class="filter-field"><label for="fy">Financial year</label>
+      <select id="fy" name="fy">{% for y in years %}<option value="{{ y }}" {{ 'selected' if y == fy }}>{{ fy_label(y) }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="group_by">Group by</label>
+      <select id="group_by" name="group_by">{% for key, g in groups.items() %}<option value="{{ key }}" {{ 'selected' if key == data.group_by }}>{{ g[0] }}</option>{% endfor %}</select></div>
+    <div class="filter-actions"><button class="filter-btn">Show</button></div>
+  </div>
+</form>
+
+<div class="admin-split">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Vacancies by {{ data.group_label|lower }}</h3>
+      <span class="results-count">Time to fill: {{ (t.time_to_fill ~ ' days') if t.time_to_fill is not none else '—' }}</span></div>
+    <div class="table-responsive"><table class="admin-table">
+      <tr><th>{{ data.group_label }}</th><th>Approved</th><th>Filled</th><th>Vacant</th><th>Recruiting</th><th>Not advertised</th><th>Frozen</th><th style="min-width:100px">Rate</th></tr>
+      {% for r in data.rows %}
+      <tr><td><strong>{{ r.name }}</strong></td><td>{{ r.approved }}</td><td>{{ r.filled }}</td><td><strong>{{ r.vacant }}</strong></td>
+        <td>{{ r.in_recruitment }}</td><td>{{ r.not_advertised }}</td><td>{{ r.frozen }}</td>
+        <td><div class="bar"><span class="high" style="width:{{ r.rate }}%"></span></div><span class="sub">{{ r.rate }}%</span></td></tr>
+      {% else %}<tr><td colspan="8" class="empty-row">No approved positions for {{ fy_label(fy) }}.</td></tr>{% endfor %}
+      {% if data.rows %}
+      <tr class="total-row"><td><strong>Icebolethu Group</strong></td><td><strong>{{ t.approved }}</strong></td><td><strong>{{ t.filled }}</strong></td>
+        <td><strong>{{ t.vacant }}</strong></td><td><strong>{{ t.in_recruitment }}</strong></td><td><strong>{{ t.not_advertised }}</strong></td>
+        <td><strong>{{ t.frozen }}</strong></td><td><strong>{{ t.rate }}%</strong></td></tr>
+      {% endif %}
+    </table></div>
+  </section>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Longest open vacancies</h3></div>
+      {% for p in data.longest %}
+      <div class="kv"><span class="kv-label"><span class="tag">{{ (today - p.vacant_since).days }} days</span></span>
+        <span class="kv-value"><a href="{{ url_for('positions.detail', position_id=p.id) }}">{{ p.title }}</a></span>
+        <span class="hint">{{ p.department.name }}{% if p.branch %} · {{ p.branch }}{% endif %}</span></div>
+      {% else %}<p class="muted small">No open vacancies.</p>{% endfor %}
+    </section>
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Ad-hoc positions this year</h3><a href="{{ url_for('positions.adhoc_list') }}">All requests →</a></div>
+      <div class="kv"><span class="kv-label">{{ status('Approved') }}</span><span class="kv-value">{{ data.ad_hoc.approved }} added to the register</span></div>
+      <div class="kv"><span class="kv-label">{{ status('Pending') }}</span><span class="kv-value">{{ data.ad_hoc.pending|length }} waiting for approval</span></div>
+    </section>
+  </div>
+</div>
+{% endblock %}

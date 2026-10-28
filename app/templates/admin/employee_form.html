@@ -1,0 +1,68 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ emp.full_name if emp else 'New employee' }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('admin.employees') }}">← Employees</a>{% endblock %}
+{% block heading %}{{ emp.full_name if emp else 'New Employee' }}{% endblock %}
+{% block subheading %}{{ emp.employee_number ~ ' · ' ~ (emp.position_title or '') if emp else 'Create an employee record' }}{% endblock %}
+{% block content %}
+{% set ro = 'disabled' if not can_edit %}
+<form method="post" class="admin-split">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel admin-form">
+    <div class="admin-panel-head" style="margin:0"><h3>Employment</h3></div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="employee_number">Employee number *</label><input id="employee_number" name="employee_number" value="{{ emp.employee_number if emp }}" required {{ ro }}></div>
+      <div class="admin-form-row"><label for="first_name">First name *</label><input id="first_name" name="first_name" value="{{ emp.first_name if emp }}" required {{ ro }}></div>
+      <div class="admin-form-row"><label for="last_name">Last name *</label><input id="last_name" name="last_name" value="{{ emp.last_name if emp }}" required {{ ro }}></div>
+      <div class="admin-form-row"><label for="email">Email</label><input id="email" type="email" name="email" value="{{ emp.email or '' if emp }}" {{ ro }}></div>
+      <div class="admin-form-row"><label for="phone">Phone</label><input id="phone" name="phone" value="{{ emp.phone or '' if emp }}" {{ ro }}></div>
+      <div class="admin-form-row"><label for="position_title">Position</label><input id="position_title" name="position_title" value="{{ emp.position_title or '' if emp }}" {{ ro }}></div>
+      <div class="admin-form-row"><label for="department_id">Department</label><select id="department_id" name="department_id" {{ ro }}><option value="">—</option>
+        {% for d in departments %}<option value="{{ d.id }}" {{ 'selected' if emp and emp.department_id == d.id }}>{{ d.name }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="cost_centre_id">Cost centre</label><select id="cost_centre_id" name="cost_centre_id" {{ ro }}><option value="">—</option>
+        {% for c in cost_centres %}<option value="{{ c.id }}" {{ 'selected' if emp and emp.cost_centre_id == c.id }}>{{ c }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="job_grade_id">Grade</label><select id="job_grade_id" name="job_grade_id" {{ ro }}><option value="">—</option>
+        {% for g in grades %}<option value="{{ g.id }}" {{ 'selected' if emp and emp.job_grade_id == g.id }}>{{ g }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="manager_id">Manager</label><select id="manager_id" name="manager_id" {{ ro }}><option value="">—</option>
+        {% for m in managers %}{% if not emp or m.id != emp.id %}<option value="{{ m.id }}" {{ 'selected' if emp and emp.manager_id == m.id }}>{{ m }}</option>{% endif %}{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="approved_position_id">Approved position</label><select id="approved_position_id" name="approved_position_id" {{ ro }}><option value="">—</option>
+        {% for p in positions %}<option value="{{ p.id }}" {{ 'selected' if emp and emp.approved_position_id == p.id }}>{{ p }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="start_date">Start date</label><input id="start_date" type="date" name="start_date" value="{{ emp.start_date|isodate if emp }}" {{ ro }}></div>
+      <div class="admin-form-row"><label for="employment_type">Employment type</label><select id="employment_type" name="employment_type" {{ ro }}>
+        {% for t in employment_types %}<option {{ 'selected' if emp and emp.employment_type == t }}>{{ t }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="status">Status</label><select id="status" name="status" {{ ro }}>
+        {% for s in statuses %}<option {{ 'selected' if (emp and emp.status == s) or (not emp and s == 'Permanent') }}>{{ s }}</option>{% endfor %}</select></div>
+    </div>
+    <label class="consent"><input type="checkbox" name="critical_role" value="1" {{ 'checked' if emp and emp.critical_role }} {{ ro }}> <span>Critical role (needs a knowledge-transfer plan at exit)</span></label>
+    {% if can_edit %}<div><button class="filter-btn">Save employee</button></div>{% endif %}
+  </section>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    {% if sensitive %}
+    <section class="admin-panel admin-form">
+      <div class="admin-panel-head" style="margin:0"><h3>Sensitive (POPIA)</h3>{{ icon('shield') }}</div>
+      <p class="hint">Visible to permitted roles only. ID and bank details are encrypted at rest; viewing is logged.</p>
+      <div class="admin-form-row"><label for="id_number">SA ID number</label><input id="id_number" name="id_number" value="{{ emp.id_number or '' if emp }}" inputmode="numeric" maxlength="13" {{ ro }}></div>
+      <div class="admin-form-row"><label for="date_of_birth">Date of birth</label><input id="date_of_birth" type="date" name="date_of_birth" value="{{ emp.date_of_birth|isodate if emp }}" {{ ro }}></div>
+      <div class="admin-form-row"><label for="bank_account">Bank account</label><input id="bank_account" name="bank_account" value="{{ emp.bank_account or '' if emp }}" {{ ro }}></div>
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label for="race">Race</label><select id="race" name="race" {{ ro }}><option value="">—</option>
+          {% for o in ['African', 'Coloured', 'Indian', 'White', 'Prefer not to say'] %}<option {{ 'selected' if emp and emp.race == o }}>{{ o }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label for="gender">Gender</label><select id="gender" name="gender" {{ ro }}><option value="">—</option>
+          {% for o in ['Female', 'Male', 'Non-binary', 'Prefer not to say'] %}<option {{ 'selected' if emp and emp.gender == o }}>{{ o }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label for="disability">Disability</label><select id="disability" name="disability" {{ ro }}><option value="">—</option>
+          {% for o in ['No', 'Yes', 'Prefer not to say'] %}<option {{ 'selected' if emp and emp.disability == o }}>{{ o }}</option>{% endfor %}</select></div>
+      </div>
+    </section>
+    {% endif %}
+    {% if emp %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Assets</h3></div>
+      <ul class="timeline">{% for a in emp.assets %}<li><strong>{{ a.asset_tag }}</strong> {{ a.description }}<span class="sub">{{ a.category }} · issued {{ a.issued_on|dt }} · {{ a.status }}</span></li>
+        {% else %}<li class="muted">No assets issued.</li>{% endfor %}</ul>
+      <h4 style="margin:16px 0 8px">Direct reports</h4>
+      <ul class="timeline">{% for r in emp.direct_reports %}<li><a href="{{ url_for('admin.employee_form', emp_id=r.id) }}">{{ r.full_name }}</a><span class="sub">{{ r.position_title }}</span></li>
+        {% else %}<li class="muted">None.</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

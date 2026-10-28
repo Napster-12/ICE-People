@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+{% block title %}Delegation{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('approvals.inbox') }}">← My Approvals</a>{% endblock %}
+{% block heading %}Approval Delegation{% endblock %}
+{% block subheading %}While a delegation is active, new and waiting approvals go to your delegate{% endblock %}
+{% block content %}
+{% if leave %}
+<div class="alert alert-info"><strong>Leave calendar:</strong>
+  {% for l in leave %}{{ l.leave_type }} leave {{ l.start_date|dt }} – {{ l.end_date|dt }}{{ '; ' if not loop.last }}{% endfor %}.
+  Without a delegate, approvals during leave go to your manager.</div>
+{% endif %}
+<div class="admin-split-rev">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>My delegations</h3></div>
+    <div class="table-responsive"><table class="admin-table">
+      <tr><th>Delegate</th><th>From</th><th>To</th><th>Reason</th><th>Status</th><th></th></tr>
+      {% for d in mine %}
+      {% set live = d.active and d.end_date >= today %}
+      <tr><td><strong>{{ d.delegate.full_name }}</strong></td><td>{{ d.start_date|dt }}</td><td>{{ d.end_date|dt }}</td>
+        <td class="small">{{ d.reason or '—' }}</td>
+        <td><span class="status-badge {{ 'st-Approved' if live else 'st-Cancelled' }}">{{ 'Active' if live else 'Ended' }}</span></td>
+        <td>{% if live %}<form method="post" action="{{ url_for('approvals.end_delegation', delegation_id=d.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-btn-sm admin-btn-secondary">End</button></form>{% endif %}</td></tr>
+      {% else %}<tr><td colspan="6" class="empty-row">No delegations.</td></tr>{% endfor %}
+    </table></div>
+    {% if to_me %}
+    <h4 style="margin:20px 0 8px">Delegated to me</h4>
+    <ul class="timeline">{% for d in to_me %}<li><strong>{{ d.user.full_name }}</strong><span class="sub">{{ d.start_date|dt }} – {{ d.end_date|dt }}</span></li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Set a delegate</h3></div>
+    <form method="post" class="admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-form-row"><label for="delegate_id">Delegate</label>
+        <select id="delegate_id" name="delegate_id" required><option value="">Choose…</option>
+          {% for u in users %}<option value="{{ u.id }}">{{ u.full_name }} ({{ u.role_names|sort|join(', ') }})</option>{% endfor %}</select></div>
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label for="start_date">From</label><input id="start_date" type="date" name="start_date" value="{{ today|isodate }}" required></div>
+        <div class="admin-form-row"><label for="end_date">To</label><input id="end_date" type="date" name="end_date" required></div>
+      </div>
+      <div class="admin-form-row"><label for="reason">Reason</label><input id="reason" type="text" name="reason" maxlength="255" placeholder="e.g. Annual leave"></div>
+      <div><button class="filter-btn">Save delegation</button></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

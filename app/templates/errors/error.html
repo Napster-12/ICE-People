@@ -1,0 +1,13 @@
+{% extends "admin/base.html" if current_user.is_authenticated else "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+{% block content %}
+<div class="card center-card" style="margin:20px auto">
+  <div class="success-icon">{{ icon('shield') }}</div>
+  <h2>{{ code }} · {{ title }}</h2>
+  <p>{{ message }}</p>
+  <div class="btn-row">
+    <a class="pill-btn orange" href="{{ url_for('dashboards.home') if current_user.is_authenticated else url_for('careers.index') }}">Go home</a>
+  </div>
+</div>
+{% endblock %}

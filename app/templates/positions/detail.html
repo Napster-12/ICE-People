@@ -1,0 +1,103 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv, approval_chain, act_form with context %}
+{% block title %}{{ p.position_number }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('positions.adhoc_list') if p.is_ad_hoc and p.status in ('Pending approval', 'Returned', 'Rejected') else url_for('positions.index', fy=p.financial_year) }}">← {{ 'Ad-hoc requests' if p.is_ad_hoc and p.status in ('Pending approval', 'Returned', 'Rejected') else 'Approved positions' }}</a>{% endblock %}
+{% block heading %}{{ p.position_number }} · {{ p.title }}{% endblock %}
+{% block subheading %}{{ p.department.name }}{% if p.branch %} · {{ p.branch }}{% endif %} · {{ fy_label(p.financial_year) }}{% if p.is_ad_hoc %} · ad hoc{% endif %}{% endblock %}
+{% block actions %}
+{{ status(p.status) }}
+{% if can_raise %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('requisitions.new', position=p.id) }}">{{ icon('plus') }} Raise requisition</a>{% endif %}
+{% if can_resubmit %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('positions.adhoc_new', position_id=p.id) }}">{{ icon('edit') }} Change and resubmit</a>{% endif %}
+{% if can_edit and not can_resubmit %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('positions.edit', position_id=p.id) }}">{{ icon('edit') }} Edit</a>{% endif %}
+{% if can_delete %}
+<form method="post" action="{{ url_for('positions.delete', position_id=p.id) }}" onsubmit="return confirm('Delete {{ p.position_number }} from the register?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-btn-sm admin-btn-danger">{{ icon('trash') }} Delete</button></form>
+{% endif %}
+{% endblock %}
+{% block content %}
+{% if p.status == 'Returned' %}<div class="alert alert-info">This ad-hoc position was returned for changes. The requester can change it and resubmit.</div>{% endif %}
+{% if open_req %}<div class="alert alert-info">Requisition <a href="{{ url_for('requisitions.detail', req_id=open_req.id) }}">{{ open_req.reference }}</a> is open for this position ({{ open_req.status }}).</div>{% endif %}
+
+{% for step in my_steps %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Your decision · Level {{ step.level }} {{ step.name }}</h3><span class="results-count">Due {{ step.due_at|dtt }}</span></div>
+  {{ act_form(step, url_for('positions.detail', position_id=p.id)) }}
+</section>
+{% endfor %}
+
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Position</h3></div>
+      <div class="kv-grid">
+        {{ kv('Business unit', p.business_unit|string if p.business_unit) }}
+        {{ kv('Department', p.department.name) }}
+        {{ kv('Branch / area', p.branch|string if p.branch) }}
+        {{ kv('Region', p.region|string if p.region) }}
+        {{ kv('Cost centre', p.cost_centre|string if p.cost_centre) }}
+        {{ kv('Grade', p.job_grade|string if p.job_grade) }}
+        {{ kv('Job family', p.job_family|string if p.job_family) }}
+        {{ kv('Budgeted CTC', p.budgeted_ctc|money if p.budgeted_ctc is not none) }}
+        {{ kv('Reports to', (p.reports_to.position_number ~ ' · ' ~ p.reports_to.title) if p.reports_to) }}
+        {{ kv('Holder', p.holder.full_name if p.holder) }}
+        {% if p.status in ('Vacant', 'In recruitment', 'Frozen') %}{{ kv('Vacant since', p.vacant_since|dt if p.vacant_since) }}{% endif %}
+        {% if p.last_holder %}{{ kv('Previous holder', p.last_holder.full_name) }}{% endif %}
+        {% if p.filled_on %}{{ kv('Filled on', p.filled_on|dt, (p.days_to_fill ~ ' days to fill') if p.days_to_fill is not none) }}{% endif %}
+        {{ kv('Critical role', 'Yes' if p.critical else 'No') }}
+      </div>
+      <h4 class="kv-label" style="margin-top:18px">Minimum requirements</h4>
+      {% if p.minimum_requirements %}<ul class="small" style="margin:6px 0 0 18px">{% for line in p.minimum_requirements.splitlines() if line.strip() %}<li>{{ line }}</li>{% endfor %}</ul>
+      {% else %}<p class="muted small">None recorded.</p>{% endif %}
+      {% if p.is_ad_hoc %}
+      <h4 class="kv-label" style="margin-top:18px">Why it's needed</h4>
+      <div class="review-comment" style="margin-top:6px">{{ p.justification or '—' }}</div>
+      <p class="small muted" style="margin-top:8px">Requested by {{ p.requested_by.full_name if p.requested_by }} on {{ p.created_at|dt }}</p>
+      {% endif %}
+    </section>
+
+    {% for label, inst in approvals %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>{{ label }}</h3><span class="results-count">Round {{ inst.round }} · {{ inst.status }}</span></div>
+      {{ approval_chain(inst) }}
+    </section>
+    {% endfor %}
+  </div>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Requisitions</h3></div>
+      {% for r in reqs %}
+      <div class="kv"><span class="kv-label"><a href="{{ url_for('requisitions.detail', req_id=r.id) }}">{{ r.reference }}</a></span>
+        <span class="kv-value">{{ status(r.status) }}</span><span class="hint">{{ r.created_at|dt }} · {{ r.originator.full_name }}</span></div>
+      {% else %}<p class="muted small">No requisitions yet.</p>{% endfor %}
+    </section>
+    {% if can_change and change_kinds %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Freeze, abolish or regrade</h3></div>
+      {% if pending_change %}<p class="small">A {{ pending_change.kind|lower }} is waiting for approval.</p>
+      {% else %}
+      <form method="post" action="{{ url_for('positions.request_change', position_id=p.id) }}" class="admin-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="admin-form-row"><label for="kind">Change</label>
+          <select id="kind" name="kind" required>{% for k in change_kinds %}<option>{{ k }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row" id="grade-row"><label for="new_job_grade_id">New grade</label>
+          <select id="new_job_grade_id" name="new_job_grade_id">{% for g in grades if g.id != p.job_grade_id %}<option value="{{ g.id }}">{{ g }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label for="reason">Reason *</label><textarea id="reason" name="reason" required style="min-height:90px"></textarea></div>
+        <div><button class="admin-btn-sm admin-btn-primary">Send for approval</button></div>
+        <span class="hint">Approval: Finance → Group HR Manager.</span>
+      </form>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var kind = document.getElementById('kind'), row = document.getElementById('grade-row');
+  if (!kind) return;
+  function toggle() { row.style.display = kind.value === 'Regrade' ? '' : 'none'; }
+  kind.addEventListener('change', toggle); toggle();
+})();
+</script>
+{% endblock %}

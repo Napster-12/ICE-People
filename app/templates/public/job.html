@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero, info_row with context %}
+{% block title %}{{ job.title }}{% endblock %}
+
+{% block hero %}
+{% call page_hero(job.title, kicker="Vacancy", compact=True, id='job') %}
+  {% if job.location %}{{ info_row('pin', 'Location', job.location) }}{% endif %}
+  {% if job.closing_date %}{{ info_row('calendar', 'Closing date', job.closing_date|longdate) }}{% endif %}
+  {{ info_row('briefcase', 'Department', (job.department or 'Icebolethu Group') ~ (' · ' ~ job.job_type if job.job_type else '')) }}
+  <div class="poster-actions"><a class="pill-btn orange" href="#check">Apply now {{ icon('arrow') }}</a></div>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('careers.index') }}#vacancies" class="back-link">{{ icon('back') }} All vacancies</a>
+<div class="detail-grid">
+  <article class="card job-desc">
+    <h2 class="card-title">About the role</h2>
+    {{ job.description|jobdesc }}
+  </article>
+
+  <aside class="detail-side">
+    <div class="card req-card">
+      <h3 class="card-title">At a glance</h3>
+      {% if job.min_experience %}<div class="glance">{{ icon('award') }}<div><strong>{{ job.min_experience }}+ years</strong><span>Experience</span></div></div>{% endif %}
+      {% if job.min_education %}<div class="glance">{{ icon('file') }}<div><strong>{{ education_labels[job.min_education] }}</strong><span>Minimum qualification</span></div></div>{% endif %}
+      {% if job.closing_date %}<div class="glance">{{ icon('calendar') }}<div><strong>{{ job.closing_date|longdate }}</strong><span>Closing date</span></div></div>{% endif %}
+      {% if job.required_skills %}<h4>Key skills</h4>
+        <div class="tag-list">{% for s in job.required_skills.split(',') %}<span class="tag">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+      {% if job.preferred_skills %}<h4>Advantageous</h4>
+        <div class="tag-list">{% for s in job.preferred_skills.split(',') %}<span class="tag soft">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+    </div>
+  </aside>
+</div>
+
+<section class="card apply-card" id="check">
+  <div class="apply-head">
+    {% include "public/_apply_steps.html" with context %}
+    <h2>Check that you meet the minimum requirements</h2>
+    <p>{{ job.title }} · answer all {{ questions|length }} questions · your answers are not stored</p>
+  </div>
+  <form class="igsp-form apply-body" method="post" action="{{ url_for('careers.job_detail', job_id=job.id) }}#check">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <ol class="eligibility-list">
+      {% for q in questions %}{% set name = 'q' ~ loop.index0 %}
+      <li class="eligibility-q">
+        <span class="eligibility-text">{{ q.text }}</span>
+        <span class="yesno" role="radiogroup" aria-label="{{ q.text }}">
+          <label><input type="radio" name="{{ name }}" value="yes" required {{ 'checked' if answers.get(name) == 'yes' }}><span>Yes</span></label>
+          <label><input type="radio" name="{{ name }}" value="no" {{ 'checked' if answers.get(name) == 'no' }}><span>No</span></label>
+        </span>
+      </li>
+      {% endfor %}
+    </ol>
+    <button type="submit">Continue to application {{ icon('arrow') }}</button>
+  </form>
+</section>
+{% endblock %}

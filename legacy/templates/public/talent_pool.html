@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero with context %}
+{% block title %}Submit Your CV{% endblock %}
+
+{% block hero %}
+{% call page_hero("Join our talent pool", compact=True, id='pool') %}
+  <p class="poster-lead">Not seeing the right vacancy? Leave your CV with us. Our HR team searches the talent pool
+    every time a new position opens.</p>
+  <div class="hashtag">#IcebolethuGroup</div>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<div class="steps-grid three" style="margin-bottom:34px">
+  <div class="step-card"><span class="step-num">1</span><h4>Submit your CV</h4><p>It's stored securely in our recruitment database.</p></div>
+  <div class="step-card"><span class="step-num">2</span><h4>We match</h4><p>New positions are matched against every CV in the pool.</p></div>
+  <div class="step-card"><span class="step-num">3</span><h4>We call you</h4><p>Strong matches are contacted by our HR team.</p></div>
+</div>
+
+<section class="card apply-card">
+  <div class="apply-head">
+    <img class="burst" src="{{ asset('sunburst-yellow.svg') }}" alt="">
+    <h2>Your information</h2>
+    <p>Already submitted? Submitting again with the same email updates your CV.</p>
+  </div>
+  <form class="igsp-form apply-body" method="post" enctype="multipart/form-data">
+    {% set cover_label = 'Roles you are interested in (optional)' %}
+    {% include "public/_applicant_fields.html" %}
+    <button type="submit">Submit my CV</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kpi with context %}
+{% block title %}Approvals Dashboard{% endblock %}
+{% block heading %}Approvals Dashboard{% endblock %}
+{% block subheading %}Pending approvals by approver, status and ageing (business days){% endblock %}
+{% block content %}
+<div class="reports-kpi-grid">
+  {% for b in ageing %}{{ kpi(b.label, b.count, 'clock', ['', 'yellow', 'orange', 'black'][loop.index0]) }}{% endfor %}
+</div>
+<div class="admin-split">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Pending items</h3><span class="results-count">{{ pager.total }}</span>
+      {% if request.args.get('approver') %}<a href="{{ url_for('approvals.dashboard') }}">Show all ×</a>{% endif %}</div>
+    <div class="table-responsive"><table class="admin-table">
+      <tr><th>Item</th><th>Step</th><th>With</th><th>Waiting</th><th>Due</th></tr>
+      {% for r in rows %}{% set s = r.step %}
+      <tr><td><strong><a href="{{ r.info.link }}">{{ r.info.ref }}</a></strong><span class="sub">{{ r.info.title }}</span></td>
+        <td>L{{ s.level }} · {{ s.name }}</td>
+        <td>{{ s.assignee.full_name if s.assignee else 'Unassigned' }}{% if s.escalated_at %} <span class="status-badge st-Escalated">Escalated</span>{% endif %}</td>
+        <td>{{ r.age }} day{{ '' if r.age == 1 else 's' }}</td>
+        <td>{% if r.overdue %}<span class="status-badge st-Rejected">Overdue</span>{% else %}{{ s.due_at|dtt }}{% endif %}</td></tr>
+      {% else %}<tr><td colspan="5" class="empty-row">No pending approvals.</td></tr>{% endfor %}
+    </table></div>
+    {% include "_pager.html" %}
+  </section>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>By approver</h3></div>
+      <div class="table-responsive"><table class="admin-table">
+        <tr><th>Approver</th><th>Pending</th><th>Overdue</th><th>Oldest</th></tr>
+        {% for name, e in by_approver %}
+        <tr><td><a href="{{ url_for('approvals.dashboard', approver=name) }}">{{ name }}</a></td><td>{{ e.count }}</td>
+          <td>{{ e.overdue }}</td><td>{{ e.oldest }}d</td></tr>
+        {% else %}<tr><td colspan="4" class="empty-row">—</td></tr>{% endfor %}
+      </table></div>
+    </section>
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Workflows by status</h3></div>
+      {% for k in ['Pending', 'Approved', 'Returned', 'Rejected', 'Cancelled'] %}
+      <div class="kv"><span class="kv-label">{{ status(k) }}</span><span class="kv-value">{{ status_counts.get(k, 0) }}</span></div>
+      {% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}

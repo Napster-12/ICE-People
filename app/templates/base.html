@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Careers{% endblock %} · {% block site_name %}Icebolethu Group{% endblock %}</title>
+  <link rel="icon" href="{{ asset('logo.png') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="{{ asset('style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}site{% endblock %}">
+{% block layout %}
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="site-brand" href="{{ url_for('careers.index') }}">
+        <img src="{{ asset('logo.png') }}" alt="Icebolethu Group">
+        <span class="site-brand-label">Careers</span>
+      </a>
+      <nav class="site-nav" aria-label="Careers">
+        <a href="{{ url_for('careers.index') }}#vacancies" class="{{ 'active' if request.endpoint in ('careers.index', 'careers.job_detail', 'careers.apply') }}">Vacancies</a>
+        <a href="{{ url_for('careers.check_status') }}" class="{{ 'active' if request.endpoint == 'careers.check_status' }}">Track application</a>
+        <a href="{{ url_for('careers.talent_pool') }}" class="nav-cta">Submit your CV</a>
+      </nav>
+    </div>
+  </header>
+  {% block hero %}{% endblock %}
+  <main class="site-main">
+    <div class="wrap">
+      {% include "_flashes.html" %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+  {% include "_footer.html" %}
+{% endblock %}
+</body>
+</html>

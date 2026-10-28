@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_poster.html" import wave with context %}
+{% block title %}Admin login{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block layout %}
+<div class="auth-body">
+  <div class="poster-photo" style="background-image:url('{{ asset('office.jpg') }}')"></div>
+  {{ wave('login') }}
+  <img class="burst burst-1" src="{{ asset('sunburst.svg') }}" alt="">
+  <img class="burst burst-2" src="{{ asset('sunburst-yellow.svg') }}" alt="">
+  <div class="auth-split">
+    <div class="auth-intro">
+      <h1 class="poster-title"><span class="q q-open">“</span>Find the right people<span class="q q-close">”</span></h1>
+      <p class="poster-lead">Every CV ranked, searchable and ready the moment a new position opens.</p>
+      <div class="hashtag">#IcebolethuGroup</div>
+    </div>
+    <div class="auth-card">
+      <div class="auth-brand"><img src="{{ asset('logo.png') }}" alt="Icebolethu Group"></div>
+      <h2>HR Portal Login</h2>
+      <p class="auth-lead">Sign in to manage vacancies, applicants and the CV database.</p>
+      {% include "_flashes.html" %}
+      <form class="igsp-form" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Username</label>
+        <input type="text" name="username" required autofocus>
+        <label>Password</label>
+        <input type="password" name="password" required>
+        <button type="submit">Sign in</button>
+      </form>
+      <p class="auth-footer-text"><a href="{{ url_for('index') }}">&larr; Back to careers site</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

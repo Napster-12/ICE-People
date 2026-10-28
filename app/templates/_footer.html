@@ -1,0 +1,23 @@
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div>
+      <img class="footer-logo" src="{{ asset('logo.png') }}" alt="Icebolethu Group">
+      <p class="muted small">Serving families and communities with dignity and care.</p>
+    </div>
+    <div>
+      <h4>Careers</h4>
+      <a href="{{ url_for('careers.index') }}#vacancies">Current vacancies</a>
+      <a href="{{ url_for('careers.talent_pool') }}">Join the talent pool</a>
+      <a href="{{ url_for('careers.check_status') }}">Track your application</a>
+    </div>
+    <div>
+      <h4>Equal opportunity</h4>
+      <p class="small">Icebolethu embraces the principles of the Employment Equity Act. We are an Equal Opportunity Employer
+        committed to a diverse and inclusive company culture.</p>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; {{ current_year }} Icebolethu Group. All rights reserved.</span>
+    <span>Your personal information is protected under POPIA.</span>
+  </div>
+</footer>

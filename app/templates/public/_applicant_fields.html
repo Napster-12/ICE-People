@@ -1,0 +1,42 @@
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="step-group">
+  <h4><span class="document-number">1</span> Your details</h4>
+  <div class="form-grid">
+    <div><label>Full name *</label><input type="text" name="full_name" required value="{{ form.full_name }}"></div>
+    <div><label>Email address *</label><input type="email" name="email" required value="{{ form.email }}"></div>
+    <div><label>Phone number</label><input type="tel" name="phone" value="{{ form.phone }}" placeholder="e.g. 082 123 4567"></div>
+    <div><label>Location</label><input type="text" name="location" value="{{ form.location }}" placeholder="City, province"></div>
+  </div>
+</div>
+
+<div class="step-group">
+  <h4><span class="document-number">2</span> Experience &amp; qualifications</h4>
+  <div class="form-grid">
+    <div><label>Current / most recent job title</label><input type="text" name="current_title" value="{{ form.current_title }}"></div>
+    <div><label>Years of relevant experience</label><input type="number" name="years_experience" min="0" max="50" value="{{ form.years_experience }}"></div>
+    <div><label>Highest qualification</label>
+      <select name="education_level">
+        {% for lvl, name in education_levels %}<option value="{{ lvl }}" {{ 'selected' if form.education_level == lvl|string }}>{{ name if lvl else 'Select…' }}</option>{% endfor %}
+      </select></div>
+    <div><label>Key skills</label><input type="text" name="skills" value="{{ form.skills }}" placeholder="e.g. Customer service, MS Excel"></div>
+  </div>
+  <div class="hint">Separate skills with commas.</div>
+</div>
+
+<div class="step-group">
+  <h4><span class="document-number">3</span> Upload your CV</h4>
+  <div class="document-file-input">
+    <input type="file" name="cv" accept=".pdf,.docx,.txt" required
+           onchange="document.getElementById('cv-name').textContent = this.files[0] ? 'Selected: ' + this.files[0].name : ''">
+    <span class="document-file-label">{{ icon('upload') }}<strong>Click to choose your CV</strong> or drag it here<br>
+      <span class="small">PDF or Word (.docx), max 5 MB</span></span>
+  </div>
+  <div class="document-selected-name" id="cv-name"></div>
+  <label>{{ cover_label|default('Cover note (optional)') }}</label>
+  <textarea name="cover_note" placeholder="Tell us briefly why you're a great fit">{{ form.cover_note }}</textarea>
+</div>
+
+<label class="consent"><input type="checkbox" name="consent" value="1" required {{ 'checked' if form.consent }}>
+  <span>I consent to Icebolethu Group storing and processing my personal information and CV for this
+    and future recruitment opportunities, in line with the Protection of Personal Information Act (POPIA).</span></label>

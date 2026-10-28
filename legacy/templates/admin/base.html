@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block body_class %}admin-body{% endblock %}
+{% block layout %}
+{% set ep = request.endpoint or '' %}
+{% set editing = ep == 'admin_job_form' and request.view_args.get('job_id') %}
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">
+      <img src="{{ asset('logo.png') }}" alt="Icebolethu Group">
+    </a>
+    <div class="admin-area">HR Recruitment Portal</div>
+    <div class="admin-menu-block">
+      <div class="admin-menu-label">Recruitment</div>
+      <a class="admin-btn {{ 'admin-btn-active' if ep == 'admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}">{{ icon('dashboard') }} Dashboard</a>
+      <a class="admin-btn {{ 'admin-btn-active' if ep in ('admin_jobs', 'admin_job_detail') or editing }}" href="{{ url_for('admin_jobs') }}">{{ icon('briefcase') }} Job Openings</a>
+      <a class="admin-btn {{ 'admin-btn-active' if ep.startswith('admin_candidate') }}" href="{{ url_for('admin_candidates') }}">{{ icon('database') }} CV Database</a>
+    </div>
+    <div class="admin-menu-block">
+      <div class="admin-menu-label">Quick actions</div>
+      <a class="admin-btn {{ 'admin-btn-active' if ep == 'admin_job_form' and not editing }}" href="{{ url_for('admin_job_form') }}">{{ icon('plus') }} New Job Opening</a>
+      <a class="admin-btn" href="{{ url_for('index') }}" target="_blank">{{ icon('external') }} Careers Site</a>
+    </div>
+    <div class="sidebar-foot">
+      <img class="burst" src="{{ asset('sunburst-yellow.svg') }}" alt="">
+      <span class="hashtag">#IcebolethuGroup</span>
+    </div>
+  </aside>
+  <main class="admin-main">
+    <header class="admin-header">
+      <div>
+        {% block crumb %}{% endblock %}
+        <div class="admin-profile-name">{% block heading %}{% endblock %}</div>
+        <div class="admin-profile-role">{% block subheading %}Icebolethu Group · Human Resources{% endblock %}</div>
+      </div>
+      <div class="admin-actions">
+        {% block actions %}{% endblock %}
+        <div class="admin-user">
+          <span class="avatar" title="{{ session.get('admin_name', '') }}">{{ session.get('admin_name', 'A')|initials }}</span>
+          <form method="post" action="{{ url_for('admin_logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="admin-logout">{{ icon('logout') }} Log out</button>
+          </form>
+        </div>
+      </div>
+    </header>
+    {% include "_flashes.html" %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

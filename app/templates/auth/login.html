@@ -1,0 +1,36 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Sign in · {{ title }}{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block card %}
+<div class="signin">
+  <h1 class="signin-title">{{ title }}</h1>
+  <p class="signin-lead">Sign in to the {{ system_name }}.</p>
+  {% include "_flashes.html" %}
+  <button class="signin-sso" type="button" disabled aria-disabled="true" title="Microsoft sign-in is being set up">
+    <span class="ms-logo" aria-hidden="true"><i style="background:#F25022"></i><i style="background:#7FBA00"></i><i style="background:#00A4EF"></i><i style="background:#FFB900"></i></span>
+    Continue with Microsoft
+  </button>
+  <div class="signin-rule">or sign in with username and password</div>
+  <form class="signin-form" method="post" action="{{ url_for('auth.login_form', audience=audience, next=next_url) }}">
+    {{ form.csrf_token }}
+    <label for="login">Username or email</label>
+    {{ form.login(required=true, autofocus=true, autocomplete="username", placeholder="name@icebolethu.co.za") }}
+    <label for="password">Password</label>
+    <div class="signin-password">
+      {{ form.password(required=true, autocomplete="current-password", placeholder="Enter your password") }}
+      <button class="signin-eye" type="button" aria-label="Show password" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <button class="signin-submit" type="submit">Sign in</button>
+  </form>
+</div>
+<script>
+  document.querySelector(".signin-eye").addEventListener("click", function () {
+    var input = document.getElementById("password"), show = input.type === "password";
+    input.type = show ? "text" : "password";
+    this.setAttribute("aria-pressed", show);
+    this.setAttribute("aria-label", show ? "Hide password" : "Show password");
+  });
+</script>
+{% endblock %}

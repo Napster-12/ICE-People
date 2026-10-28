@@ -1,0 +1,17 @@
+{# Page-header macros for the public careers site (names kept from the original poster design). #}
+
+{% macro wave(id='w') -%}{%- endmacro %}
+
+{% macro page_hero(title, kicker=None, compact=False, id='hero') -%}
+<section class="hero{{ ' compact' if compact }}">
+  <div class="hero-inner">
+    {% if kicker %}<div class="hero-kicker">{{ kicker }}</div>{% endif %}
+    <h1 class="hero-title">{{ title }}</h1>
+    {{ caller() if caller }}
+  </div>
+</section>
+{%- endmacro %}
+
+{% macro info_row(icon_name, label, value) -%}
+<div class="info-row">{{ icon(icon_name) }}<span class="info-label">{{ label }}</span> <span>{{ value }}</span></div>
+{%- endmacro %}

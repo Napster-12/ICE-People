@@ -1,0 +1,42 @@
+{% macro score_badge(score) -%}
+<span class="score {{ score|score_class }}">{{ '%.0f'|format(score or 0) }}%</span>
+{%- endmacro %}
+
+{% macro score_ring(score) -%}
+<div class="score-ring {{ score|score_class }}" style="--p: {{ score or 0 }}"><span>{{ '%.0f'|format(score or 0) }}%</span></div>
+{%- endmacro %}
+
+{% macro rank(n) -%}
+<span class="rank{{ ' top' if n <= 3 }}">{{ n }}</span>
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+<span class="status-badge st-{{ status }}">{{ status }}</span>
+{%- endmacro %}
+
+{% macro breakdown_view(bd) -%}
+{% set names = {'required': 'Required skills', 'preferred': 'Preferred skills', 'experience': 'Experience',
+                'education': 'Education', 'keywords': 'Job-description fit'} %}
+{% if not bd.get('cv_text_found', True) %}
+<div class="alert alert-info small">No readable text was found in this CV (it may be a scanned image), so scoring relied on the applicant's form answers only.</div>
+{% endif %}
+{% for key, comp in bd.get('components', {}).items() %}
+<div class="breakdown-item">
+  <div class="head"><strong>{{ names[key] }}</strong>
+    <span class="muted">{{ '%.0f'|format(comp.score) }}% · weight {{ '%.0f'|format(comp.weight) }}%</span></div>
+  <div class="bar"><span class="{{ comp.score|score_class }}" style="width:{{ comp.score }}%"></span></div>
+  <div class="detail">
+    {% if key in ('required', 'preferred') %}
+      {% for s in comp.matched %}<span class="chip yes">{{ s }}</span>{% endfor %}
+      {% for s in comp.missing %}<span class="chip no">{{ s }}</span>{% endfor %}
+    {% elif key == 'experience' %}
+      {{ comp.candidate_years }} yrs (requires {{ comp.required_years }})
+    {% elif key == 'education' %}
+      {{ comp.candidate_level }} (requires {{ comp.required_level }})
+    {% elif key == 'keywords' %}
+      Matched: {{ comp.matched|join(', ') or 'none' }}
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{%- endmacro %}

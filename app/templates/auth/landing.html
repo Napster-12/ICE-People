@@ -1,0 +1,16 @@
+{% extends "auth/_layout.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block card %}
+{% set name = system_name.split(" ", 2) %}
+<p class="landing-wordmark">
+  <span class="landing-wordmark-main">{{ name[0] }} <em>{{ name[1] }}</em></span>
+  <span class="landing-wordmark-sub">{{ name[2] }}</span>
+</p>
+<h1 class="landing-title landing-audience">{{ title }}</h1>
+<p class="landing-lead">{{ lead }}</p>
+{% include "_flashes.html" %}
+<a class="landing-login-btn{% if audience == 'admin' %} dark{% endif %}" href="{{ url_for('auth.login_form', audience=audience, next=next_url) }}">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+  Sign in
+</a>
+{% endblock %}

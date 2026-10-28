@@ -1,0 +1,80 @@
+{% extends "admin/base.html" %}
+{% macro val(field) -%}{{ values.get(field) if values else (position[field] if position and position[field] is not none else '') }}{%- endmacro %}
+{% macro sel(field, id) -%}{{ 'selected' if (values.get(field)|int(0) if values else (position[field] if position else 0)) == id }}{%- endmacro %}
+{% if ad_hoc %}{% set page_title = 'Change ad-hoc position ' ~ position.position_number if position else 'Request an ad-hoc position' %}
+{% elif position %}{% set page_title = 'Edit ' ~ position.position_number %}{% else %}{% set page_title = 'New position · ' ~ fy_label(fy) %}{% endif %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block crumb %}{% if position %}<a class="admin-crumb" href="{{ url_for('positions.detail', position_id=position.id) }}">← {{ position.position_number }}</a>
+{% elif ad_hoc %}<a class="admin-crumb" href="{{ url_for('positions.adhoc_list') }}">← Ad-hoc requests</a>
+{% else %}<a class="admin-crumb" href="{{ url_for('positions.index', fy=fy) }}">← Approved positions</a>{% endif %}{% endblock %}
+{% block heading %}{{ page_title }}{% endblock %}
+{% block subheading %}{% if ad_hoc %}For a position the business needs that isn't on the register. Approval: line manager → Finance (unbudgeted) → Group HR Manager → GCOO or Exco member.
+{% elif planned %}Planned positions become vacant when the {{ fy_label(fy) }} register is approved.
+{% else %}The grade changes through a regrade approval; department, cost centre and budgeted CTC are fixed once approved.{% endif %}{% endblock %}
+{% block content %}
+<form method="post" class="admin-split" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel admin-form">
+    <div class="admin-form-row"><label for="title">Position title *</label><input id="title" name="title" maxlength="160" value="{{ val('title') }}" required></div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="department_id">Department *</label>
+        <select id="department_id" name="department_id" {{ 'disabled' if not planned }}><option value="0">Choose…</option>
+          {% for d in ref.departments %}<option value="{{ d.id }}" {{ sel('department_id', d.id) }}>{{ d.name }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="cost_centre_id">Cost centre *</label>
+        <select id="cost_centre_id" name="cost_centre_id" {{ 'disabled' if not planned }}><option value="0">Choose…</option>
+          {% for c in ref.cost_centres %}<option value="{{ c.id }}" data-dept="{{ c.department_id }}" {{ sel('cost_centre_id', c.id) }}>{{ c }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="job_grade_id">Job grade *</label>
+        <select id="job_grade_id" name="job_grade_id" {{ 'disabled' if not planned }}><option value="0">Choose…</option>
+          {% for g in ref.grades %}<option value="{{ g.id }}" {{ sel('job_grade_id', g.id) }}>{{ g }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="budgeted_ctc">Budgeted CTC (R)</label>
+        <input id="budgeted_ctc" name="budgeted_ctc" inputmode="decimal" value="{{ val('budgeted_ctc') }}" {{ 'disabled' if not planned }} placeholder="e.g. 250000.00">
+        {% if ad_hoc %}<span class="hint">Leave blank if the position isn't budgeted; Finance approves unbudgeted positions.</span>{% endif %}</div>
+    </div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="branch_id">Branch / area</label>
+        <select id="branch_id" name="branch_id"><option value="0">—</option>
+          {% for b in ref.branches %}<option value="{{ b.id }}" {{ sel('branch_id', b.id) }}>{{ b.name }}{% if b.region %} ({{ b.region }}){% endif %}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="job_family_id">Job family</label>
+        <select id="job_family_id" name="job_family_id"><option value="0">—</option>
+          {% for f in ref.families %}<option value="{{ f.id }}" {{ sel('job_family_id', f.id) }}>{{ f.name }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="admin-form-row"><label for="reports_to_id">Reports to</label>
+      <select id="reports_to_id" name="reports_to_id"><option value="0">—</option>
+        {% for r in reports_to %}<option value="{{ r.id }}" {{ sel('reports_to_id', r.id) }}>{{ r.position_number }} · {{ r.title }}{% if r.holder %} ({{ r.holder.full_name }}){% endif %}</option>{% endfor %}</select>
+      <span class="hint">The manager's position. The manager sees and recruits for the positions that report to them.</span></div>
+    <div class="admin-form-row"><label for="minimum_requirements">Minimum requirements</label>
+      <textarea id="minimum_requirements" name="minimum_requirements" style="min-height:120px" placeholder="One per line, e.g. Matric&#10;2 years' sales experience">{{ val('minimum_requirements') }}</textarea>
+      <span class="hint">One per line. They drive the eligibility check on the careers page.</span></div>
+    {% if ad_hoc %}
+    <div class="admin-form-row"><label for="justification">Justification *</label>
+      <textarea id="justification" name="justification" style="min-height:140px" placeholder="Why is this position needed, and why now?">{{ val('justification') }}</textarea>
+      <span class="hint">At least 50 characters.</span></div>
+    {% else %}
+    <label class="consent"><input type="checkbox" name="critical" value="1" {{ 'checked' if (values.get('critical') if values else (position and position.critical)) }}> <span><strong>Critical role</strong> (knowledge transfer on exit)</span></label>
+    {% endif %}
+  </section>
+  <section class="admin-panel admin-form">
+    <button class="filter-btn">{{ icon('check') }} {% if ad_hoc %}{{ 'Resubmit for approval' if position else 'Send for approval' }}{% elif position %}Save{% else %}Add to the {{ fy_label(fy) }} register{% endif %}</button>
+    {% if ad_hoc %}<span class="hint">Once approved, the position is added to the register (flagged ad hoc) and you can raise a requisition for it.</span>{% endif %}
+  </section>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var dept = document.getElementById('department_id'), cc = document.getElementById('cost_centre_id');
+  function filter() {
+    Array.prototype.forEach.call(cc.options, function (o) {
+      if (!o.dataset.dept) return;
+      var show = o.dataset.dept === dept.value;
+      o.hidden = !show; o.disabled = !show && !cc.disabled;
+      if (!show && o.selected && !cc.disabled) cc.value = '0';
+    });
+  }
+  dept.addEventListener('change', filter);
+  filter();
+})();
+</script>
+{% endblock %}

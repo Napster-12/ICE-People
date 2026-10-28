@@ -1,0 +1,35 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ user.username if user else 'New user' }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('admin.users') }}">← Users</a>{% endblock %}
+{% block heading %}{{ user.full_name if user else 'New User' }}{% endblock %}
+{% block subheading %}Roles decide which menus and records the user can see{% endblock %}
+{% block content %}
+<form method="post" class="admin-split">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel admin-form">
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="username">Username *</label><input id="username" name="username" value="{{ user.username if user }}" required></div>
+      <div class="admin-form-row"><label for="full_name">Full name *</label><input id="full_name" name="full_name" value="{{ user.full_name if user }}" required></div>
+      <div class="admin-form-row"><label for="email">Email</label><input id="email" type="email" name="email" value="{{ user.email or '' if user }}">
+        <span class="hint">Users can sign in with this or their username. Microsoft sign-in will match on it later.</span></div>
+    </div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="employee_id">Employee record</label>
+        <select id="employee_id" name="employee_id"><option value="">Not linked</option>
+          {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if user and user.employee_id == e.id }}>{{ e }}</option>{% endfor %}</select>
+        <span class="hint">Links the account to its manager, department and data scope.</span></div>
+      <div class="admin-form-row"><label for="password">{{ 'Reset password' if user else 'Password *' }}</label>
+        <input id="password" type="password" name="password" autocomplete="new-password" {{ 'required' if not user }}>
+        <span class="hint">At least 10 characters.{{ ' Leave blank to keep the current one.' if user }}</span></div>
+    </div>
+    <label class="consent"><input type="checkbox" name="active" value="1" {{ 'checked' if not user or user.active }}> <span>Account active</span></label>
+    <div><button class="filter-btn">Save user</button></div>
+  </section>
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Roles</h3></div>
+    <div class="check-grid">
+      {% for r in roles %}<label><input type="checkbox" name="roles" value="{{ r.name }}" {{ 'checked' if user and r.name in user.role_names }}> {{ r.name }}</label>{% endfor %}
+    </div>
+  </section>
+</form>
+{% endblock %}

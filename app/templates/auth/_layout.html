@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block site_name %}{{ system_name }}{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block layout %}
+<div class="landing-page">
+  <div class="landing-split">
+    <div class="landing-left" aria-hidden="true">
+      {% set landing_images = {"staff": "Background.jpeg", "manager": "login-manager.jpg", "admin": "login-admin.jpg"} %}
+      <img class="landing-bg" src="{{ asset(landing_images[audience]) }}" alt="">
+    </div>
+    <main class="landing-right">
+      <div class="landing-content">
+        <img class="landing-logo" src="{{ asset('logo.png') }}" alt="Icebolethu Group">
+        {% block card %}{% endblock %}
+      </div>
+    </main>
+  </div>
+  <footer class="landing-footer">
+    <p><strong>Call Centre:</strong> 031 208 9102</p>
+    <p><strong>Email:</strong> <a href="mailto:info@icebolethu.co.za">info@icebolethu.co.za</a></p>
+  </footer>
+</div>
+{% endblock %}

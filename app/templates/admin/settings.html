@@ -1,0 +1,46 @@
+{% extends "admin/base.html" %}
+{% block title %}Settings{% endblock %}
+{% block heading %}System Settings{% endblock %}
+{% block subheading %}Thresholds, SLAs, public holidays and notification templates{% endblock %}
+{% block content %}
+<div class="admin-split">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Settings</h3></div>
+    <form method="post" class="admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-form-grid">
+      {% for s in rows %}
+        <div class="admin-form-row"><label for="{{ s.key }}">{{ s.label or s.key }}</label>
+          <input id="{{ s.key }}" name="{{ s.key }}" value="{{ s.value }}" inputmode="decimal"><span class="hint">{{ s.help }}</span></div>
+      {% endfor %}
+      </div>
+      <div><button class="filter-btn">Save settings</button></div>
+    </form>
+  </section>
+  <section class="admin-panel" id="holidays">
+    <div class="admin-panel-head"><h3>Public holidays</h3><span class="results-count">{{ holidays|length }}</span></div>
+    <form method="post" action="{{ url_for('admin.holiday_add') }}" class="admin-form" style="margin-bottom:14px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label for="h-date">Date</label><input id="h-date" type="date" name="date" required></div>
+        <div class="admin-form-row"><label for="h-name">Name</label><input id="h-name" name="name" required></div>
+      </div>
+      <div><button class="admin-btn-sm admin-btn-primary">{{ icon('plus') }} Add holiday</button></div>
+    </form>
+    <div class="table-responsive" style="max-height:420px;overflow:auto"><table class="admin-table">
+      {% for h in holidays %}<tr><td>{{ h.date|dt }}</td><td>{{ h.name }}</td>
+        <td><form method="post" action="{{ url_for('admin.holiday_delete', holiday_id=h.id) }}" data-confirm="Remove {{ h.name }}?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-btn-sm admin-btn-danger" aria-label="Remove">{{ icon('trash') }}</button></form></td></tr>
+      {% endfor %}
+    </table></div>
+  </section>
+</div>
+<section class="admin-panel" id="templates">
+  <div class="admin-panel-head"><h3>Notification templates</h3></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Template</th><th>Subject</th><th>Updated</th><th></th></tr>
+    {% for t in templates %}<tr><td><strong>{{ t.name }}</strong><span class="sub">{{ t.key }}</span></td><td class="small">{{ t.subject }}</td>
+      <td>{{ t.updated_at|dt }}</td><td><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.template_form', template_id=t.id) }}">Edit</a></td></tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

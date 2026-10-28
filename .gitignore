@@ -1,0 +1,14 @@
+.env
+instance/
+portal.db
+portal.before-dummy.db
+.secret_key
+__pycache__/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+docs/
+htmlcov/
+.DS_Store
+*.db.before-*

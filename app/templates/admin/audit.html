@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block heading %}Audit Log{% endblock %}
+{% block subheading %}Append-only record of user actions, data access and configuration changes{% endblock %}
+{% block content %}
+<form class="filter-section" method="get"><div class="filter-grid">
+  <div class="filter-field"><label for="action">Action</label><input id="action" name="action" value="{{ args.get('action', '') }}" placeholder="e.g. login, approval"></div>
+  <div class="filter-field"><label for="entity">Record type</label><select id="entity" name="entity"><option value="">All</option>
+    {% for e in entities %}<option {{ 'selected' if args.get('entity') == e }}>{{ e }}</option>{% endfor %}</select></div>
+  <div class="filter-field"><label for="entity_id">Record id</label><input id="entity_id" name="entity_id" value="{{ args.get('entity_id', '') }}"></div>
+  <div class="filter-field"><label for="user">User</label><input id="user" name="user" value="{{ args.get('user', '') }}"></div>
+  <div class="filter-field"><label for="date_from">From</label><input id="date_from" type="date" name="date_from" value="{{ args.get('date_from', '') }}"></div>
+  <div class="filter-field"><label for="date_to">To</label><input id="date_to" type="date" name="date_to" value="{{ args.get('date_to', '') }}"></div>
+</div><div class="filter-actions" style="margin-top:16px"><button class="filter-btn">{{ icon('search') }} Filter</button>
+  <a class="filter-btn filter-btn-secondary" href="{{ url_for('admin.audit_log') }}">Reset</a></div></form>
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Entries</h3><span class="results-count">{{ pager.total }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>When</th><th>User</th><th>IP</th><th>Action</th><th>Record</th><th>Change</th></tr>
+    {% for e in rows %}
+    <tr><td class="small">{{ e.timestamp|dtt }}</td><td>{{ e.username or 'system' }}</td><td class="small">{{ e.ip or '—' }}</td>
+      <td><strong>{{ e.action }}</strong>{% if e.detail %}<span class="sub">{{ e.detail }}</span>{% endif %}</td>
+      <td class="small">{{ e.entity or '—' }}{{ ' #' ~ e.entity_id if e.entity_id }}</td>
+      <td class="small">{% if e.before or e.after %}<details><summary>View</summary>
+        {% if e.before %}<div class="muted">Before: <code>{{ e.before|tojson }}</code></div>{% endif %}
+        {% if e.after %}<div>After: <code>{{ e.after|tojson }}</code></div>{% endif %}</details>{% else %}—{% endif %}</td></tr>
+    {% else %}<tr><td colspan="6" class="empty-row">No entries.</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

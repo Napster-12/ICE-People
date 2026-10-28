@@ -1,0 +1,24 @@
+{% extends "admin/base.html" %}
+{% block title %}Integration log{% endblock %}
+{% block heading %}Integration Log{% endblock %}
+{% block subheading %}Every call to payroll, ERP, AD, LMS, job portals and other systems (mock adapters for now){% endblock %}
+{% block content %}
+<form class="filter-section" method="get"><div class="filter-grid">
+  <div class="filter-field"><label for="system">System</label><select id="system" name="system"><option value="">All systems</option>
+    {% for s in systems %}<option {{ 'selected' if args.get('system') == s }}>{{ s }}</option>{% endfor %}</select></div>
+  <div class="filter-field"><label class="consent" style="margin:0!important"><input type="checkbox" name="failures" value="1" {{ 'checked' if args.get('failures') }}> <span>Failures only ({{ failures }})</span></label></div>
+  <div class="filter-actions"><button class="filter-btn">{{ icon('filter') }} Filter</button></div>
+</div></form>
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>When</th><th>System</th><th>Method</th><th>Attempt</th><th>Result</th><th>Detail</th></tr>
+    {% for r in rows %}
+    <tr><td class="small">{{ r.created_at|dtt }}</td><td>{{ r.system }}</td><td><code class="key">{{ r.method }}</code></td><td>{{ r.attempt }}</td>
+      <td>{% if r.success %}<span class="status-badge st-Approved">OK</span>{% else %}<span class="status-badge st-Rejected">Failed</span>{% endif %}</td>
+      <td class="small">{% if r.error %}<div class="muted">{{ r.error }}</div>{% endif %}
+        <details><summary>Request / response</summary><code>{{ r.request|tojson }}</code><br><code>{{ r.response|tojson }}</code></details></td></tr>
+    {% else %}<tr><td colspan="6" class="empty-row">No integration calls yet.</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

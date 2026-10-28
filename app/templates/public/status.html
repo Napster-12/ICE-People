@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero with context %}
+{% block title %}Track Application{% endblock %}
+
+{% block hero %}
+{% call page_hero("Track your application", compact=True, id='status') %}
+  <p class="poster-lead">Enter the reference number you received when you applied, together with your email address.</p>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<div class="card status-card">
+  <form class="igsp-form" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div><label>Reference number</label>
+        <input type="text" name="reference" placeholder="ICE-XXXXXXXX" required value="{{ request.form.reference }}"></div>
+      <div><label>Email address</label>
+        <input type="email" name="email" required value="{{ request.form.email }}"></div>
+    </div>
+    <button type="submit">Check status</button>
+  </form>
+
+  {% if result %}
+  {% set steps = ['Received', 'Under review', 'Shortlisted', 'Interview', 'Outcome'] %}
+  {% set idx = {'New': 1, 'Screening': 1, 'Shortlisted': 2, 'Interview': 3, 'Offer': 4, 'Hired': 4, 'Rejected': 4}[result.status] %}
+  {% set public_status = 'Under review' if result.status in ('New', 'Screening') else
+       ('Unsuccessful' if result.status == 'Rejected' else result.status) %}
+  <div class="status-result">
+    <div class="status-result-head">
+      <div class="title-pill">{{ result.title or 'Talent pool submission' }}</div>
+      <span class="status-badge st-{{ result.status }}">{{ public_status }}</span>
+    </div>
+    <div class="wizard-progress">
+      <div class="wizard-progress-track"></div>
+      {% for s in steps %}
+        {% if loop.index0 < idx %}<div class="wizard-pill done">{{ s }}</div>
+        {% elif loop.index0 == idx %}
+          <div class="wizard-pill {{ 'declined' if result.status == 'Rejected' else ('approved' if result.status == 'Hired' else 'active') }}">{{ public_status if loop.last else s }}</div>
+        {% else %}<div class="wizard-pill">{{ s }}</div>{% endif %}
+      {% endfor %}
+    </div>
+    <p class="small muted" style="margin:0">Submitted {{ result.created_at|dt }} · Last updated {{ result.updated_at|dt }}</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

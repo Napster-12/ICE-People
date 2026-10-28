@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero with context %}
+{% block title %}Thank you{% endblock %}
+
+{% block hero %}
+{% call page_hero("Thank you!", compact=True, id='thanks') %}
+  {% if app_row.title %}
+    <p class="poster-lead">Your application for <strong>{{ app_row.title }}</strong> has been received.</p>
+  {% else %}
+    <p class="poster-lead">Your CV has been added to the Icebolethu Group talent pool.</p>
+  {% endif %}
+  <div class="poster-kicker" style="margin-top:6px">Your reference number</div>
+  <div class="title-pill big">{{ app_row.reference }}</div>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<div class="card center-card">
+  <div class="success-icon"><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div>
+  <h2>What happens next?</h2>
+  <p>Keep your reference number <strong>{{ app_row.reference }}</strong>. You can use it with your email address to track
+    your application at any time. If you're shortlisted, our HR team will contact you directly.</p>
+  <div class="btn-row">
+    <a class="pill-btn orange" href="{{ url_for('careers.check_status') }}">Track application</a>
+    <a class="pill-btn outline-dark" href="{{ url_for('careers.index') }}#vacancies">View more vacancies</a>
+  </div>
+</div>
+{% endblock %}

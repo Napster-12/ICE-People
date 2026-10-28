@@ -1,0 +1,43 @@
+{% extends "admin/base.html" %}
+{% block title %}Departments{% endblock %}
+{% block heading %}Departments &amp; Cost Centres{% endblock %}
+{% block subheading %}The HOD is used as an approver when the originator has no line manager{% endblock %}
+{% block content %}
+<div class="admin-split">
+  <section class="admin-panel">
+    {% for d in depts %}
+    <form method="post" class="dept-row">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="department"><input type="hidden" name="id" value="{{ d.id }}">
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label>Code</label><input name="code" value="{{ d.code }}" required></div>
+        <div class="admin-form-row"><label>Name</label><input name="name" value="{{ d.name }}" required></div>
+        <div class="admin-form-row"><label>HOD</label><select name="hod_employee_id"><option value="">—</option>
+          {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if d.hod_employee_id == e.id }}>{{ e.full_name }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label>Business unit</label><select name="business_unit_id"><option value="">—</option>
+          {% for b in business_units %}<option value="{{ b.id }}" {{ 'selected' if d.business_unit_id == b.id }}>{{ b.name }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row" style="justify-content:flex-end"><button class="admin-btn-sm admin-btn-secondary">Save</button></div>
+      </div>
+      <div class="tag-list" style="margin-top:10px">{% for c in d.cost_centres %}<span class="tag soft">{{ c.code }} · {{ c.name }}</span>{% else %}<span class="muted small">No cost centres.</span>{% endfor %}</div>
+    </form>
+    {% endfor %}
+  </section>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>New department</h3></div>
+      <form method="post" class="admin-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="department">
+        <div class="admin-form-row"><label for="nd-code">Code</label><input id="nd-code" name="code" required></div>
+        <div class="admin-form-row"><label for="nd-name">Name</label><input id="nd-name" name="name" required></div>
+        <div><button class="filter-btn">Add department</button></div></form>
+    </section>
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>New cost centre</h3></div>
+      <form method="post" class="admin-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="cost_centre">
+        <div class="admin-form-row"><label for="cc-dept">Department</label><select id="cc-dept" name="department_id" required>
+          {% for d in depts %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label for="cc-code">Code</label><input id="cc-code" name="code" required></div>
+        <div class="admin-form-row"><label for="cc-name">Name</label><input id="cc-name" name="name" required></div>
+        <div><button class="filter-btn">Add cost centre</button></div></form>
+    </section>
+  </div>
+</div>
+{% endblock %}

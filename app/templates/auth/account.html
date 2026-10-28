@@ -1,0 +1,25 @@
+{% extends "admin/base.html" %}
+{% block title %}Account{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('portal.me') }}">← My Profile</a>{% endblock %}
+{% block heading %}Password{% endblock %}
+{% block subheading %}{{ current_user.username }} · {{ current_user.role_names|sort|join(', ') }}{% endblock %}
+{% block content %}
+<div class="admin-split">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Change password</h3></div>
+    <form method="post" class="admin-form">
+      {{ form.csrf_token }}
+      <div class="admin-form-row"><label for="current">Current password</label>{{ form.current(autocomplete="current-password") }}</div>
+      <div class="admin-form-row"><label for="new">New password</label>{{ form.new(autocomplete="new-password") }}
+        <span class="hint">At least 10 characters.</span></div>
+      <div class="admin-form-row"><label for="confirm">Confirm new password</label>{{ form.confirm(autocomplete="new-password") }}</div>
+      <div><button class="filter-btn">Change password</button></div>
+    </form>
+  </section>
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Microsoft sign-in</h3><span class="status-badge st-Draft">Coming soon</span></div>
+    <p class="muted">The system will move to Microsoft single sign-on. You'll then use your Icebolethu Microsoft account,
+      including its two-step verification, and this password will no longer be needed.</p>
+  </section>
+</div>
+{% endblock %}

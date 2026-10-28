@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block heading %}Notifications{% endblock %}
+{% block subheading %}{{ unread_notifications }} unread{% endblock %}
+{% block actions %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('portal.notifications', unread=None if args.get('unread') else 1) }}">{{ 'Show all' if args.get('unread') else 'Unread only' }}</a>
+{% if unread_notifications %}<form method="post" action="{{ url_for('portal.read_all') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="admin-btn-sm admin-btn-primary">Mark all read</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+<section class="admin-panel">
+  {% for n in rows %}
+  <a class="note {{ 'note-unread' if not n.read_at }}" href="{{ url_for('portal.open_notification', note_id=n.id) }}">
+    <div class="note-head"><strong>{{ n.title }}</strong><span class="small muted">{{ n.created_at|dtt }}</span></div>
+    <div class="small note-body">{{ n.body }}</div>
+  </a>
+  {% else %}<p class="empty-row">No notifications.</p>{% endfor %}
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

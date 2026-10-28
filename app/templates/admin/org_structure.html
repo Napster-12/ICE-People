@@ -1,0 +1,32 @@
+{% extends "admin/base.html" %}
+{% block title %}Org Structure{% endblock %}
+{% block heading %}Org Structure{% endblock %}
+{% block subheading %}Business units group departments; branches sit in regions. Positions use these for the vacancy dashboard.{% endblock %}
+{% block content %}
+<div class="admin-cards-grid org-grid">
+  {% for kind, (title, rows) in lists.items() %}
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>{{ title }}</h3><span class="results-count">{{ rows|length }}</span></div>
+    {% for r in rows %}
+    <form method="post" class="org-row">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="id" value="{{ r.id }}">
+      <input name="code" value="{{ r.code }}" aria-label="Code" required class="org-code">
+      <input name="name" value="{{ r.name }}" aria-label="Name" required>
+      {% if kind == 'branch' %}<select name="region_id" aria-label="Region"><option value="">No region</option>
+        {% for g in regions %}<option value="{{ g.id }}" {{ 'selected' if r.region_id == g.id }}>{{ g.name }}</option>{% endfor %}</select>{% endif %}
+      <select name="active" aria-label="Active"><option value="1" {{ 'selected' if r.active }}>Active</option><option value="" {{ 'selected' if not r.active }}>Inactive</option></select>
+      <button class="admin-btn-sm admin-btn-secondary">Save</button>
+    </form>
+    {% else %}<p class="muted small">None yet.</p>{% endfor %}
+    <form method="post" class="org-row org-new">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="{{ kind }}">
+      <input name="code" placeholder="Code" aria-label="New code" required class="org-code">
+      <input name="name" placeholder="Name" aria-label="New name" required>
+      {% if kind == 'branch' %}<select name="region_id" aria-label="Region"><option value="">No region</option>
+        {% for g in regions %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select>{% endif %}
+      <button class="admin-btn-sm admin-btn-primary">{{ icon('plus') }} Add</button>
+    </form>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

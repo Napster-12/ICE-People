@@ -1,0 +1,62 @@
+{# Shared UI pieces for the staff area. Import with context. #}
+
+{% macro status(value) -%}
+<span class="status-badge st-{{ (value or '')|replace(' ', '-') }}">{{ value }}</span>
+{%- endmacro %}
+
+{% macro kv(label, value, hint=None) -%}
+<div class="kv"><span class="kv-label">{{ label }}</span><span class="kv-value">{{ value if value not in (None, '') else '—' }}</span>
+  {% if hint %}<span class="hint">{{ hint }}</span>{% endif %}</div>
+{%- endmacro %}
+
+{% macro util_bar(pct) -%}
+{% set p = pct|float %}
+<div class="bar" title="{{ pct }}% used"><span class="{{ 'low' if p < 75 else ('mid' if p < 90 else 'high') }}" style="width:{{ [p, 100]|min }}%"></span></div>
+{%- endmacro %}
+
+{% macro kpi(label, value, icon_name, tone='') -%}
+<div class="report-kpi-card {{ 'k-' ~ tone if tone }}"><div class="kpi-icon {{ tone }}">{{ icon(icon_name) }}</div>
+  <div class="kpi-content"><span class="kpi-label">{{ label }}</span><span class="kpi-value">{{ value }}</span></div></div>
+{%- endmacro %}
+
+{% macro approval_chain(instance) -%}
+<ol class="chain">
+  {% for s in instance.steps %}
+  <li class="chain-step chain-{{ s.status|lower }}">
+    <div class="chain-dot">{{ s.level }}</div>
+    <div class="chain-body">
+      <div class="chain-head"><strong>{{ s.name }}</strong> {{ status(s.status) }}
+        {% if s.escalated_at %}<span class="status-badge st-Escalated">Escalated</span>{% endif %}</div>
+      <div class="small muted">
+        {% if s.approver %}Approver: {{ s.approver.full_name }}{% endif %}
+        {% if s.assignee and s.assignee_id != s.approver_id %} · Now with: {{ s.assignee.full_name }}{% endif %}
+        {% if s.status == 'Pending' and s.due_at %} · Due {{ s.due_at|dtt }} ({{ s.sla_days }} business day SLA){% endif %}
+      </div>
+      {% if s.routing_note %}<div class="small muted">{{ s.routing_note }}</div>{% endif %}
+      {% if s.acted_at %}
+      <div class="small">{{ s.actor.full_name if s.actor }}{% if s.actor_id and s.actor_id != s.approver_id %} (on behalf of {{ s.approver.full_name }}){% endif %}
+        · {{ s.acted_at|dtt }}</div>
+      {% if s.comment %}<div class="review-comment">{{ s.comment }}</div>{% endif %}
+      {% endif %}
+    </div>
+  </li>
+  {% else %}
+  <li class="muted">No approval steps applied.</li>
+  {% endfor %}
+</ol>
+{%- endmacro %}
+
+{% macro act_form(step, next_url) -%}
+<form method="post" action="{{ url_for('approvals.act', step_id=step.id) }}" class="admin-form act-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="next" value="{{ next_url }}">
+  <div class="admin-form-row"><label for="comment-{{ step.id }}">Comment (required)</label>
+    <textarea id="comment-{{ step.id }}" name="comment" required minlength="2" style="min-height:90px"
+              placeholder="Your reason or any conditions"></textarea></div>
+  <div class="row-actions" style="flex-wrap:wrap">
+    <button class="admin-btn-sm admin-btn-primary" name="action" value="approve">{{ icon('check') }} Approve</button>
+    <button class="admin-btn-sm admin-btn-secondary" name="action" value="return">{{ icon('back') }} Return for revision</button>
+    <button class="admin-btn-sm admin-btn-danger" name="action" value="reject" data-reject>{{ icon('trash') }} Reject</button>
+  </div>
+</form>
+{%- endmacro %}

@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import status_badge %}
+{% block title %}Jobs{% endblock %}
+{% block heading %}Job Openings{% endblock %}
+{% block subheading %}Create, edit and close positions{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('admin_job_form') }}">{{ icon('plus') }} New Job Opening</a>{% endblock %}
+{% block content %}
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>All Jobs</h3><span class="results-count">{{ pager.total if pager is defined else jobs|length }} total</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Position</th><th>Department</th><th>Type</th><th>Closing</th><th>Applicants</th><th>Status</th><th></th></tr>
+    {% for j in jobs %}
+    <tr>
+      <td><strong><a href="{{ url_for('admin_job_detail', job_id=j.id) }}">{{ j.title }}</a></strong><span class="sub">{{ j.location }}</span></td>
+      <td>{{ j.department }}</td>
+      <td>{{ j.job_type }}</td>
+      <td>{{ j.closing_date|dt or '—' }}</td>
+      <td><strong>{{ j.applicants }}</strong></td>
+      <td>{{ status_badge(j.status) }}</td>
+      <td><div class="row-actions">
+        <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('admin_job_detail', job_id=j.id) }}">Applicants</a>
+        <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin_job_form', job_id=j.id) }}">Edit</a>
+      </div></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="empty-row">No jobs yet. <a href="{{ url_for('admin_job_form') }}">Create your first opening</a>.</td></tr>
+    {% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

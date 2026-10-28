@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}Employees{% endblock %}
+{% block heading %}Employees{% endblock %}
+{% block subheading %}Employee records: department, cost centre, grade, manager and status{% endblock %}
+{% block actions %}{% if can_edit %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('admin.employee_form') }}">{{ icon('plus') }} New Employee</a>{% endif %}{% endblock %}
+{% block content %}
+<form class="filter-section" method="get"><div class="filter-grid">
+  <div class="filter-field"><label for="q">Search</label><input id="q" name="q" value="{{ args.get('q', '') }}" placeholder="Name, number or position"></div>
+  <div class="filter-field"><label for="department_id">Department</label><select id="department_id" name="department_id"><option value="">All</option>
+    {% for d in departments %}<option value="{{ d.id }}" {{ 'selected' if args.get('department_id') == d.id|string }}>{{ d.name }}</option>{% endfor %}</select></div>
+  <div class="filter-field"><label for="status">Status</label><select id="status" name="status"><option value="">All</option>
+    {% for s in statuses %}<option {{ 'selected' if args.get('status') == s }}>{{ s }}</option>{% endfor %}</select></div>
+  <div class="filter-actions"><button class="filter-btn">{{ icon('search') }} Filter</button></div>
+</div></form>
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Employees</h3><span class="results-count">{{ pager.total }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Employee</th><th>Position</th><th>Department</th><th>Grade</th><th>Manager</th><th>Start</th><th>Status</th></tr>
+    {% for e in rows %}
+    <tr><td><strong><a href="{{ url_for('admin.employee_form', emp_id=e.id) }}">{{ e.full_name }}</a></strong><span class="sub">{{ e.employee_number }}</span></td>
+      <td>{{ e.position_title or '—' }}{% if e.critical_role %} <span class="tag warn">Critical</span>{% endif %}</td>
+      <td>{{ e.department.name if e.department else '—' }}</td><td>{{ e.job_grade.grade if e.job_grade else '—' }}</td>
+      <td>{{ e.manager.full_name if e.manager else '—' }}</td><td>{{ e.start_date|dt }}</td><td>{{ status(e.status) }}</td></tr>
+    {% else %}<tr><td colspan="7" class="empty-row">No employees.</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

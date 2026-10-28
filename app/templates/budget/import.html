@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% block title %}Import budget{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('budget.index') }}">← Budget Lines</a>{% endblock %}
+{% block heading %}Annual Budget Import{% endblock %}
+{% block subheading %}All-or-nothing: if any row has a problem, nothing is saved{% endblock %}
+{% block content %}
+<div class="admin-split-rev">
+  <section class="admin-panel">
+    <form method="post" enctype="multipart/form-data" class="admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="document-file-input">
+        <input type="file" name="file" accept=".csv" required onchange="document.getElementById('csv-name').textContent=this.files[0]?this.files[0].name:''">
+        <div class="document-file-label">{{ icon('upload') }}<strong>Choose a CSV file</strong></div>
+      </div>
+      <div class="document-selected-name" id="csv-name"></div>
+      <div><button class="filter-btn">{{ icon('upload') }} Validate and import</button></div>
+    </form>
+    {% if errors %}
+    <div class="alert alert-error" style="margin-top:18px"><strong>Fix these rows and upload again:</strong>
+      <ul style="margin:8px 0 0 18px">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
+    {% endif %}
+  </section>
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>File format</h3></div>
+    <p class="small">Columns, in this order:</p>
+    <div class="tag-list" style="margin:8px 0 14px">{% for c in columns %}<span class="tag">{{ c }}</span>{% endfor %}</div>
+    <p class="small muted">Financial year as 2026/27 or 2026. Amounts in rand, e.g. 1250000.00. Existing lines are updated; new ones are added.</p>
+    <a class="admin-btn-sm admin-btn-secondary" style="margin-top:14px" href="{{ url_for('budget.import_template') }}">{{ icon('download') }} Download template</a>
+  </section>
+</div>
+{% endblock %}

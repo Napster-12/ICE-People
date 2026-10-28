@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import util_bar, kpi with context %}
+{% block title %}Budget Lines{% endblock %}
+{% block heading %}Headcount Budget · {{ fy_label(fy) }}{% endblock %}
+{% block subheading %}Available = amount − committed − consumed, per cost centre{% endblock %}
+{% block actions %}{% if can_edit %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('budget.import_csv') }}">{{ icon('upload') }} Import CSV</a>
+<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('budget.edit') }}">{{ icon('plus') }} Add Line</a>{% endif %}{% endblock %}
+{% block content %}
+<div class="reports-kpi-grid">
+  {{ kpi('Budget', totals.amount|money, 'building') }}
+  {{ kpi('Committed', totals.committed|money, 'clock', 'yellow') }}
+  {{ kpi('Consumed', totals.consumed|money, 'users', 'black') }}
+  {{ kpi('Available', totals.available|money, 'trending', 'orange') }}
+</div>
+<form class="filter-section" method="get">
+  <div class="filter-grid">
+    <div class="filter-field"><label for="fy">Financial year</label>
+      <select id="fy" name="fy">{% for y in years %}<option value="{{ y }}" {{ 'selected' if y == fy }}>{{ fy_label(y) }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="department_id">Department</label>
+      <select id="department_id" name="department_id"><option value="">All</option>
+        {% for d in departments %}<option value="{{ d.id }}" {{ 'selected' if args.get('department_id') == d.id|string }}>{{ d.name }}</option>{% endfor %}</select></div>
+    <div class="filter-actions"><button class="filter-btn">Show</button></div>
+  </div>
+</form>
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Budget lines</h3><a href="{{ url_for('budget.report', fy=fy) }}">Budget impact report →</a></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Cost centre</th><th>Department</th><th>Amount</th><th>Committed</th><th>Consumed</th><th>Available</th><th style="min-width:140px">Used</th><th></th></tr>
+    {% for l in lines %}
+    <tr><td><strong>{{ l.cost_centre.code }}</strong><span class="sub">{{ l.cost_centre.name }}</span></td>
+      <td>{{ l.cost_centre.department.name }}</td><td>{{ l.amount|money }}</td><td>{{ l.committed|money }}</td>
+      <td>{{ l.consumed|money }}</td><td><strong>{{ l.available|money }}</strong></td>
+      <td>{{ util_bar(l.utilisation) }}<span class="sub">{{ l.utilisation }}%</span></td>
+      <td>{% if can_edit %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('budget.edit', line_id=l.id) }}">Edit</a>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="8" class="empty-row">No budget lines for {{ fy_label(fy) }}.{% if can_edit %} <a href="{{ url_for('budget.import_csv') }}">Import the annual budget</a>.{% endif %}</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

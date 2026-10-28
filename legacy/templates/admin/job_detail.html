@@ -1,0 +1,130 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import score_badge, breakdown_view, rank, status_badge %}
+{% block title %}{{ job.title }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('admin_jobs') }}">← Job Openings</a>{% endblock %}
+{% block heading %}{{ job.title }}{% endblock %}
+{% block subheading %}{{ job.department }}{{ ' · ' ~ job.location if job.location }}{{ ' · ' ~ job.job_type if job.job_type }}{{ ' · closes ' ~ (job.closing_date|dt) if job.closing_date }}{% endblock %}
+{% block actions %}
+{{ status_badge(job.status) }}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('job_detail', job_id=job.id) }}" target="_blank">Public Page</a>
+<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('admin_job_form', job_id=job.id) }}">Edit Job &amp; Criteria</a>
+{% endblock %}
+{% block content %}
+<div class="slicer-tabs">
+  <a href="{{ url_for('admin_job_detail', job_id=job.id) }}" class="slicer-tab {{ 'slicer-tab-active' if tab == 'applicants' }}">Applicants ({{ total }})</a>
+  <a href="{{ url_for('admin_job_detail', job_id=job.id, tab='pool') }}" class="slicer-tab {{ 'slicer-tab-active' if tab == 'pool' }}">Talent Pool Matches</a>
+</div>
+
+{% if tab == 'applicants' %}
+<form class="filter-section" method="get">
+  <div class="filter-grid">
+    <div class="filter-field"><label>Minimum ATS score: <span class="range-out" id="ms-out">{{ args.get('min_score', 0) }}</span>%</label>
+      <input type="range" name="min_score" min="0" max="100" step="5" value="{{ args.get('min_score', 0) }}"
+             oninput="document.getElementById('ms-out').textContent=this.value"></div>
+    <div class="filter-field"><label>Status</label>
+      <select name="status"><option value="">All statuses</option>
+        {% for s in statuses %}<option {{ 'selected' if args.get('status') == s }}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label>Keyword in CV</label><input type="text" name="q" value="{{ args.get('q', '') }}" placeholder="e.g. Sage, isiZulu"></div>
+    <div class="filter-field"><label>Sort by</label>
+      <select name="sort">
+        <option value="score">Highest score</option>
+        <option value="date" {{ 'selected' if args.get('sort') == 'date' }}>Newest first</option>
+        <option value="name" {{ 'selected' if args.get('sort') == 'name' }}>Name</option>
+      </select></div>
+  </div>
+  <div class="filter-actions" style="margin-top:16px">
+    <button class="filter-btn">Apply Filters</button>
+    <a class="filter-btn filter-btn-secondary" href="{{ url_for('admin_job_detail', job_id=job.id) }}">Reset</a>
+    <a class="filter-btn filter-btn-export" href="{{ url_for('admin_job_export', job_id=job.id, **args) }}">{{ icon('download') }} Export CSV</a>
+  </div>
+</form>
+
+<section class="admin-panel">
+  <form id="bulk" method="post" action="{{ url_for('admin_application_bulk') }}" class="admin-panel-head">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% set n = pager.total if pager is defined else applicants|length %}
+    <span class="results-count">{{ n }} applicant{{ '' if n == 1 else 's' }}, ranked by ATS score</span>
+    <div class="bulk-bar">
+      <span class="small muted">Move selected to</span>
+      <select name="status">{% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
+      <button class="admin-btn-sm admin-btn-primary">Update</button>
+    </div>
+  </form>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th><input type="checkbox" onclick="document.querySelectorAll('.pick').forEach(c=>c.checked=this.checked)"></th>
+      <th>Rank</th><th>Candidate</th><th>ATS Score</th><th>Required Skills</th><th>Exp.</th><th>Status</th><th></th></tr>
+    {% for a in applicants %}
+    {% set req = a.breakdown.get('components', {}).get('required') %}
+    <tr>
+      <td><input type="checkbox" class="pick" name="app_ids" value="{{ a.id }}" form="bulk"></td>
+      {% set off = pager.start if pager is defined else 0 %}<td>{{ rank(off + loop.index) }}</td>
+      <td><strong><a href="{{ url_for('admin_candidate', cand_id=a.candidate_id) }}">{{ a.full_name }}</a></strong>
+        <span class="sub">{{ a.current_title or a.email }}{{ ' · ' ~ a.location if a.location }}</span>
+        {% if a.source == 'Talent pool' %}<span class="status-badge st-pool" style="margin-top:4px">From talent pool</span>{% endif %}</td>
+      <td>{{ score_badge(a.score) }}</td>
+      <td style="max-width:300px">
+        {% if req %}{% for s in req.matched %}<span class="chip yes">{{ s }}</span>{% endfor %}{% for s in req.missing %}<span class="chip no">{{ s }}</span>{% endfor %}{% else %}—{% endif %}
+      </td>
+      <td>{{ a.breakdown.get('detected_years', a.years_experience if a.years_experience is not none else '—') }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin_application_update', app_id=a.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <select name="status" onchange="this.form.submit()" class="status-select st-{{ a.status }}">
+            {% for s in statuses %}<option {{ 'selected' if a.status == s }}>{{ s }}</option>{% endfor %}</select>
+        </form>
+      </td>
+      <td><div class="row-actions">
+        <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin_candidate_cv', cand_id=a.candidate_id) }}" target="_blank">CV</a>
+        <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('admin_candidate', cand_id=a.candidate_id) }}#app-{{ a.id }}">Review</a>
+      </div></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty-row">No applicants match these filters.
+      Try the <a href="{{ url_for('admin_job_detail', job_id=job.id, tab='pool') }}">talent pool</a> for existing CVs.</td></tr>
+    {% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+
+{% else %}
+<form class="filter-section pool-banner" method="get">
+  <input type="hidden" name="tab" value="pool">
+  <div class="filter-grid">
+    <div style="grid-column:span 2">
+      <h3 style="margin-bottom:4px">Matches from your CV database</h3>
+      <p class="muted small" style="margin:0">Every CV that hasn't applied for this job, scored live against its criteria.
+        Shortlist a candidate to add them to this job's applicants.</p>
+    </div>
+    <div class="filter-field"><label>Minimum score: <span class="range-out" id="ps-out">{{ args.get('min_score', 50) }}</span>%</label>
+      <input type="range" name="min_score" min="0" max="100" step="5" value="{{ args.get('min_score', 50) }}"
+             oninput="document.getElementById('ps-out').textContent=this.value"></div>
+    <div class="filter-actions"><button class="filter-btn">Find Matches</button></div>
+  </div>
+</form>
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Talent Pool Matches</h3><span class="results-count">{{ pager.total if pager is defined else matches|length }} found</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Rank</th><th>Candidate</th><th>ATS Score</th><th>Match Breakdown</th><th></th></tr>
+    {% for m in matches %}
+    <tr>
+      {% set off = pager.start if pager is defined else 0 %}<td>{{ rank(off + loop.index) }}</td>
+      <td><strong><a href="{{ url_for('admin_candidate', cand_id=m.c.id) }}">{{ m.c.full_name }}</a></strong>
+        <span class="sub">{{ m.c.current_title or m.c.email }} · CV updated {{ m.c.updated_at|dt }}</span></td>
+      <td>{{ score_badge(m.score) }}</td>
+      <td style="min-width:300px"><details><summary>View breakdown</summary><div style="margin-top:10px">{{ breakdown_view(m.breakdown) }}</div></details></td>
+      <td><div class="row-actions">
+        <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin_candidate_cv', cand_id=m.c.id) }}" target="_blank">CV</a>
+        <form method="post" action="{{ url_for('admin_shortlist_from_pool', job_id=job.id, cand_id=m.c.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="admin-btn-sm admin-btn-primary">Shortlist</button>
+        </form>
+      </div></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="empty-row">No talent-pool CVs score at or above this threshold. Try lowering the minimum score.</td></tr>
+    {% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Careers{% endblock %} · Icebolethu Group</title>
+  <link rel="icon" href="{{ asset('logo.png') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ asset('style.css') }}">
+</head>
+<body class="{% block body_class %}site{% endblock %}">
+{% block layout %}
+  <header class="site-header">
+    <a class="logo-bulge" href="{{ url_for('index') }}"><img src="{{ asset('logo.png') }}" alt="Icebolethu Group"></a>
+    <nav class="site-nav">
+      <a href="{{ url_for('index') }}#vacancies" class="{{ 'active' if request.endpoint in ('index', 'job_detail') }}">Vacancies</a>
+      <a href="{{ url_for('check_status') }}" class="{{ 'active' if request.endpoint == 'check_status' }}">Track Application</a>
+      <a href="{{ url_for('talent_pool') }}" class="nav-cta">Submit Your CV</a>
+    </nav>
+  </header>
+  {% block hero %}{% endblock %}
+  <main class="site-main">
+    <div class="wrap">
+      {% include "_flashes.html" %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+  {% include "_footer.html" %}
+{% endblock %}
+</body>
+</html>

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero, info_row with context %}
+{% block title %}Apply · {{ job.title }}{% endblock %}
+
+{% block hero %}
+{% call page_hero(job.title, kicker="Application", compact=True, id='job') %}
+  {% if job.location %}{{ info_row('pin', 'Location', job.location) }}{% endif %}
+  {% if job.closing_date %}{{ info_row('calendar', 'Closing date', job.closing_date|longdate) }}{% endif %}
+  {{ info_row('briefcase', 'Department', (job.department or 'Icebolethu Group') ~ (' · ' ~ job.job_type if job.job_type else '')) }}
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('careers.job_detail', job_id=job.id) }}" class="back-link">{{ icon('back') }} Back to the job</a>
+<section class="card apply-card" id="apply">
+  <div class="apply-head">
+    {% include "public/_apply_steps.html" with context %}
+    <h2>Apply for this position</h2>
+    <p>{{ job.title }} · you meet the minimum requirements · fields marked * are required</p>
+  </div>
+  <form class="igsp-form apply-body" method="post" enctype="multipart/form-data">
+    {% include "public/_applicant_fields.html" %}
+    <button type="submit">Submit application</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, approval_chain, act_form with context %}
+{% block title %}Approved Positions{% endblock %}
+{% block heading %}Approved Positions · {{ fy_label(fy) }}{% endblock %}
+{% block subheading %}One record per position. Requisitions are raised from vacant positions on the approved register.{% endblock %}
+{% block actions %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('positions.dashboard', fy=fy) }}">{{ icon('trending') }} Vacancy dashboard</a>
+{% if can_edit and editable %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('positions.import_csv') }}">{{ icon('upload') }} Import CSV</a>
+<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('positions.new', fy=fy) }}">{{ icon('plus') }} Add position</a>
+{% endif %}
+{% endblock %}
+{% block content %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>{{ fy_label(fy) }} register</h3>{{ status(register.status if register else 'Draft') }}</div>
+  {% if not register or register.status in ('Draft', 'Returned', 'Rejected') %}
+    <p class="small">{% if register and register.status == 'Returned' %}The register was returned for changes. Update the positions and send it again.
+      {% elif register and register.status == 'Rejected' %}The register was rejected. Update the positions and send it again.
+      {% else %}Load the positions approved with the budget for {{ fy_label(fy) }}, then send the register to Finance and the Group HR Manager for approval.{% endif %}
+      {{ planned }} planned position{{ '' if planned == 1 else 's' }} waiting.</p>
+    {% if can_edit and planned %}
+    <form method="post" action="{{ url_for('positions.submit_register', fy=fy) }}" style="margin-top:12px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="admin-btn-sm admin-btn-primary">{{ icon('check') }} Send register for approval</button>
+    </form>
+    {% endif %}
+  {% elif register.status == 'In Approval' %}
+    <p class="small">Sent by {{ register.submitted_by.full_name if register.submitted_by }} on {{ register.submitted_at|dtt }}. Positions become vacant once it is approved.</p>
+  {% else %}
+    <p class="small">Approved on {{ register.approved_at|dtt }}. A position the business needs that isn't on the register needs an
+      <a href="{{ url_for('positions.adhoc_new') }}">ad-hoc position request</a>.</p>
+  {% endif %}
+  {% if instance %}<details style="margin-top:12px" {{ 'open' if my_step }}><summary>Approval chain</summary>{{ approval_chain(instance) }}</details>{% endif %}
+  {% if my_step %}<div style="margin-top:14px">{{ act_form(my_step, url_for('positions.index', fy=fy)) }}</div>{% endif %}
+</section>
+
+<form class="filter-section" method="get">
+  <div class="filter-grid">
+    <div class="filter-field"><label for="fy">Financial year</label>
+      <select id="fy" name="fy">{% for y in years %}<option value="{{ y }}" {{ 'selected' if y == fy }}>{{ fy_label(y) }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="business_unit_id">Business unit</label>
+      <select id="business_unit_id" name="business_unit_id"><option value="">All</option>
+        {% for b in business_units %}<option value="{{ b.id }}" {{ 'selected' if args.get('business_unit_id') == b.id|string }}>{{ b.name }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="department_id">Department</label>
+      <select id="department_id" name="department_id"><option value="">All</option>
+        {% for d in departments %}<option value="{{ d.id }}" {{ 'selected' if args.get('department_id') == d.id|string }}>{{ d.name }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="status">Status</label>
+      <select id="status" name="status"><option value="">All</option>
+        {% for s in statuses %}<option {{ 'selected' if args.get('status') == s }}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="q">Search</label><input id="q" name="q" value="{{ args.get('q', '') }}" placeholder="Title or POS number"></div>
+    <div class="filter-actions"><button class="filter-btn">Show</button></div>
+  </div>
+</form>
+
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Positions</h3><span class="results-count">{{ pager.total }} position{{ '' if pager.total == 1 else 's' }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Position</th><th>Department</th><th>Branch / area</th><th>Grade</th><th>Budgeted CTC</th><th>Holder</th><th>Status</th></tr>
+    {% for p in rows %}
+    <tr><td><a href="{{ url_for('positions.detail', position_id=p.id) }}"><strong>{{ p.title }}</strong></a>
+        <span class="sub">{{ p.position_number }}{% if p.is_ad_hoc %} · ad hoc{% endif %}</span></td>
+      <td>{{ p.department.name }}<span class="sub">{{ p.business_unit or '' }}</span></td>
+      <td>{{ p.branch or '—' }}<span class="sub">{{ p.region or '' }}</span></td>
+      <td>{{ p.job_grade.grade if p.job_grade else '—' }}</td>
+      <td>{{ p.budgeted_ctc|money if p.budgeted_ctc is not none else '—' }}</td>
+      <td>{{ p.holder.full_name if p.holder else '—' }}</td>
+      <td>{{ status(p.status) }}</td></tr>
+    {% else %}<tr><td colspan="7" class="empty-row">No positions for {{ fy_label(fy) }}.{% if can_edit and editable %} <a href="{{ url_for('positions.import_csv') }}">Import the register</a>.{% endif %}</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

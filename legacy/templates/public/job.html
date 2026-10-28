@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero, info_row with context %}
+{% block title %}{{ job.title }}{% endblock %}
+
+{% block hero %}
+{% call page_hero("We're hiring!", compact=True, id='job') %}
+  <div class="title-pill big">{{ job.title }}</div>
+  {% if job.location %}{{ info_row('pin', 'Location', job.location) }}{% endif %}
+  {% if job.closing_date %}{{ info_row('calendar', 'Closing date', job.closing_date|longdate) }}{% endif %}
+  {{ info_row('briefcase', 'Department', (job.department or 'Icebolethu Group') ~ (' · ' ~ job.job_type if job.job_type else '')) }}
+  <div class="poster-actions"><a class="pill-btn yellow" href="#apply">Apply now {{ icon('arrow') }}</a></div>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}#vacancies" class="back-link">{{ icon('back') }} All vacancies</a>
+<div class="detail-grid">
+  <article class="card job-desc">
+    <h2 class="card-title">About the role</h2>
+    {{ job.description|jobdesc }}
+  </article>
+
+  <aside class="detail-side">
+    <div class="card req-card">
+      <h3 class="card-title">At a glance</h3>
+      {% if job.min_experience %}<div class="glance">{{ icon('award') }}<div><strong>{{ job.min_experience }}+ years</strong><span>Experience</span></div></div>{% endif %}
+      {% if job.min_education %}<div class="glance">{{ icon('file') }}<div><strong>{{ education_labels[job.min_education] }}</strong><span>Minimum qualification</span></div></div>{% endif %}
+      {% if job.closing_date %}<div class="glance">{{ icon('calendar') }}<div><strong>{{ job.closing_date|longdate }}</strong><span>Closing date</span></div></div>{% endif %}
+      {% if job.required_skills %}<h4>Key skills</h4>
+        <div class="tag-list">{% for s in job.required_skills.split(',') %}<span class="tag">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+      {% if job.preferred_skills %}<h4>Advantageous</h4>
+        <div class="tag-list">{% for s in job.preferred_skills.split(',') %}<span class="tag soft">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+    </div>
+  </aside>
+</div>
+
+<section class="card apply-card" id="apply">
+  <div class="apply-head">
+    <img class="burst" src="{{ asset('sunburst-yellow.svg') }}" alt="">
+    <h2>Apply for this position</h2>
+    <p>{{ job.title }} · takes about 3 minutes · fields marked * are required</p>
+  </div>
+  <form class="igsp-form apply-body" method="post" enctype="multipart/form-data">
+    {% include "public/_applicant_fields.html" %}
+    <button type="submit">Submit application</button>
+  </form>
+</section>
+{% endblock %}

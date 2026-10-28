@@ -1,0 +1,39 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import kv, util_bar with context %}
+{% block title %}Budget line{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('budget.index', fy=line.financial_year if line else current_fy) }}">← Budget Lines</a>{% endblock %}
+{% block heading %}{{ (line.cost_centre.code ~ ' · ' ~ fy_label(line.financial_year)) if line else 'New Budget Line' }}{% endblock %}
+{% block subheading %}The amount can't go below what is already committed and consumed{% endblock %}
+{% block content %}
+<div class="admin-split-rev">
+  <section class="admin-panel">
+    <form method="post" class="admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if not line %}
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label for="cost_centre_id">Cost centre</label>
+          <select id="cost_centre_id" name="cost_centre_id" required><option value="">Choose…</option>
+            {% for c in cost_centres %}<option value="{{ c.id }}">{{ c.department.name }} · {{ c }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label for="financial_year">Financial year</label>
+          <input id="financial_year" type="text" name="financial_year" value="{{ current_fy }}/{{ '%02d'|format((current_fy + 1) % 100) }}" required>
+          <span class="hint">e.g. 2026/27 (March to February)</span></div>
+      </div>
+      {% endif %}
+      <div class="admin-form-row"><label for="amount">Amount (R)</label>
+        <input id="amount" type="text" inputmode="decimal" name="amount" value="{{ line.amount if line else '' }}" required></div>
+      <div><button class="filter-btn">Save</button></div>
+    </form>
+  </section>
+  {% if line %}
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Position</h3></div>
+    {{ kv('Committed', line.committed|money) }}{{ kv('Consumed', line.consumed|money) }}{{ kv('Available', line.available|money) }}
+    {{ util_bar(line.utilisation) }}<p class="hint">{{ line.utilisation }}% used</p>
+    <h4 style="margin:18px 0 8px">Movements</h4>
+    <ul class="timeline">{% for m in movements %}<li><strong>{{ m.kind|title }}</strong> {{ m.amount|money }}
+      <span class="sub">{{ m.created_at|dtt }}{% if m.requisition_id %} · <a href="{{ url_for('requisitions.detail', req_id=m.requisition_id) }}">requisition</a>{% endif %}</span></li>
+      {% else %}<li class="muted">No movements yet.</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

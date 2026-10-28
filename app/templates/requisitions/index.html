@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}Requisitions{% endblock %}
+{% block heading %}Requisitions{% endblock %}
+{% block subheading %}Requests to fill new or replacement positions{% endblock %}
+{% block actions %}{% if can_create %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('requisitions.new') }}">{{ icon('plus') }} New Requisition</a>{% endif %}{% endblock %}
+{% block content %}
+<form class="filter-section" method="get">
+  <div class="filter-grid">
+    <div class="filter-field"><label for="q">Search</label><input id="q" type="text" name="q" value="{{ args.get('q', '') }}" placeholder="Title or REQ number"></div>
+    <div class="filter-field"><label for="status">Status</label>
+      <select id="status" name="status"><option value="">All statuses</option>
+        {% for s in statuses %}<option {{ 'selected' if args.get('status') == s }}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="department_id">Department</label>
+      <select id="department_id" name="department_id"><option value="">All departments</option>
+        {% for d in departments %}<option value="{{ d.id }}" {{ 'selected' if args.get('department_id') == d.id|string }}>{{ d.name }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="employment_type">Type</label>
+      <select id="employment_type" name="employment_type"><option value="">All types</option>
+        {% for t in employment_types %}<option {{ 'selected' if args.get('employment_type') == t }}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="filter-field"><label for="date_from">Created from</label><input id="date_from" type="date" name="date_from" value="{{ args.get('date_from', '') }}"></div>
+    <div class="filter-field"><label for="date_to">Created to</label><input id="date_to" type="date" name="date_to" value="{{ args.get('date_to', '') }}"></div>
+  </div>
+  <div class="filter-actions" style="margin-top:16px">
+    <button class="filter-btn">{{ icon('search') }} Filter</button>
+    <a class="filter-btn filter-btn-secondary" href="{{ url_for('requisitions.index') }}">Reset</a>
+  </div>
+</form>
+
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Requisitions</h3><span class="results-count">{{ pager.total }} found</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Reference</th><th>Position</th><th>Department</th><th>Type</th><th>CTC</th><th>Flags</th><th>Status</th><th>Created</th></tr>
+    {% for r in rows %}
+    <tr>
+      <td><strong><a href="{{ url_for('requisitions.detail', req_id=r.id) }}">{{ r.reference }}</a></strong></td>
+      <td><strong>{{ r.title }}</strong><span class="sub">{{ 'Grade ' ~ r.job_grade.grade if r.job_grade }}{{ ' · by ' ~ r.originator.full_name }}</span></td>
+      <td>{{ r.department.name if r.department else '—' }}</td>
+      <td>{{ r.employment_type or '—' }}<span class="sub">{{ r.headcount_type or '' }}</span></td>
+      <td>{{ r.ctc|money if r.ctc is not none else '—' }}</td>
+      <td>{% if r.is_over_budget %}<span class="tag warn">Over budget</span>{% endif %}</td>
+      <td>{{ status(r.status) }}</td>
+      <td>{{ r.created_at|dt }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty-row">No requisitions match.{% if can_create %} <a href="{{ url_for('requisitions.new') }}">Create one</a>.{% endif %}</td></tr>
+    {% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

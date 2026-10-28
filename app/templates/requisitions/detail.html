@@ -1,0 +1,133 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv, approval_chain, act_form with context %}
+{% block title %}{{ req.reference }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('requisitions.index') }}">← Requisitions</a>{% endblock %}
+{% block heading %}{{ req.reference }} · {{ req.title }}{% endblock %}
+{% block subheading %}{{ req.department.name if req.department else 'No department yet' }} · raised by {{ req.originator.full_name }} on {{ req.created_at|dt }}{% endblock %}
+{% block actions %}
+{{ status(req.status) }}
+{% if can_edit %}
+  <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('requisitions.edit', req_id=req.id) }}">{{ icon('edit') }} Edit</a>
+  <form method="post" action="{{ url_for('requisitions.submit', req_id=req.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="admin-btn-sm admin-btn-primary">{{ icon('check') }} {{ 'Resubmit' if req.status == 'Returned' else 'Submit' }}</button>
+  </form>
+{% endif %}
+{% endblock %}
+{% block content %}
+{% if req.status == 'Returned' %}<div class="alert alert-info">This requisition was returned for revision. Edit it and resubmit: approval restarts at level 1.</div>{% endif %}
+{% if req.is_over_budget %}<div class="alert alert-warning"><strong>Over budget</strong> by {{ req.budget_shortfall|money }}.</div>{% endif %}
+
+{% if my_step %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Your decision · Level {{ my_step.level }} {{ my_step.name }}</h3>
+    <span class="results-count">Due {{ my_step.due_at|dtt }}</span></div>
+  {% if my_step.approver_id != current_user.id %}<p class="small muted" style="margin-bottom:10px">You are acting on behalf of {{ my_step.approver.full_name }}.</p>{% endif %}
+  {{ act_form(my_step, url_for('requisitions.detail', req_id=req.id)) }}
+</section>
+{% endif %}
+
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Position details</h3></div>
+      <div class="kv-grid">
+        {{ kv('Position title', req.title) }}
+        {{ kv('Department', req.department.name if req.department) }}
+        {{ kv('Cost centre', req.cost_centre|string if req.cost_centre) }}
+        {{ kv('Job grade', req.job_grade|string if req.job_grade) }}
+        {{ kv('Employment type', req.employment_type) }}
+        {{ kv('Headcount', req.headcount_type) }}
+        {% if req.headcount_type == 'Replacement' %}{{ kv('Replacing', req.replaced_employee|string if req.replaced_employee) }}{% endif %}
+        {{ kv('Required start', req.required_start_date|dt if req.required_start_date) }}
+        {% if req.employment_type == 'Contract' %}{{ kv('Contract ends', req.contract_end_date|dt if req.contract_end_date) }}{% endif %}
+        {% if req.employment_type == 'Casual' %}{{ kv('Estimated hours', req.estimated_hours) }}{% endif %}
+        {{ kv('Approved position', req.approved_position|string if req.approved_position) }}
+        {% if show_exec %}{{ kv('Executive / strategic', 'Yes' if req.is_executive else 'No') }}{% endif %}
+      </div>
+      <h4 class="kv-label" style="margin-top:18px">Justification</h4>
+      <div class="review-comment" style="margin-top:6px">{{ req.justification or '—' }}</div>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Approval chain</h3>
+        {% if current %}<span class="results-count">Round {{ current.round }} · {{ current.status }}</span>{% endif %}</div>
+      {% if current %}{{ approval_chain(current) }}{% else %}<p class="muted">The approval chain starts when the requisition is submitted.</p>{% endif %}
+      {% if instances|length > 1 %}
+      <details style="margin-top:16px"><summary>Earlier rounds ({{ instances|length - 1 }})</summary>
+        {% for inst in instances[1:] %}<h4 style="margin:16px 0 8px">Round {{ inst.round }} · {{ inst.status }}</h4>{{ approval_chain(inst) }}{% endfor %}
+      </details>
+      {% endif %}
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>History</h3></div>
+      <ul class="timeline">
+        {% for e in timeline %}
+        <li><strong>{{ e.action|replace('_', ' ')|replace('.', ' · ') }}</strong>
+          {% if e.after and e.after.status %} → {{ e.after.status }}{% endif %}
+          <span class="sub">{{ e.username or 'system' }} · {{ e.timestamp|dtt }}{% if e.detail %} · {{ e.detail }}{% endif %}</span></li>
+        {% else %}<li class="muted">No history yet.</li>{% endfor %}
+      </ul>
+      {% if req.versions %}
+      <details style="margin-top:12px"><summary>Submitted versions ({{ req.versions|length }})</summary>
+        <div class="table-responsive" style="margin-top:10px"><table class="admin-table">
+          <tr><th>Version</th><th>Submitted</th><th>By</th><th>CTC</th><th>Start</th></tr>
+          {% for v in req.versions %}<tr><td>v{{ v.version }}</td><td>{{ v.created_at|dtt }}</td><td>{{ v.created_by.full_name if v.created_by }}</td>
+            <td>{{ v.data.ctc|money if v.data.ctc }}</td><td>{{ v.data.required_start_date|dt }}</td></tr>{% endfor %}
+        </table></div>
+      </details>
+      {% endif %}
+    </section>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Budget</h3></div>
+      {% if req.budget_snapshot_at %}
+        {{ kv('Financial year', fy_label(req.financial_year)) }}
+        {{ kv('Estimated CTC', req.ctc|money) }}
+        {{ kv('Available at submission', req.budget_available|money) }}
+        {{ kv('Shortfall', req.budget_shortfall|money) }}
+        {% if req.committed_amount|float > 0 %}{{ kv('Committed', req.committed_amount|money) }}{% endif %}
+        {% if req.consumed_amount|float > 0 %}{{ kv('Consumed', req.consumed_amount|money) }}{% endif %}
+        <p class="hint">Snapshot taken {{ req.budget_snapshot_at|dtt }}.</p>
+      {% elif preview %}
+        {{ kv('Estimated CTC', preview.ctc|money) }}
+        {{ kv('Available in ' ~ fy_label(preview.fy), preview.available|money if preview.available is not none else '—') }}
+        {% if preview.over %}<div class="alert alert-warning small" style="margin-top:10px">Currently over budget.</div>{% endif %}
+        <p class="hint">Live estimate. A snapshot is taken on submit.</p>
+      {% else %}<p class="muted">Add a grade, employment type and cost centre to see the budget.</p>{% endif %}
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Attachments</h3></div>
+      <ul class="detail-list" style="border:none;margin:0;padding:0">
+        {% for f in attachments %}<li>{{ icon('file') }}<a href="{{ url_for('portal.download', file_id=f.id) }}">{{ f.original_name }}</a>
+          <span class="sub">{{ (f.size / 1024)|round|int }} KB</span></li>
+        {% else %}<li class="muted">No attachments.</li>{% endfor %}
+      </ul>
+      {% if can_edit %}
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('requisitions.upload', req_id=req.id) }}" style="margin-top:12px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="file" name="attachments" multiple accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png">
+        <button class="admin-btn-sm admin-btn-secondary" style="margin-top:8px">{{ icon('upload') }} Upload</button>
+      </form>
+      {% endif %}
+    </section>
+
+    {% if can_cancel or can_close %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>{{ 'Cancel' if can_cancel else 'Close unfilled' }}</h3></div>
+      <form method="post" action="{{ url_for('requisitions.cancel' if can_cancel else 'requisitions.close', req_id=req.id) }}"
+            class="admin-form" data-confirm="{{ 'Cancel this requisition?' if can_cancel else 'Close this requisition unfilled and release its budget?' }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="admin-form-row"><label for="reason">Reason{{ ' (required)' if can_close }}</label>
+          <textarea id="reason" name="reason" style="min-height:70px" {{ 'required' if can_close }}></textarea></div>
+        <div><button class="admin-btn-sm admin-btn-danger">{{ 'Cancel requisition' if can_cancel else 'Close unfilled' }}</button></div>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}Ad-hoc Position Requests{% endblock %}
+{% block heading %}Ad-hoc Position Requests{% endblock %}
+{% block subheading %}Positions the business needs that aren't on the register. Once approved they're added to it, flagged ad hoc.{% endblock %}
+{% block actions %}{% if can_request %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('positions.adhoc_new') }}">{{ icon('plus') }} Request a position</a>{% endif %}{% endblock %}
+{% block content %}
+<form class="filter-section" method="get">
+  <div class="filter-grid">
+    <div class="filter-field"><label for="status">Status</label>
+      <select id="status" name="status"><option value="">All</option>
+        {% for s in ['Pending approval', 'Returned', 'Rejected', 'Vacant', 'In recruitment', 'Filled', 'Frozen', 'Abolished'] %}<option {{ 'selected' if args.get('status') == s }}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="filter-actions"><button class="filter-btn">Show</button></div>
+  </div>
+</form>
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Position</th><th>Department</th><th>Grade</th><th>Requested by</th><th>Requested</th><th>Status</th></tr>
+    {% for p in rows %}
+    <tr><td><a href="{{ url_for('positions.detail', position_id=p.id) }}"><strong>{{ p.title }}</strong></a><span class="sub">{{ p.position_number }}</span></td>
+      <td>{{ p.department.name }}</td><td>{{ p.job_grade.grade if p.job_grade else '—' }}</td>
+      <td>{{ p.requested_by.full_name if p.requested_by else '—' }}</td><td>{{ p.created_at|dt }}</td>
+      <td>{{ status('Approved' if p.status in ('Vacant', 'In recruitment', 'Filled', 'Frozen') else p.status) }}</td></tr>
+    {% else %}<tr><td colspan="6" class="empty-row">No ad-hoc position requests.</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}
