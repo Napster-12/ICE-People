@@ -1,0 +1,25 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}JD Library{% endblock %}
+{% block heading %}JD Library{% endblock %}
+{% block subheading %}Standard job descriptions. A new advert starts from the one matching its title or job family. Each is reviewed every year.{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('adverts.template_form') }}">{{ icon('plus') }} Add job description</a>{% endblock %}
+{% block content %}
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Job title</th><th>Job family</th><th>Qualification</th><th>Experience</th><th title="Required skills / advantageous skills / experience / qualification / keywords">ATS weights</th><th>Next review</th><th>Status</th><th></th></tr>
+    {% for t in rows %}
+    <tr>
+      <td><strong>{{ t.title }}</strong>{% if t.updated_by %}<span class="sub">Updated by {{ t.updated_by.full_name }} · {{ t.updated_at|dt }}</span>{% endif %}</td>
+      <td>{{ t.job_family.name if t.job_family else '—' }}</td>
+      <td>{{ education_labels[t.min_education] if t.min_education else '—' }}</td>
+      <td>{{ t.min_experience }}+ years</td>
+      <td>{% if t.ats_weights %}Own{% set w = t.ats_weights %}<span class="sub">{{ w.required }} / {{ w.preferred }} / {{ w.experience }} / {{ w.education }} / {{ w.keywords }}</span>{% else %}Standard{% endif %}</td>
+      <td>{{ t.review_date|dt }}{% if t.active and t.review_due %} {{ status('Review due') }}{% endif %}</td>
+      <td>{{ status('Active' if t.active else 'Archived') }}</td>
+      <td><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('adverts.template_form', template_id=t.id) }}">{{ icon('edit') }} Edit</a></td>
+    </tr>
+    {% else %}<tr><td colspan="8" class="empty-row">No job descriptions yet. <a href="{{ url_for('adverts.template_form') }}">Add the first one</a>.</td></tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

@@ -29,7 +29,7 @@ EDITABLE = {"Draft", "Returned"}
 CANCELLABLE_BY_ORIGINATOR = {"Draft", "Submitted", "In Approval", "Returned"}
 CLOSABLE_UNFILLED = {"Approved", "Advertised", "Interviewing", "Offer"}
 
-CREATE_ROLES = {LINE_MANAGER, HOD} | HR_ROLES
+CREATE_ROLES = {HOD} | HR_ROLES          # Department Managers and HR raise requisitions; Line Managers only approve
 SEE_ALL_ROLES = HR_ROLES | {FINANCE, GCOO, EXCO, COMPLIANCE}
 MIN_JUSTIFICATION = 50
 
@@ -162,6 +162,7 @@ def workflow_context(req):
         "ctc": float(req.ctc or 0),
         "department": req.department.code if req.department else "",
         "department_id": req.department_id,
+        "raised_by": "HR" if req.originator and req.originator.is_hr else "Manager",
     }
 
 
@@ -207,7 +208,9 @@ def close_unfilled(req, user, reason):
         raise DomainError("Only HR can close a requisition unfilled.")
     if not (reason or "").strip():
         raise DomainError("Give a reason for closing the requisition.")
+    from app.services import adverts  # adverts imports this module
     budget.release(req)
+    adverts.withdraw_for_requisition(req, f"Requisition {req.reference} closed unfilled")
     positions.stop_recruitment(req.approved_position, req)
     set_status(req, "Cancelled", comment=f"Closed unfilled: {reason.strip()}")
     req.closed_at = now()
@@ -248,7 +251,7 @@ workflow.register(
     on_rejected=_on_rejected,
     sample_context={"headcount_type": "New", "is_over_budget": False, "grade": 5, "is_executive": False,
                     "employment_type": "Permanent", "ctc": 0.0, "department": "HR",
-                    "department_id": 1},
+                    "department_id": 1, "raised_by": "Manager"},
 )
 
 

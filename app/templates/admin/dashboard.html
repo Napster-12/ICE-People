@@ -39,7 +39,7 @@
         <td>{{ score_badge(j.avg_score) if j.applicants else '—' }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="4" class="empty-row">No open positions. <a href="{{ url_for('recruitment.job_form') }}">Create one</a>.</td></tr>
+      <tr><td colspan="4" class="empty-row">No open positions. <a href="{{ url_for('adverts.index') }}">Advertise one</a>.</td></tr>
       {% endfor %}
     </table></div>
     {% include "_pager.html" %}

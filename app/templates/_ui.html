@@ -46,17 +46,25 @@
 </ol>
 {%- endmacro %}
 
+{# Approve submits at once. Return for revision and Reject open a comment box first: a reason is required for
+   those two only (workflow.act). The box is opened by the script in admin/base.html. #}
 {% macro act_form(step, next_url) -%}
 <form method="post" action="{{ url_for('approvals.act', step_id=step.id) }}" class="admin-form act-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="next" value="{{ next_url }}">
-  <div class="admin-form-row"><label for="comment-{{ step.id }}">Comment (required)</label>
-    <textarea id="comment-{{ step.id }}" name="comment" required minlength="2" style="min-height:90px"
-              placeholder="Your reason or any conditions"></textarea></div>
-  <div class="row-actions" style="flex-wrap:wrap">
+  <div class="row-actions act-buttons" style="flex-wrap:wrap">
     <button class="admin-btn-sm admin-btn-primary" name="action" value="approve">{{ icon('check') }} Approve</button>
-    <button class="admin-btn-sm admin-btn-secondary" name="action" value="return">{{ icon('back') }} Return for revision</button>
-    <button class="admin-btn-sm admin-btn-danger" name="action" value="reject" data-reject>{{ icon('trash') }} Reject</button>
+    <button type="button" class="admin-btn-sm admin-btn-secondary" data-act-open="return">{{ icon('back') }} Return for revision</button>
+    <button type="button" class="admin-btn-sm admin-btn-danger" data-act-open="reject">{{ icon('trash') }} Reject</button>
+  </div>
+  <div class="act-comment" hidden>
+    <div class="admin-form-row"><label for="comment-{{ step.id }}" data-act-label>Reason (required)</label>
+      <textarea id="comment-{{ step.id }}" name="comment" minlength="2" style="min-height:90px" disabled
+                placeholder="Tell the originator what to change, or why it is rejected"></textarea></div>
+    <div class="row-actions" style="flex-wrap:wrap">
+      <button class="admin-btn-sm" name="action" value="" data-act-confirm></button>
+      <button type="button" class="admin-btn-sm admin-btn-secondary" data-act-cancel>Cancel</button>
+    </div>
   </div>
 </form>
 {%- endmacro %}

@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}Job Adverts{% endblock %}
+{% block heading %}Job Adverts{% endblock %}
+{% block subheading %}Advertise fully approved requisitions. The HR Manager approves each advert before it goes live.{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('adverts.library') }}">{{ icon('file') }} JD Library</a>{% endblock %}
+{% block content %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Ready to advertise</h3>
+    <span class="results-count">{{ ready|length }} approved requisition{{ '' if ready|length == 1 else 's' }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Requisition</th><th>Department</th><th>Type</th><th>Approved</th><th>Start</th><th></th></tr>
+    {% for r in ready %}
+    <tr>
+      <td><a href="{{ url_for('requisitions.detail', req_id=r.id) }}"><strong>{{ r.title }}</strong></a><span class="sub">{{ r.reference }}</span></td>
+      <td>{{ r.department.name if r.department }}</td>
+      <td>{{ r.employment_type }}</td>
+      <td>{{ r.approved_at|dt if r.approved_at else '—' }}</td>
+      <td>{{ r.required_start_date|dt if r.required_start_date else '—' }}</td>
+      <td><a class="admin-btn-sm admin-btn-primary" href="{{ url_for('adverts.new', req_id=r.id) }}">{{ icon('plus') }} Create advert</a></td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="empty-row">Every approved requisition has an advert.</td></tr>{% endfor %}
+  </table></div>
+</section>
+
+<form class="filter-section" method="get">
+  <div class="filter-grid">
+    <div class="filter-field"><label for="status">Status</label>
+      <select id="status" name="status"><option value="">All</option>
+        {% for s in statuses %}<option {{ 'selected' if status == s }}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="filter-actions"><button class="filter-btn">Show</button></div>
+  </div>
+</form>
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Adverts</h3><span class="results-count">{{ pager.total }} total</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Advert</th><th>Requisition</th><th>Closing</th><th>Cycle</th><th>Applications</th><th>Status</th></tr>
+    {% for j in rows %}
+    <tr>
+      <td><a href="{{ url_for('adverts.detail', job_id=j.id) }}"><strong>{{ j.title }}</strong></a><span class="sub">{{ j.reference }} · {{ j.location or 'No location yet' }}</span></td>
+      <td>{% if j.requisition %}<a href="{{ url_for('requisitions.detail', req_id=j.requisition_id) }}">{{ j.requisition.reference }}</a>{% endif %}</td>
+      <td>{{ j.closing_date|dt if j.closing_date else '—' }}</td>
+      <td>{{ j.cycle }}</td>
+      <td>{{ j.applications|length }}</td>
+      <td>{{ status('Live' if j.status == 'Open' else j.status) }}</td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="empty-row">No adverts{{ ' with this status' if status }}.</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

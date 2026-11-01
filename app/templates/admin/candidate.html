@@ -61,7 +61,8 @@
         POPIA consent: {{ 'Given' if cand.consent else 'No' }}</p>
     </section>
     <form method="post" action="{{ url_for('recruitment.candidate_delete', cand_id=cand.id) }}"
-          onsubmit="return confirm('Permanently delete this candidate and their CV? This cannot be undone.')">
+          data-confirm-danger data-confirm-title="Delete this candidate?" data-confirm-ok="Delete permanently"
+          data-confirm="The candidate, their CV and all their applications are deleted. This can't be undone.">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="admin-btn-sm admin-btn-danger" style="width:100%">{{ icon('trash') }} Delete Candidate (POPIA request)</button>
     </form>

@@ -1,0 +1,65 @@
+{% extends "admin/base.html" %}
+{% block title %}Edit {{ job.reference }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('adverts.detail', job_id=job.id) }}">← {{ job.reference }}</a>{% endblock %}
+{% block heading %}Edit advert · {{ job.title }}{% endblock %}
+{% block subheading %}{{ job.reference }} · cycle {{ job.cycle }} · version {{ job.version }}. Every save is kept as a version.{% endblock %}
+{% block content %}
+{% if job.status == 'Returned' %}<div class="alert alert-info">The HR Manager returned this advert. See their comment on the advert page, make the changes and send it again.</div>{% endif %}
+<form method="post" class="admin-split">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel admin-form">
+    <div class="admin-panel-head" style="margin:0"><h3>Advert</h3></div>
+    <div class="admin-form-row"><label for="title">Job title *</label><input id="title" type="text" name="title" required value="{{ job.title }}"></div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label>Department</label><input type="text" value="{{ job.department }}" disabled>
+        <span class="hint">From the requisition.</span></div>
+      <div class="admin-form-row"><label for="location">Location *</label><input id="location" type="text" name="location" value="{{ job.location or '' }}" placeholder="Branch, region"></div>
+      <div class="admin-form-row"><label for="job_type">Employment type *</label>
+        <select id="job_type" name="job_type">{% for t in job_types %}<option {{ 'selected' if job.job_type == t }}>{{ t }}</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="closing_date">Closing date *</label>
+        <input id="closing_date" type="date" name="closing_date" value="{{ job.closing_date or '' }}"></div>
+    </div>
+    <div class="admin-form-row"><label for="description">Job description *</label>
+      <textarea id="description" name="description" style="min-height:320px">{{ job.description }}</textarea>
+      <span class="hint">ALL-CAPS lines become headings and lines starting with "-" become bullets on the careers site.</span></div>
+    <div class="admin-form-row"><label for="ee_statement">Employment equity and equal opportunity statement *</label>
+      <textarea id="ee_statement" name="ee_statement" style="min-height:90px">{{ job.ee_statement or '' }}</textarea></div>
+  </section>
+
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel admin-form">
+      <div class="admin-panel-head" style="margin:0"><h3>Requirements and screening</h3></div>
+      <div class="admin-form-row"><label for="min_education">Minimum qualification *</label>
+        <select id="min_education" name="min_education">
+          {% for lvl, name in education_levels %}<option value="{{ lvl }}" {{ 'selected' if (job.min_education or 0) == lvl }}>{{ name }}</option>{% endfor %}
+        </select></div>
+      <div class="admin-form-row"><label for="min_experience">Minimum years of experience *</label>
+        <input id="min_experience" type="number" name="min_experience" min="0" max="40" value="{{ job.min_experience if job.min_experience is not none else '' }}"></div>
+      <div class="admin-form-row"><label for="required_skills">Required skills</label>
+        <textarea id="required_skills" name="required_skills" style="min-height:70px" placeholder="e.g. Sales, Customer service">{{ job.required_skills or '' }}</textarea>
+        <span class="hint">Comma-separated. Used by the CV ranking and the eligibility check.</span></div>
+      <div class="admin-form-row"><label for="preferred_skills">Advantageous skills</label>
+        <textarea id="preferred_skills" name="preferred_skills" style="min-height:60px">{{ job.preferred_skills or '' }}</textarea></div>
+    </section>
+
+    <section class="admin-panel admin-form">
+      <div class="admin-panel-head" style="margin:0"><h3>Channels</h3></div>
+      <p class="small muted" style="margin:0">Always published on the careers site, the only place to apply. Each channel links back to it.</p>
+      <div class="check-grid">
+        {% for c in channels %}<label class="check"><input type="checkbox" name="channels" value="{{ c }}" {{ 'checked' if c in (job.channels or []) }}> {{ c }}</label>{% endfor %}
+      </div>
+    </section>
+
+    <section class="admin-panel admin-form">
+      {% if problems %}
+      <div class="alert alert-warning small" style="margin:0"><strong>Before it can go for approval:</strong>
+        <ul style="margin:6px 0 0 18px">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>
+      {% endif %}
+      <div class="row-actions" style="flex-wrap:wrap">
+        <button class="admin-btn-sm admin-btn-secondary" name="action" value="save">{{ icon('check') }} Save draft</button>
+        <button class="admin-btn-sm admin-btn-primary" name="action" value="submit">{{ icon('arrow') }} Save and send for approval</button>
+      </div>
+    </section>
+  </div>
+</form>
+{% endblock %}

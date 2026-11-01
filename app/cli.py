@@ -21,6 +21,22 @@ def register_cli(app):
         db.session.commit()
         click.echo(f"Reminders sent: {result['reminded']}. Escalations: {result['escalated']}.")
 
+    @app.cli.command("close-expired-adverts")
+    def close_expired_adverts():
+        """Close adverts past their closing date and tell the recruiter (run daily)."""
+        from app.services import adverts
+        closed = adverts.close_expired()
+        db.session.commit()
+        click.echo(f"Adverts closed: {closed}.")
+
+    @app.cli.command("remind-jd-reviews")
+    def remind_jd_reviews():
+        """Remind HR about job descriptions due for their annual review (run daily)."""
+        from app.services import adverts
+        due = adverts.remind_jd_reviews()
+        db.session.commit()
+        click.echo(f"Job descriptions due for review: {due}.")
+
     @app.cli.command("set-password")
     @click.argument("username")
     def set_password(username):

@@ -61,23 +61,33 @@ def contract_months(start, end):
     return max(1, months)
 
 
-def calculate_ctc(grade, employment_type, start_date=None, end_date=None, estimated_hours=None):
-    """Annual-cost estimate for a requisition (Decimal, 2dp).
+UNBUDGETED_NOTE = "Unbudgeted ad-hoc position, approved by Finance: no budget check, nothing committed."
 
-    Permanent: salary band midpoint. Contract: midpoint pro-rated by contract months.
-    Casual: hourly rate x estimated hours."""
-    if grade is None:
-        raise DomainError("Choose a job grade to calculate the CTC.")
-    midpoint = Decimal(grade.midpoint)
+
+def is_unbudgeted(position):
+    """An ad-hoc position approved without a budgeted CTC. Its requisitions skip the budget check (31 Oct 2026)."""
+    return position is not None and position.is_ad_hoc and position.budgeted_ctc is None
+
+
+def calculate_ctc(position, employment_type, start_date=None, end_date=None):
+    """Cost estimate for a requisition (Decimal, 2dp), from the position's budgeted CTC on the register
+    (grades carry no salary since 31 Oct 2026). None for an unbudgeted ad-hoc position.
+
+    Permanent and Casual: the budgeted CTC. Contract: the budgeted CTC pro-rated by contract months."""
+    if position is None:
+        raise DomainError("Choose a position to calculate the CTC.")
+    if is_unbudgeted(position):
+        return None
+    if position.budgeted_ctc is None:
+        raise DomainError(f"Position {position.position_number} has no budgeted CTC on the register. "
+                          "HR must add one before the requisition can be costed.")
+    annual = Decimal(position.budgeted_ctc)
     if employment_type == "Contract":
         months = contract_months(start_date, end_date)
         if not months:
             raise DomainError("A contract role needs a start date and a contract end date after it.")
-        return (midpoint * months / 12).quantize(CENTS)
-    if employment_type == "Casual":
-        hours = estimated_hours or settings.get("casual_default_hours", int)
-        return (Decimal(grade.hourly_rate) * hours).quantize(CENTS)
-    return midpoint.quantize(CENTS)
+        return (annual * months / 12).quantize(CENTS)
+    return annual.quantize(CENTS)
 
 
 # ------------------------------------------------------------ availability
@@ -94,16 +104,15 @@ def available_budget(cost_centre_id, financial_year):
 def snapshot_requisition(req):
     """Record CTC, availability and shortfall on the requisition (BU-003)."""
     fy = financial_year_for(req.required_start_date or today())
-    ctc = calculate_ctc(req.job_grade, req.employment_type, req.required_start_date,
-                        req.contract_end_date, req.estimated_hours)
+    ctc = calculate_ctc(req.approved_position, req.employment_type, req.required_start_date, req.contract_end_date)
     line = get_line(req.cost_centre_id, fy)
     available = line.available if line else Decimal("0.00")
     req.financial_year = fy
-    req.ctc = ctc
+    req.ctc = ctc                                              # None: unbudgeted ad-hoc position
     req.budget_line_id = line.id if line else None
     req.budget_available = available
-    req.budget_shortfall = max(Decimal("0.00"), ctc - available)
-    req.is_over_budget = ctc > available
+    req.budget_shortfall = max(Decimal("0.00"), ctc - available) if ctc is not None else Decimal("0.00")
+    req.is_over_budget = ctc is not None and ctc > available
     from app.services.dates import now
     req.budget_snapshot_at = now()
     return req
@@ -127,8 +136,9 @@ def _line_for(req):
 
 
 def commit(req):
-    """On final approval: reserve the CTC against the cost centre's budget."""
-    if Decimal(req.committed_amount or 0) > 0:
+    """On final approval: reserve the CTC against the cost centre's budget (nothing for an unbudgeted ad-hoc
+    position, which has no CTC)."""
+    if Decimal(req.committed_amount or 0) > 0 or req.ctc is None:
         return
     line = _line_for(req)
     amount = Decimal(req.ctc or 0)

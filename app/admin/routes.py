@@ -1,5 +1,5 @@
-"""HR Admin configuration: users and roles, employees, departments, routing rules,
-settings, public holidays, notification templates, audit log and integration log."""
+"""Configuration: users and roles, employees, departments, routing rules, settings, public holidays,
+notification templates, the asset register, audit log and integration log. HR keeps the people pages; ICT (the IT role) owns the rest."""
 from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
@@ -8,14 +8,16 @@ from sqlalchemy.orm import joinedload
 
 from app.auth.decorators import roles_required
 from app.extensions import db
-from app.models import (ApprovedPosition, AuditLog, Branch, BusinessUnit, CostCentre, Department, Employee,
+from app.models import (ApprovedPosition, Asset, AuditLog, Branch, BusinessUnit, CostCentre, Department, Employee,
                         IntegrationLog, JobFamily, JobGrade, Region,
-                        NotificationTemplate, PublicHoliday, Role, RoutingRule, Setting, User)
-from app.models.org import EMPLOYEE_STATUSES, EMPLOYMENT_TYPES
+                        NotificationTemplate, PublicHoliday, Role, RoutingRule, Setting, StoredFile, User)
+from app.models.org import ASSET_STATUSES, EMPLOYEE_STATUSES, EMPLOYMENT_TYPES
 from app.models.user import COMPLIANCE, GROUP_HR, HR_ADMIN, HR_MANAGER, HR_ROLES, HRBP, IT
 from app.models.workflow import SPECIAL_APPROVERS
-from app.services import audit, positions, settings
+from app.services import audit, files, positions, settings
 from app.services.conditions import ConditionError, validate
+from app.services.errors import DomainError
+from app.services.dates import today
 from app.services.validators import validate_sa_id
 from app.services.workflow import HANDLERS
 from app.web import paginate
@@ -41,7 +43,7 @@ def _date(value):
 # ------------------------------------------------------------------ users
 
 @bp.route("/users")
-@roles_required(HR_ADMIN)
+@roles_required(IT)
 def users():
     q = User.query.order_by(User.full_name)
     if request.args.get("q"):
@@ -56,7 +58,7 @@ def users():
 
 @bp.route("/users/new", methods=["GET", "POST"])
 @bp.route("/users/<int:user_id>", methods=["GET", "POST"])
-@roles_required(HR_ADMIN)
+@roles_required(IT)
 def user_form(user_id=None):
     user = db.session.get(User, user_id) if user_id else None
     if user_id and user is None:
@@ -253,17 +255,19 @@ def departments():
             if clash and (dept is None or clash.id != dept.id):
                 flash("That department code is taken.", "error")
             else:
-                before = {"code": dept.code, "name": dept.name, "hod": dept.hod_employee_id} if dept else None
+                before = {"code": dept.code, "name": dept.name, "hod": dept.hod_employee_id,
+                          "job_family": dept.job_family_id} if dept else None
                 if dept is None:
                     dept = Department(code=code, name=name)
                     db.session.add(dept)
                 dept.code, dept.name = code, name
                 dept.hod_employee_id = f.get("hod_employee_id", type=int) or None
                 dept.business_unit_id = f.get("business_unit_id", type=int) or None
+                dept.job_family_id = f.get("job_family_id", type=int) or None
                 db.session.flush()
                 audit.record("config.department", "department", dept.id, before=before,
                              after={"code": code, "name": name, "hod": dept.hod_employee_id,
-                                    "business_unit": dept.business_unit_id})
+                                    "business_unit": dept.business_unit_id, "job_family": dept.job_family_id})
                 db.session.commit()
                 flash("Department saved.", "success")
         elif kind == "cost_centre":
@@ -282,7 +286,8 @@ def departments():
         .order_by(Department.name).all()
     employees = Employee.query.order_by(Employee.last_name).all()
     return render_template("admin/departments.html", depts=depts, employees=employees,
-                           business_units=BusinessUnit.query.order_by(BusinessUnit.name).all())
+                           business_units=BusinessUnit.query.order_by(BusinessUnit.name).all(),
+                           families=JobFamily.query.order_by(JobFamily.name).all())
 
 
 # ---------------------------------------------------------- org structure
@@ -329,7 +334,7 @@ def org_structure():
 # ---------------------------------------------------------- routing rules
 
 @bp.route("/rules")
-@roles_required(HR_ADMIN)
+@roles_required(IT)
 def rules():
     rows = RoutingRule.query.order_by(RoutingRule.workflow_type, RoutingRule.level, RoutingRule.id).all()
     return render_template("admin/rules.html", rows=rows)
@@ -337,7 +342,7 @@ def rules():
 
 @bp.route("/rules/new", methods=["GET", "POST"])
 @bp.route("/rules/<int:rule_id>", methods=["GET", "POST"])
-@roles_required(HR_ADMIN)
+@roles_required(IT)
 def rule_form(rule_id=None):
     rule = db.session.get(RoutingRule, rule_id) if rule_id else None
     if rule_id and rule is None:
@@ -386,7 +391,7 @@ def rule_form(rule_id=None):
 # -------------------------------------------------- settings and holidays
 
 @bp.route("/settings", methods=["GET", "POST"])
-@roles_required(HR_ADMIN)
+@roles_required(IT)
 def settings_page():
     settings.ensure_defaults()
     rows = Setting.query.order_by(Setting.key).all()
@@ -394,6 +399,14 @@ def settings_page():
         errors = []
         for row in rows:
             value = request.form.get(row.key, "").strip()
+            if row.key in settings.TEXT_KEYS:
+                if not value:
+                    errors.append(f"{row.label}: can't be empty.")
+                elif value != row.value:
+                    audit.record("config.setting", "setting", row.key, before={"value": row.value},
+                                 after={"value": value})
+                    row.value = value
+                continue
             try:
                 number = float(value)
             except ValueError:
@@ -419,11 +432,12 @@ def settings_page():
     holidays = PublicHoliday.query.order_by(PublicHoliday.date).all()
     templates = NotificationTemplate.query.order_by(NotificationTemplate.name).all()
     db.session.commit()
-    return render_template("admin/settings.html", rows=rows, holidays=holidays, templates=templates)
+    return render_template("admin/settings.html", rows=rows, holidays=holidays, templates=templates,
+                           text_keys=settings.TEXT_KEYS)
 
 
 @bp.route("/holidays", methods=["POST"])
-@roles_required(HR_ADMIN)
+@roles_required(IT)
 def holiday_add():
     d, name = _date(request.form.get("date")), request.form.get("name", "").strip()
     if d is None or not name:
@@ -441,7 +455,7 @@ def holiday_add():
 
 
 @bp.route("/holidays/<int:holiday_id>/delete", methods=["POST"])
-@roles_required(HR_ADMIN)
+@roles_required(IT)
 def holiday_delete(holiday_id):
     h = db.session.get(PublicHoliday, holiday_id) or abort(404)
     audit.record("config.holiday_delete", "public_holiday", h.id, before={"date": h.date.isoformat(), "name": h.name})
@@ -452,7 +466,7 @@ def holiday_delete(holiday_id):
 
 
 @bp.route("/templates/<int:template_id>", methods=["GET", "POST"])
-@roles_required(HR_ADMIN)
+@roles_required(IT)
 def template_form(template_id):
     from jinja2 import TemplateSyntaxError
     from jinja2.sandbox import SandboxedEnvironment
@@ -478,10 +492,94 @@ def template_form(template_id):
     return render_template("admin/template_form.html", tpl=tpl)
 
 
+# ---------------------------------------------------------------- assets
+
+@bp.route("/assets")
+@roles_required(IT)
+def assets():
+    q = Asset.query.join(Employee).options(joinedload(Asset.employee))
+    a = request.args
+    if a.get("q"):
+        like = f"%{a['q'].strip()}%"
+        q = q.filter(db.or_(Asset.asset_tag.ilike(like), Asset.description.ilike(like),
+                            Employee.first_name.ilike(like), Employee.last_name.ilike(like),
+                            Employee.employee_number.ilike(like)))
+    if a.get("category"):
+        q = q.filter(Asset.category == a["category"])
+    if a.get("status"):
+        q = q.filter(Asset.status == a["status"])
+    rows, pager = paginate(q.order_by(Asset.asset_tag), 50)
+    forms = {f.entity_id: f for f in StoredFile.query.filter(StoredFile.entity_type == "asset_allocation",
+                                                             StoredFile.entity_id.in_([r.id for r in rows]))
+             .order_by(StoredFile.created_at)}   # the latest upload wins
+    categories = [c for (c,) in db.session.query(Asset.category).distinct().order_by(Asset.category) if c]
+    counts = dict(db.session.query(Asset.status, db.func.count(Asset.id)).group_by(Asset.status))
+    return render_template("admin/assets.html", rows=rows, pager=pager, args=a, categories=categories,
+                           statuses=ASSET_STATUSES, counts=counts, forms=forms)
+
+
+@bp.route("/assets/new", methods=["GET", "POST"])
+@bp.route("/assets/<int:asset_id>", methods=["GET", "POST"])
+@roles_required(IT)
+def asset_form(asset_id=None):
+    asset = db.session.get(Asset, asset_id) if asset_id else None
+    if asset_id and asset is None:
+        abort(404)
+    if request.method == "POST":
+        f = request.form
+        values = {"asset_tag": f.get("asset_tag", "").strip(), "category": f.get("category", "").strip() or None,
+                  "description": f.get("description", "").strip() or None,
+                  "employee_id": f.get("employee_id", type=int), "issued_on": _date(f.get("issued_on")),
+                  "status": f.get("status", ""), "returned_on": _date(f.get("returned_on"))}
+        errors = []
+        if not values["asset_tag"]:
+            errors.append("Asset tag is required.")
+        elif Asset.query.filter(Asset.asset_tag == values["asset_tag"], Asset.id != (asset.id if asset else 0)).first():
+            errors.append(f"Asset tag {values['asset_tag']} is already on the register.")
+        if not values["employee_id"] or not db.session.get(Employee, values["employee_id"]):
+            errors.append("Choose the employee the asset is issued to.")
+        if values["status"] not in ASSET_STATUSES:
+            errors.append("Choose a status.")
+        if values["status"] == "Returned" and not values["returned_on"]:
+            values["returned_on"] = today()
+        if values["status"] == "Issued":
+            values["returned_on"] = None
+        if errors:
+            for e in errors:
+                flash(e, "error")
+        else:
+            before = {k: getattr(asset, k) for k in values} if asset else None
+            if asset is None:
+                asset = Asset(**values)
+                db.session.add(asset)
+            else:
+                for k, v in values.items():
+                    setattr(asset, k, v)
+            db.session.flush()
+            audit.record("asset.saved", "asset", asset.id, before=before, after=values)
+            upload = request.files.get("allocation_form")
+            try:
+                if upload and upload.filename:
+                    files.save_upload(upload, "asset_allocation", asset.id, current_user)
+            except DomainError as exc:
+                db.session.rollback()
+                asset = db.session.get(Asset, asset_id) if asset_id else None
+                flash(str(exc), "error")
+            else:
+                db.session.commit()
+                flash(f"Asset {asset.asset_tag} saved.", "success")
+                return redirect(url_for("admin.assets"))
+    employees = Employee.query.order_by(Employee.first_name, Employee.last_name).all()
+    categories = [c for (c,) in db.session.query(Asset.category).distinct().order_by(Asset.category) if c]
+    forms = list(reversed(files.files_for("asset_allocation", asset.id))) if asset else []
+    return render_template("admin/asset_form.html", item=asset, employees=employees, statuses=ASSET_STATUSES,
+                           categories=categories, forms=forms, employee_id=request.args.get("employee_id", type=int))
+
+
 # --------------------------------------------------------------- the logs
 
 @bp.route("/audit")
-@roles_required(HR_ADMIN, COMPLIANCE)
+@roles_required(IT, COMPLIANCE)
 def audit_log():
     q = AuditLog.query
     a = request.args
@@ -503,7 +601,7 @@ def audit_log():
 
 
 @bp.route("/integrations")
-@roles_required(HR_ADMIN, IT)
+@roles_required(IT)
 def integrations():
     q = IntegrationLog.query
     if request.args.get("system"):

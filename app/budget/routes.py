@@ -1,4 +1,5 @@
-"""Finance screens: budget lines, CSV annual load, impact report; salary bands (REQ-BU-001–007)."""
+"""Finance screens: budget lines, CSV annual load and the impact report (REQ-BU-001–007). Grades carry no salary
+since 31 Oct 2026, so there is no salary bands screen; requisitions are costed from the position's budgeted CTC."""
 import csv
 import io
 from decimal import Decimal
@@ -9,10 +10,10 @@ from sqlalchemy.orm import joinedload
 
 from app.auth.decorators import roles_required
 from app.extensions import db
-from app.models import BudgetLine, BudgetMovement, CostCentre, Department, JobGrade
+from app.models import BudgetLine, BudgetMovement, CostCentre, Department
 from app.models.user import FINANCE, GCOO, HR_ADMIN, HR_MANAGER
 from app.services import audit, budget
-from app.services.dates import format_money, to_decimal, today
+from app.services.dates import to_decimal, today
 from app.services.errors import DomainError
 from app.web import paginate
 
@@ -133,39 +134,3 @@ def report():
         return Response(out.getvalue(), mimetype="text/csv",
                         headers={"Content-Disposition": f"attachment; filename=budget_impact_{fy}.csv"})
     return render_template("budget/report.html", rows=rows, fy=fy, fy_label=budget.fy_label, years=_fy_choices())
-
-
-@bp.route("/salary-bands", methods=["GET", "POST"])
-@roles_required(FINANCE, HR_ADMIN)
-def salary_bands():
-    grades = JobGrade.query.order_by(JobGrade.grade).all()
-    if request.method == "POST":
-        if not current_user.has_role(HR_ADMIN):
-            abort(403)
-        errors = []
-        for g in grades:
-            lo = to_decimal(request.form.get(f"min_{g.id}"))
-            hi = to_decimal(request.form.get(f"max_{g.id}"))
-            rate = to_decimal(request.form.get(f"rate_{g.id}"))
-            if lo is None or hi is None or rate is None or lo < 0 or rate < 0:
-                errors.append(f"Grade {g.grade}: enter valid amounts.")
-                continue
-            if hi < lo:
-                errors.append(f"Grade {g.grade}: the maximum must be at least the minimum.")
-                continue
-            before = {"min": str(g.band_min), "max": str(g.band_max), "rate": str(g.hourly_rate)}
-            after = {"min": str(lo.quantize(Decimal('0.01'))), "max": str(hi.quantize(Decimal('0.01'))),
-                     "rate": str(rate.quantize(Decimal('0.01')))}
-            if before != after:
-                g.band_min, g.band_max, g.hourly_rate = lo, hi, rate
-                audit.record("config.salary_band", "job_grade", g.id, before=before, after=after)
-        if errors:
-            db.session.rollback()
-            for e in errors:
-                flash(e, "error")
-        else:
-            db.session.commit()
-            flash("Salary bands saved.", "success")
-            return redirect(url_for("budget.salary_bands"))
-    return render_template("budget/salary_bands.html", grades=grades, can_edit=current_user.has_role(HR_ADMIN),
-                           money=format_money)

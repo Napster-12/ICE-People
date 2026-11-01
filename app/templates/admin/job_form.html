@@ -48,7 +48,8 @@
 </form>
 {% if job_id %}
 <form method="post" action="{{ url_for('recruitment.job_delete', job_id=job_id) }}"
-      onsubmit="return confirm('Delete this job and its applications? CVs stay in the database.')">
+      data-confirm-danger data-confirm-title="Delete this job?" data-confirm-ok="Delete job"
+      data-confirm="The job and its applications are deleted. Candidates' CVs stay in the CV database.">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <button class="admin-btn-sm admin-btn-danger">{{ icon('trash') }} Delete Job</button>
 </form>

@@ -1,0 +1,76 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv with context %}
+{% from "admin/_macros.html" import score_badge %}
+{% set c = app.candidate %}
+{% block title %}Scorecard · {{ c.full_name }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('recruitment.panel', job_id=app.job_id) if current_user.is_hr else url_for('recruitment.interviews_to_score') }}">← {{ 'Interview panel' if current_user.is_hr else 'Interviews to score' }}</a>{% endblock %}
+{% block heading %}{{ c.full_name }}{% endblock %}
+{% block subheading %}{{ app.job.title }}{% if app.slot %} · interview {{ app.slot.starts_at|dtt }}, {{ app.slot.venue }}{% endif %}{% endblock %}
+{% block actions %}
+{% if c.cv_file %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('recruitment.interview_cv', app_id=app.id) }}" target="_blank">{{ icon('file') }} Open CV</a>{% endif %}
+{% if app.slot and app.slot.ics %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('recruitment.interview_ics', app_id=app.id) }}">{{ icon('calendar') }} Add to calendar</a>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+    {% if can_score and not mine %}
+    <form method="post" class="admin-panel admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-panel-head" style="margin:0"><h3>Your scorecard</h3>
+        <span class="results-count">1 = poor · 3 = meets the requirement · 5 = excellent</span></div>
+      {% for crit in panel.criteria %}{% set ci = loop.index0 %}
+      <div class="score-row">
+        <div><strong>{{ crit.name }}</strong><span class="sub">{{ crit.weight }}% of the score</span></div>
+        <div class="score-pick" role="radiogroup" aria-label="{{ crit.name }}">
+          {% for n in range(1, 6) %}
+          <label><input type="radio" name="score_{{ ci }}" value="{{ n }}" required
+                 {{ 'checked' if form.get('score_' ~ ci) == n|string }}><span>{{ n }}</span></label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="admin-form-row"><label>Your recommendation *</label>
+        <div class="score-pick wide" role="radiogroup" aria-label="Recommendation">
+          {% for r in recommendations %}<label><input type="radio" name="recommendation" value="{{ r }}" required {{ 'checked' if form.get('recommendation') == r }}><span>{{ r }}</span></label>{% endfor %}
+        </div></div>
+      <div class="admin-form-row"><label for="comment">Comments</label>
+        <textarea id="comment" name="comment" style="min-height:110px" placeholder="Strengths, concerns, anything the panel should know">{{ form.get('comment', '') }}</textarea></div>
+      <p class="hint">You'll see the other panellists' scores once you've submitted yours. Scores can't be changed afterwards.</p>
+      <div><button class="filter-btn">{{ icon('check') }} Submit my scores</button></div>
+    </form>
+    {% elif not can_score and not current_user.is_hr %}
+    <section class="admin-panel"><p class="muted">Scoring opens once HR sends the panel invitations.</p></section>
+    {% endif %}
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Panel scores</h3>
+        <span class="results-count">{{ result.scored }} of {{ result.panel }} scored{% if show_all and result.average is not none %} · combined {{ result.average }}%{% endif %}</span></div>
+      {% if show_all %}
+      <div class="table-responsive"><table class="admin-table">
+        <tr><th>Panellist</th>{% for crit in panel.criteria %}<th title="{{ crit.name }}">{{ crit.name|truncate(18, True, '…') }}</th>{% endfor %}<th>Score</th><th>Recommendation</th></tr>
+        {% for card in result.cards %}
+        <tr>
+          <td><strong>{{ card.panellist.full_name }}</strong>{% if card.comment %}<span class="sub">{{ card.comment }}</span>{% endif %}</td>
+          {% for crit in panel.criteria %}<td>{{ card.scores.get(crit.name, '—') }}</td>{% endfor %}
+          <td>{{ score_badge(card.total) }}</td><td>{{ card.recommendation }}</td>
+        </tr>
+        {% else %}<tr><td colspan="{{ panel.criteria|length + 3 }}" class="empty-row">No scores yet.</td></tr>{% endfor %}
+      </table></div>
+      {% else %}
+      <p class="muted">Hidden until you submit your own scorecard, so every panellist scores independently.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside class="admin-panel">
+    <div class="admin-panel-head" style="margin:0 0 8px"><h3>Candidate</h3></div>
+    {{ kv('Current title', c.current_title or '—') }}
+    {{ kv('Experience', (c.years_experience ~ ' years') if c.years_experience is not none else '—') }}
+    {{ kv('Qualification', education_labels.get(c.education_level, '—') if c.education_level else '—') }}
+    {{ kv('Location', c.location or '—') }}
+    {{ kv('ATS score', '%.0f%%'|format(app.score or 0)) }}
+    {% if c.skills %}<div class="tag-list" style="margin-top:12px">{% for s in c.skills.split(',') %}<span class="tag soft">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+    {% if app.cover_note %}<div class="review-comment" style="margin-top:12px">{{ app.cover_note }}</div>{% endif %}
+  </aside>
+</div>
+{% endblock %}

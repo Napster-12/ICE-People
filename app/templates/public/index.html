@@ -2,36 +2,34 @@
 {% from "_poster.html" import page_hero, info_row with context %}
 {% block title %}Careers{% endblock %}
 
+{#- Search-first layout (1 Nov 2026): the vacancy search sits in the hero, then a 3-column grid of flat cards. -#}
 {% block hero %}
 {% call page_hero("Careers at Icebolethu Group", kicker="We're hiring", id='home') %}
   <p class="poster-lead">Join a team that serves families and communities with dignity and care.
     {{ total_open }} position{{ ' is' if total_open == 1 else 's are' }} open right now.</p>
-  <div class="poster-actions">
-    <a class="pill-btn orange" href="#vacancies">View vacancies {{ icon('arrow') }}</a>
-    <a class="pill-btn outline-dark" href="{{ url_for('careers.talent_pool') }}">Submit your CV</a>
-  </div>
+  <form class="search-pill hero-search" method="get" action="{{ url_for('careers.index') }}#vacancies" role="search">
+    <label>{{ icon('search') }}<input type="text" name="q" value="{{ q }}" placeholder="Job title or keyword" aria-label="Job title or keyword"></label>
+    <label>{{ icon('pin') }}<input type="text" name="location" value="{{ location }}" placeholder="Location" list="loc-list" aria-label="Location"></label>
+    <datalist id="loc-list">{% for l, _ in locations %}<option value="{{ l }}">{% endfor %}</datalist>
+    <label>{{ icon('building') }}
+      <select name="department" aria-label="Department"><option value="">All departments</option>
+        {% for d, n in departments %}<option value="{{ d }}" {{ 'selected' if d == dept }}>{{ d }} ({{ n }})</option>{% endfor %}
+      </select></label>
+    <button type="submit">Search</button>
+  </form>
 {% endcall %}
 {% endblock %}
 
 {% block content %}
 <section id="vacancies" class="vacancies">
-  <div class="section-title">
-    <h2>Current vacancies</h2>
-    {% set total = pager.total if pager is defined else jobs|length %}
-    <p>{{ total }} position{{ '' if total == 1 else 's' }}{{ ' matching your search' if filtered else ' open for applications' }}</p>
+  {% set total = pager.total if pager is defined else jobs|length %}
+  <div class="section-title section-title-row">
+    <div>
+      <h2>Current vacancies <span class="count-pill">{{ total }}</span></h2>
+      <p>{{ total }} position{{ '' if total == 1 else 's' }}{{ ' matching your search' if filtered else ' open for applications' }}</p>
+    </div>
+    {% if filtered %}<a class="clear-search" href="{{ url_for('careers.index') }}#vacancies">✕ Clear search</a>{% endif %}
   </div>
-
-  <form class="search-pill" method="get" action="{{ url_for('careers.index') }}#vacancies">
-    <label>{{ icon('search') }}<input type="text" name="q" value="{{ q }}" placeholder="Job title or keyword"></label>
-    <label>{{ icon('pin') }}<input type="text" name="location" value="{{ location }}" placeholder="Location" list="loc-list"></label>
-    <datalist id="loc-list">{% for l, _ in locations %}<option value="{{ l }}">{% endfor %}</datalist>
-    <label>{{ icon('building') }}
-      <select name="department"><option value="">All departments</option>
-        {% for d, n in departments %}<option value="{{ d }}" {{ 'selected' if d == dept }}>{{ d }} ({{ n }})</option>{% endfor %}
-      </select></label>
-    <button type="submit">Search</button>
-  </form>
-  {% if filtered %}<p class="clear-search"><a href="{{ url_for('careers.index') }}#vacancies">✕ Clear search</a></p>{% endif %}
 
   <div class="vacancy-grid">
     {% for job in jobs %}
@@ -39,7 +37,7 @@
       <div class="vacancy-dept">{{ job.department or 'Icebolethu Group' }}{{ ' · ' ~ job.job_type if job.job_type }}</div>
       <a class="title-pill" href="{{ url_for('careers.job_detail', job_id=job.id) }}">{{ job.title }}</a>
       {% if job.location %}{{ info_row('pin', 'Location', job.location) }}{% endif %}
-      {% if job.closing_date %}{{ info_row('calendar', 'Closing date', job.closing_date|longdate) }}{% endif %}
+      {% if job.closing_date %}{{ info_row('calendar', 'Closes', job.closing_date|longdate) }}{% endif %}
       {% if job.min_experience %}{{ info_row('award', 'Experience', job.min_experience ~ '+ years') }}{% endif %}
       <div class="vacancy-actions">
         <a class="pill-btn orange" href="{{ url_for('careers.job_detail', job_id=job.id) }}#apply">Apply now</a>
@@ -57,20 +55,19 @@
   {% set anchor = '#vacancies' %}{% include "_pager.html" %}
 </section>
 
-<section class="how-apply">
-  <div class="section-title">
-    <h2>How to apply</h2>
-    <p>From vacancy to interview in four steps</p>
-  </div>
-  <div class="steps-grid">
-    <div class="step-card"><span class="step-num">1</span><h4>Find a vacancy</h4><p>Browse current vacancies and open the role that suits you.</p></div>
-    <div class="step-card"><span class="step-num">2</span><h4>Apply online</h4><p>Complete the short form and upload your CV (PDF or Word).</p></div>
-    <div class="step-card"><span class="step-num">3</span><h4>We review</h4><p>Our HR team screens every application against the requirements.</p></div>
-    <div class="step-card"><span class="step-num">4</span><h4>Interview</h4><p>Shortlisted candidates are contacted. Track progress with your reference.</p></div>
-  </div>
+<section class="how-apply" aria-label="How to apply">
+  <h2 class="how-apply-title">How to apply</h2>
+  <ol class="steps-strip">
+    <li><span class="step-num">1</span><div><strong>Find a vacancy</strong><span>Open the role that suits you.</span></div></li>
+    <li><span class="step-num">2</span><div><strong>Apply online</strong><span>Answer five questions, upload your CV.</span></div></li>
+    <li><span class="step-num">3</span><div><strong>We review</strong><span>HR screens every application.</span></div></li>
+    <li><span class="step-num">4</span><div><strong>Interview</strong><span>Track progress with your reference.</span></div></li>
+  </ol>
 </section>
 
 <section class="pool-band">
+  <img class="pool-burst" src="{{ asset('sunburst.svg') }}" alt="" aria-hidden="true">
+  <img class="pool-burst pool-burst-yellow" src="{{ asset('sunburst-yellow.svg') }}" alt="" aria-hidden="true">
   <div>
     <h2>Can't find the right role?</h2>
     <p>Join our talent pool. HR searches it every time a new position opens, so you could be the first we call.</p>

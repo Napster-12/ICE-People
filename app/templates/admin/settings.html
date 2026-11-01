@@ -11,7 +11,8 @@
       <div class="admin-form-grid">
       {% for s in rows %}
         <div class="admin-form-row"><label for="{{ s.key }}">{{ s.label or s.key }}</label>
-          <input id="{{ s.key }}" name="{{ s.key }}" value="{{ s.value }}" inputmode="decimal"><span class="hint">{{ s.help }}</span></div>
+          {% if s.key in text_keys %}<textarea id="{{ s.key }}" name="{{ s.key }}" style="min-height:90px">{{ s.value }}</textarea>
+          {% else %}<input id="{{ s.key }}" name="{{ s.key }}" value="{{ s.value }}" inputmode="decimal">{% endif %}<span class="hint">{{ s.help }}</span></div>
       {% endfor %}
       </div>
       <div><button class="filter-btn">Save settings</button></div>
@@ -29,7 +30,7 @@
     </form>
     <div class="table-responsive" style="max-height:420px;overflow:auto"><table class="admin-table">
       {% for h in holidays %}<tr><td>{{ h.date|dt }}</td><td>{{ h.name }}</td>
-        <td><form method="post" action="{{ url_for('admin.holiday_delete', holiday_id=h.id) }}" data-confirm="Remove {{ h.name }}?">
+        <td><form method="post" action="{{ url_for('admin.holiday_delete', holiday_id=h.id) }}" data-confirm-danger data-confirm-title="Remove this public holiday?" data-confirm-ok="Remove" data-confirm="{{ h.name }} will no longer count as a non-working day for SLAs.">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-btn-sm admin-btn-danger" aria-label="Remove">{{ icon('trash') }}</button></form></td></tr>
       {% endfor %}
     </table></div>

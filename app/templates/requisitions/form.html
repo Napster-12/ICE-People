@@ -13,10 +13,10 @@
         <option value="0">Choose a vacant position…</option>
         {% for p in ref.positions %}<option value="{{ p.id }}" {{ 'selected' if form.approved_position_id.data == p.id }}
           data-title="{{ p.title }}" data-dept="{{ p.department.name }}" data-cc="{{ p.cost_centre_id or 0 }}"
-          data-cc-label="{{ p.cost_centre or '—' }}" data-grade="{{ p.job_grade_id or 0 }}" data-grade-label="{{ p.job_grade or '—' }}"
-          data-branch="{{ p.branch or '—' }}" data-headcount="{{ 'Replacement' if p.last_holder_id else 'New' }}"
+          data-cc-label="{{ p.cost_centre or '—' }}" data-grade="{{ p.job_grade_id or 0 }}" data-grade-label="{{ p.job_grade or 'Not set (HR to add)' }}"
+          data-branch="{{ p.branch or '—' }}" data-family="{{ p.job_family or '—' }}" data-headcount="{{ 'Replacement' if p.last_holder_id else 'New' }}"
           data-replacing="{{ p.last_holder.full_name if p.last_holder else '' }}"
-          data-ctc="{{ p.budgeted_ctc|money if p.budgeted_ctc is not none else '—' }}">{{ p.position_number }} · {{ p.title }} ({{ p.department.name }}{% if p.branch %}, {{ p.branch }}{% endif %})</option>{% endfor %}
+          data-ctc="{{ p.budgeted_ctc|money if p.budgeted_ctc is not none else 'Not set (HR to add)' }}">{{ p.position_number }} · {{ p.title }} ({{ p.department.name }}{% if p.branch %}, {{ p.branch }}{% endif %})</option>{% endfor %}
       </select>
       <span class="hint">{% if ref.positions %}Only vacant positions you can recruit for are listed.{% else %}No vacant positions are available to you.{% endif %}
         Not on the register? <a href="{{ url_for('positions.adhoc_new') }}">Request an ad-hoc position</a>.</span></div>
@@ -26,6 +26,7 @@
       <div class="kv"><span class="kv-label">Cost centre</span><span class="kv-value" data-f="ccLabel"></span></div>
       <div class="kv"><span class="kv-label">Grade</span><span class="kv-value" data-f="gradeLabel"></span></div>
       <div class="kv"><span class="kv-label">Branch / area</span><span class="kv-value" data-f="branch"></span></div>
+      <div class="kv"><span class="kv-label">Job family</span><span class="kv-value" data-f="family"></span></div>
       <div class="kv"><span class="kv-label">Budgeted CTC</span><span class="kv-value" data-f="ctc"></span></div>
       <div class="kv"><span class="kv-label">Headcount</span><span class="kv-value" data-f="headcount"></span></div>
       <div class="kv" data-replacing-row><span class="kv-label">Replacing</span><span class="kv-value" data-f="replacing"></span></div>
@@ -36,9 +37,9 @@
     </div>
     <div class="admin-form-grid">
       <div class="admin-form-row" data-show="Contract"><label for="contract_end_date">Contract end date *</label>{{ form.contract_end_date() }}
-        <span class="hint">CTC is pro-rated by the number of contract months.</span></div>
+        <span class="hint">The budgeted CTC is pro-rated by the number of contract months.</span></div>
       <div class="admin-form-row" data-show="Casual"><label for="estimated_hours">Estimated hours</label>{{ form.estimated_hours(min=1) }}
-        <span class="hint">CTC = grade hourly rate × hours.</span></div>
+        <span class="hint">For planning; the cost is the position's budgeted CTC.</span></div>
     </div>
     {% if show_exec %}
     <label class="consent" style="margin-top:6px!important">{{ form.is_executive() }} <span><strong>Executive / strategic role.</strong></span></label>
@@ -91,9 +92,8 @@
     timer = setTimeout(function () {
       var box = document.getElementById('budget-preview'), o = chosen();
       if (!pos.value || pos.value === '0' || !type.value) return;
-      var p = new URLSearchParams({job_grade_id: o.dataset.grade, employment_type: type.value, cost_centre_id: o.dataset.cc,
-        start: f.querySelector('#required_start_date').value, end: f.querySelector('#contract_end_date').value,
-        hours: f.querySelector('#estimated_hours').value});
+      var p = new URLSearchParams({position_id: pos.value, employment_type: type.value, cost_centre_id: o.dataset.cc,
+        start: f.querySelector('#required_start_date').value, end: f.querySelector('#contract_end_date').value});
       fetch('{{ url_for('requisitions.api_budget_check') }}?' + p).then(function (r) { return r.json(); }).then(function (d) {
         if (!d.ok) { box.textContent = d.message; return; }
         box.innerHTML = '<div class="kv"><span class="kv-label">Estimated CTC</span><span class="kv-value">' + d.ctc + '</span></div>' +

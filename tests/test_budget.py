@@ -9,30 +9,45 @@ from app.models import BudgetLine, CostCentre, JobGrade, Notification, Overspend
 from app.services import budget
 from app.services.dates import today
 from app.services.errors import DomainError
-from tests.conftest import financial_year, login, make_requisition, user
+from tests.conftest import financial_year, login, make_position, make_requisition, user
 
 
-def grade(n):
-    return JobGrade.query.filter_by(grade=n).first()
+def test_grades_are_named_and_carry_no_salary(app):
+    assert [(g.grade, g.name) for g in JobGrade.query.order_by(JobGrade.grade)] == [
+        (1, "Intern"), (2, "Junior"), (3, "Senior"), (4, "Manager"), (5, "Exco")]
+    assert not hasattr(JobGrade, "band_min") and not hasattr(JobGrade, "hourly_rate")
 
 
-def test_ctc_permanent_is_band_midpoint(app):
-    g = grade(5)
-    assert budget.calculate_ctc(g, "Permanent") == ((g.band_min + g.band_max) / 2).quantize(Decimal("0.01"))
+def test_ctc_permanent_and_casual_are_the_budgeted_ctc(app):
+    p = make_position(budgeted_ctc=Decimal("300000"))
+    assert budget.calculate_ctc(p, "Permanent") == Decimal("300000.00")
+    assert budget.calculate_ctc(p, "Casual") == Decimal("300000.00")
+    assert isinstance(budget.calculate_ctc(p, "Permanent"), Decimal)
 
 
 def test_ctc_contract_is_prorated_by_months(app):
-    g = grade(5)
-    ctc = budget.calculate_ctc(g, "Contract", date(2026, 3, 1), date(2026, 8, 31))
-    assert ctc == (g.midpoint * 6 / 12).quantize(Decimal("0.01"))
+    p = make_position(budgeted_ctc=Decimal("300000"))
+    assert budget.calculate_ctc(p, "Contract", date(2026, 3, 1), date(2026, 8, 31)) == Decimal("150000.00")
     with pytest.raises(DomainError):
-        budget.calculate_ctc(g, "Contract", date(2026, 3, 1), None)
+        budget.calculate_ctc(p, "Contract", date(2026, 3, 1), None)
 
 
-def test_ctc_casual_is_hourly_rate_times_hours(app):
-    g = grade(2)
-    assert budget.calculate_ctc(g, "Casual", estimated_hours=100) == (g.hourly_rate * 100).quantize(Decimal("0.01"))
-    assert isinstance(budget.calculate_ctc(g, "Casual", estimated_hours=100), Decimal)
+def test_ctc_needs_a_budgeted_ctc(app):
+    with pytest.raises(DomainError, match="no budgeted CTC"):                   # a register position
+        budget.calculate_ctc(make_position(budgeted_ctc=None), "Permanent")
+
+
+def test_unbudgeted_ad_hoc_requisition_skips_the_budget_check(app):
+    from app.services import workflow
+    position = make_position(is_ad_hoc=True, budgeted_ctc=None)
+    assert budget.is_unbudgeted(position) and budget.calculate_ctc(position, "Permanent") is None
+    req = make_requisition(user("linemanager"), approved_position_id=position.id)
+    assert req.status == "In Approval" and req.ctc is None and not req.is_over_budget
+    inst = workflow.latest_instance("requisition", req.id)
+    while inst.status == "Pending":
+        step = inst.current_step
+        workflow.act(step, step.assignee, "approve", None)
+    assert req.status == "Approved" and req.committed_amount in (None, Decimal("0"))   # nothing committed
 
 
 @pytest.mark.parametrize("start,end,months", [
@@ -169,19 +184,9 @@ def test_budget_screens(client):
     assert AuditLog.query.filter_by(entity="budget_line", action="update").count() == 1
 
 
-def test_salary_bands_editable_by_hr_admin_only(client):
-    g = grade(3)
-    data = {f"min_{x.id}": x.band_min for x in JobGrade.query.all()}
-    data.update({f"max_{x.id}": x.band_max for x in JobGrade.query.all()})
-    data.update({f"rate_{x.id}": x.hourly_rate for x in JobGrade.query.all()})
-    data[f"max_{g.id}"] = "999999"
+def test_no_salary_bands_page(client):
     login(client, "finance")
-    assert client.get("/budget/salary-bands").status_code == 200
-    assert client.post("/budget/salary-bands", data=data).status_code == 403
-    client.post("/logout")
-    login(client, "hradmin")
-    assert client.post("/budget/salary-bands", data=data).status_code == 302
-    assert grade(3).band_max == Decimal("999999")
-    data[f"max_{g.id}"] = "1"
-    client.post("/budget/salary-bands", data=data)
-    assert grade(3).band_max == Decimal("999999")      # max below min rejected
+    assert client.get("/budget/salary-bands").status_code == 404
+    assert b"Salary Bands" not in client.get("/budget/").data
+
+

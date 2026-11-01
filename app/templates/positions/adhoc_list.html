@@ -18,7 +18,7 @@
     <tr><th>Position</th><th>Department</th><th>Grade</th><th>Requested by</th><th>Requested</th><th>Status</th></tr>
     {% for p in rows %}
     <tr><td><a href="{{ url_for('positions.detail', position_id=p.id) }}"><strong>{{ p.title }}</strong></a><span class="sub">{{ p.position_number }}</span></td>
-      <td>{{ p.department.name }}</td><td>{{ p.job_grade.grade if p.job_grade else '—' }}</td>
+      <td>{{ p.department.name }}</td><td>{{ p.job_grade.name if p.job_grade else '—' }}</td>
       <td>{{ p.requested_by.full_name if p.requested_by else '—' }}</td><td>{{ p.created_at|dt }}</td>
       <td>{{ status('Approved' if p.status in ('Vacant', 'In recruitment', 'Filled', 'Frozen') else p.status) }}</td></tr>
     {% else %}<tr><td colspan="6" class="empty-row">No ad-hoc position requests.</td></tr>{% endfor %}

@@ -24,7 +24,7 @@
     <div class="admin-panel-head"><h3>File format</h3></div>
     <p class="small">Columns, in this order:</p>
     <div class="tag-list" style="margin:8px 0 14px">{% for c in columns %}<span class="tag">{{ c }}</span>{% endfor %}</div>
-    <p class="small muted">One row per position. Financial year as 2026/27 or 2026; grade as a number (1–12); branch, job family
+    <p class="small muted">One row per position. Financial year as 2026/27 or 2026; grade as Intern, Junior, Senior, Manager or Exco; branch, job family
       and reports-to (an existing POS number) are optional; separate minimum requirements with "|". Positions are added as
       planned to a register that isn't approved yet.</p>
     <a class="admin-btn-sm admin-btn-secondary" style="margin-top:14px" href="{{ url_for('positions.import_template') }}">{{ icon('download') }} Download template</a>

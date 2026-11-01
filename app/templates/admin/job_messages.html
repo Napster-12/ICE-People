@@ -1,0 +1,54 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import score_badge %}
+{% block title %}{{ kinds[kind] }} · {{ job.title }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('recruitment.job_detail', job_id=job.id) }}">← {{ job.title }}</a>{% endblock %}
+{% block heading %}{{ kinds[kind] }}s{% endblock %}
+{% block subheading %}{% if kind == 'invitation' %}Email the applicants the Department Manager picked for interview.
+{% else %}Email the applicants who weren't picked for interview. Sending a regret marks the application Rejected.{% endif %}{% endblock %}
+{% block content %}
+<div class="slicer-tabs">
+  {% for k, label in kinds.items() %}
+  <a class="slicer-tab {{ 'slicer-tab-active' if k == kind }}" href="{{ url_for('recruitment.job_messages', job_id=job.id, kind=k) }}">{{ label }}s</a>
+  {% endfor %}
+</div>
+
+<form method="post" class="admin-split">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="kind" value="{{ kind }}">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Send to</h3>
+      <span class="results-count">{{ recipients|length }} {{ 'for interview' if kind == 'invitation' else 'not selected' }}</span></div>
+    <div class="table-responsive"><table class="admin-table">
+      <tr><th><input type="checkbox" checked aria-label="Select all" onclick="document.querySelectorAll('.pick').forEach(c=>c.checked=this.checked)"></th>
+        <th>Applicant</th><th>ATS score</th><th>Already sent</th></tr>
+      {% for a in recipients %}
+      <tr>
+        <td><input type="checkbox" class="pick" name="app_ids" value="{{ a.id }}" checked aria-label="{{ a.candidate.full_name }}"></td>
+        <td><strong>{{ a.candidate.full_name }}</strong><span class="sub">{{ a.candidate.email }} · {{ a.reference }}</span></td>
+        <td>{{ score_badge(a.score) }}</td>
+        <td class="small">{% set prior = a.messages|selectattr('kind', 'equalto', kind)|list %}{% if prior %}{{ prior[0].sent_at|dtt }}{% else %}—{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty-row">{% if kind == 'invitation' %}Nobody is waiting for an interview invitation. The Department Manager picks them from the shortlist.
+        {% else %}Nobody is waiting for a regret letter.{% endif %}</td></tr>
+      {% endfor %}
+    </table></div>
+  </section>
+
+  <section class="admin-panel admin-form">
+    <div class="admin-panel-head" style="margin:0"><h3>Message</h3></div>
+    {% if kind == 'invitation' %}
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="date">Interview date *</label><input id="date" type="date" name="date" value="{{ form.get('date', '') }}" required></div>
+      <div class="admin-form-row"><label for="time">Time *</label><input id="time" type="time" name="time" value="{{ form.get('time', '') }}" required></div>
+    </div>
+    <div class="admin-form-row"><label for="venue">Venue or video link *</label>
+      <input id="venue" type="text" name="venue" value="{{ form.get('venue', '') }}" placeholder="e.g. Head office, 2nd floor boardroom" required></div>
+    {% endif %}
+    <div class="admin-form-row"><label for="note">Extra note (optional)</label>
+      <textarea id="note" name="note" style="min-height:90px" placeholder="{{ 'e.g. Bring your ID and certified copies of your qualifications.' if kind == 'invitation' else 'Added to the letter.' }}">{{ form.get('note', '') }}</textarea></div>
+    <p class="hint">The wording comes from the "Applicant: {{ 'interview invitation' if kind == 'invitation' else 'regret' }}" template under Settings. Each email is kept on the application.</p>
+    <div><button class="filter-btn" {{ 'disabled' if not recipients }}>{{ icon('mail') }} Send {{ kinds[kind]|lower }}s</button></div>
+  </section>
+</form>
+{% endblock %}

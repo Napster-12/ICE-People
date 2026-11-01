@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}Interviews to score{% endblock %}
+{% block heading %}Interviews to score{% endblock %}
+{% block subheading %}Candidates on interview panels you sit on. Score each one after their interview.{% endblock %}
+{% block content %}
+{% if waiting %}
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Panels you're on</h3><span class="results-count">Waiting for HR to send the interview dates</span></div>
+  {% for p in waiting %}
+  <div class="org-row"><div><strong>{{ p.job.title }}</strong>
+    <span class="sub">{{ p.job.reference or '' }}{{ ' · ' ~ p.job.location if p.job.location }} · {{ p.members|length }} on the panel</span></div></div>
+  {% endfor %}
+</section>
+{% endif %}
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Interview</th><th>Candidate</th><th>Vacancy</th><th>Your scorecard</th><th></th></tr>
+    {% for r in rows %}
+    <tr>
+      <td>{% if r.slot %}<strong>{{ r.slot.starts_at|dtt }}</strong><span class="sub">{{ r.slot.venue }}</span>{% else %}—{% endif %}</td>
+      <td><strong>{{ r.application.candidate.full_name }}</strong><span class="sub">{{ r.application.candidate.current_title or '' }}</span></td>
+      <td>{{ r.job.title }}<span class="sub">{{ r.job.reference or '' }}</span></td>
+      <td>{{ status('Submitted' if r.scored else 'Pending') }}</td>
+      <td><a class="admin-btn-sm {{ 'admin-btn-secondary' if r.scored else 'admin-btn-primary' }}"
+             href="{{ url_for('recruitment.scorecard', app_id=r.application.id) }}">{{ 'View scores' if r.scored else 'Score' }}</a></td>
+    </tr>
+    {% else %}<tr><td colspan="5" class="empty-row">No interviews for you to score. HR adds you to a panel and sends the invitation.</td></tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 
 from app.extensions import db
-from app.models import BudgetLine, Delegation, JobGrade, LeaveEntry, Notification, WorkflowStep
+from app.models import BudgetLine, Delegation, Department, JobGrade, LeaveEntry, Notification, WorkflowStep
 from app.services import workflow
 from app.services.dates import now, today
 from app.services.errors import DomainError
@@ -18,20 +18,21 @@ def chain_names(req):
     return [s.name for s in inst.steps]
 
 
-CHAIN = ["Line manager", "Finance / Budget Controller", "Group HR Manager", "GCOO / Exco"]
+CHAIN = ["Line manager", "Finance", "Group HR Manager", "GCOO / Exco"]
 
 
 @pytest.mark.parametrize("new,over,grade,executive", list(itertools.product([False, True], [False, True],
-                                                                             [4, 9], [False, True])))
+                                                                             [2, 4], [False, True])))
 def test_every_requisition_follows_the_same_chain(app, new, over, grade, executive):
-    """Decided 28 Oct 2026: line manager → Finance → Group HR Manager → GCOO or Exco, whatever the request."""
+    """Decided 31 Oct 2026: Department Manager → Line Manager → Finance → Group HR → GCOO / Exco; a Department
+    Manager raising it skips their own step."""
     if over:
         for line in BudgetLine.query.all():
             line.amount = Decimal("1000")
     fields = {"job_grade_id": JobGrade.query.filter_by(grade=grade).first().id, "is_executive": executive}
     if new:
         fields.update(headcount_type="New", replaced_employee_id=None)
-    req = make_requisition(user("hod"), **fields)   # HOD may set the executive flag
+    req = make_requisition(user("hod"), **fields)   # a Department Manager may set the executive flag
     assert chain_names(req) == CHAIN
     assert req.status == "In Approval"
     assert req.is_over_budget is over
@@ -54,28 +55,28 @@ def test_last_step_goes_to_exco_when_there_is_no_gcoo(app):
 def test_gcoo_cannot_approve_own_requisition_exco_does(app):
     req = make_requisition(user("gcoo"))
     inst = workflow.latest_instance("requisition", req.id)
-    steps = {s.level: s for s in inst.steps}
-    assert steps[1].assignee.username == "hod"              # GCOO has no manager: the position's HOD
-    for actor in ("hod", "finance", "grouphr"):
+    assert inst.current_step.assignee.username == "linemanager"   # above the Sales Department Manager
+    for actor in ("linemanager", "finance", "grouphr"):
         workflow.act(inst.current_step, user(actor), "approve", "ok")
     assert inst.current_step.assignee.username == "exco"
 
 
-def test_level_one_goes_to_line_manager_then_hod(app):
-    req = make_requisition(user("employee"))
+def test_line_manager_step_goes_to_the_line_manager_above_the_department_manager(app):
+    req = make_requisition(user("hod"))                     # Sales Department Manager raises it
     step = workflow.latest_instance("requisition", req.id).current_step
-    assert step.assignee.username == "linemanager"
-    req2 = make_requisition(user("linemanager"))
-    assert workflow.latest_instance("requisition", req2.id).current_step.assignee.username == "hod"
+    assert step.name == "Line manager" and step.assignee.username == "linemanager"
+    fin = Department.query.filter_by(code="FIN").first()     # Finance's Department Manager reports to the GCOO
+    req2 = make_requisition(user("otherhod"), department_id=fin.id, cost_centre_id=fin.cost_centres[0].id)
+    assert workflow.latest_instance("requisition", req2.id).current_step.assignee.username == "gcoo"
 
 
 def test_no_self_approval_routes_to_originators_manager(app):
     # Finance raises a requisition: level 2 would be Finance themselves.
     req = make_requisition(user("finance"))
     inst = workflow.latest_instance("requisition", req.id)
-    workflow.act(inst.current_step, user("gcoo"), "approve", "OK from line manager")
+    workflow.act(inst.current_step, user("linemanager"), "approve", "OK from line manager")
     step2 = inst.current_step
-    assert step2.name == "Finance / Budget Controller"
+    assert step2.name == "Finance"
     assert step2.assignee.username == "gcoo"               # Finance's manager
     assert "can't approve their own" in step2.routing_note
     with pytest.raises(DomainError):
@@ -83,9 +84,9 @@ def test_no_self_approval_routes_to_originators_manager(app):
 
 
 def test_full_approval_commits_budget(app):
-    req = make_requisition(user("linemanager"), headcount_type="New", replaced_employee_id=None)
+    req = make_requisition(user("hod"), headcount_type="New", replaced_employee_id=None)
     inst = workflow.latest_instance("requisition", req.id)
-    for actor in ("hod", "finance", "grouphr", "gcoo"):
+    for actor in ("linemanager", "finance", "grouphr", "gcoo"):
         workflow.act(inst.current_step, user(actor), "approve", f"Approved by {actor}")
     assert inst.status == "Approved" and req.status == "Approved"
     assert req.approved_position.status == "In recruitment"
@@ -93,11 +94,12 @@ def test_full_approval_commits_budget(app):
     assert Decimal(req.budget_line.committed) == Decimal(req.ctc)
 
 
-def test_comment_is_mandatory_and_only_assignee_can_act(app):
+def test_reason_needed_to_return_or_reject_and_only_assignee_can_act(app):
     req = make_requisition(user("employee"))
     step = workflow.latest_instance("requisition", req.id).current_step
-    with pytest.raises(DomainError, match="comment"):
-        workflow.act(step, user("linemanager"), "approve", "  ")
+    for action in ("return", "reject"):
+        with pytest.raises(DomainError, match="Give a reason"):
+            workflow.act(step, user("linemanager"), action, "  ")
     with pytest.raises(DomainError, match="not the approver"):
         workflow.act(step, user("finance"), "approve", "sneaky")
     with pytest.raises(DomainError):
@@ -116,7 +118,7 @@ def test_return_then_resubmit_restarts_at_level_one(app):
     assert "returned for revision" in note.body
     requisitions.submit(req, user("employee"))
     new = workflow.latest_instance("requisition", req.id)
-    assert new.round == 2 and new.current_step.level == 1
+    assert new.round == 2 and new.current_step == new.steps[0]
     assert req.version == 2 and len(req.versions) == 2
 
 
@@ -152,7 +154,7 @@ def test_approver_on_leave_without_delegate_goes_to_manager(app):
                               end_date=today() + timedelta(days=3)))
     req = make_requisition(user("employee"))
     step = workflow.latest_instance("requisition", req.id).current_step
-    assert step.assignee.username == "hod" and "on leave" in step.routing_note
+    assert step.assignee.username == "gcoo" and "on leave" in step.routing_note   # the line manager's manager
 
 
 def test_delegation_route_via_ui_reroutes_waiting_steps(client, app):
@@ -185,9 +187,9 @@ def test_sla_reminder_then_escalation(app):
     assert workflow.run_sla_checks(datetime(2026, 11, 3, 12, 0)) == {"reminded": 0, "escalated": 0}
     result = workflow.run_sla_checks(datetime(2026, 11, 4, 9, 30))
     assert result == {"reminded": 0, "escalated": 1}
-    assert step.assignee.username == "hod" and step.escalated_from.username == "linemanager"
+    assert step.assignee.username == "gcoo" and step.escalated_from.username == "linemanager"
     # The original approver keeps the right to act; so does the escalation target.
-    workflow.act(step, user("hod"), "approve", "Escalated and approved")
+    workflow.act(step, user("gcoo"), "approve", "Escalated and approved")
     assert step.status == "Approved"
 
 
@@ -209,11 +211,14 @@ def test_inbox_and_act_route(client):
     page = client.get("/approvals/")
     assert req.reference.encode() in page.data
     step = workflow.latest_instance("requisition", req.id).current_step
-    r = client.post(f"/approvals/steps/{step.id}/act", data={"action": "approve", "comment": ""})
-    assert r.status_code == 302
-    assert db.session.get(WorkflowStep, step.id).status == "Pending"     # comment missing
-    client.post(f"/approvals/steps/{step.id}/act", data={"action": "approve", "comment": "Good"})
-    assert db.session.get(WorkflowStep, step.id).status == "Approved"
+    assert b'data-act-open="reject"' in client.get(f"/requisitions/{req.id}").data   # buttons; the box opens on demand
+    for action in ("return", "reject"):                                  # a reason is required for these two
+        r = client.post(f"/approvals/steps/{step.id}/act", data={"action": action, "comment": " "})
+        assert r.status_code == 302 and db.session.get(WorkflowStep, step.id).status == "Pending"
+    client.post(f"/approvals/steps/{step.id}/act", data={"action": "approve"})   # approving needs no comment
+    approved = db.session.get(WorkflowStep, step.id)
+    assert approved.status == "Approved" and approved.comment is None
+    assert client.get("/approvals/").status_code == 200                  # "decided" list with no comment
     from app.models import AuditLog
     assert AuditLog.query.filter_by(action="approval.approve").count() == 1
 
@@ -221,7 +226,7 @@ def test_inbox_and_act_route(client):
 def test_routing_rule_edit_validates_condition(client):
     from app.models import RoutingRule
     from tests.conftest import login
-    login(client, "hradmin")
+    login(client, "it")
     rule = RoutingRule.query.filter_by(level=4).first()
     r = client.post(f"/admin/rules/{rule.id}", data={"workflow_type": "requisition", "level": 4, "name": "HR Manager",
                                                    "approver": "HR Manager", "condition": "grade >= ", "sla_days": 3,
@@ -231,3 +236,24 @@ def test_routing_rule_edit_validates_condition(client):
                                                "approver": "HR Manager", "condition": "grade >= 6", "sla_days": 3,
                                                "active": "1"})
     assert db.session.get(RoutingRule, rule.id).condition == "grade >= 6"
+
+
+def test_requisition_raised_by_hr_goes_to_the_department_manager_first(app):
+    """Decided 31 Oct 2026: HR's requisition starts with the position's Department Manager, not HR's own manager."""
+    req = make_requisition(user("hrbp"))                                   # a Sales position
+    inst = workflow.latest_instance("requisition", req.id)
+    assert [s.name for s in inst.steps] == ["Department manager", "Line manager", "Finance", "Group HR Manager",
+                                            "GCOO / Exco"]
+    assert inst.current_step.approver_id == user("hod").id                # head of Sales
+    workflow.act(inst.current_step, user("hod"), "approve", None)
+    assert inst.current_step.assignee.username == "linemanager"           # the line manager above them
+    by_manager = make_requisition(user("hod"))
+    assert workflow.latest_instance("requisition", by_manager.id).steps[0].name == "Line manager"
+
+
+def test_step_with_no_approver_falls_back_to_originators_manager_when_hr_admin_raised_it(app):
+    from app.services.workflow import resolve_approver
+    user("grouphr").active = False                              # nobody holds Group HR Manager
+    db.session.flush()
+    who, note = resolve_approver("Group HR Manager", user("hradmin"), None)
+    assert who.username == "hrmanager" and "originator's manager" in note   # HR Admin raised it: their manager

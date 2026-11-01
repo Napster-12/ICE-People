@@ -7,7 +7,8 @@
 {% block actions %}
 {{ status_badge(job.status) }}
 <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('careers.job_detail', job_id=job.id) }}" target="_blank">Public Page</a>
-<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('recruitment.job_form', job_id=job.id) }}">Edit Job &amp; Criteria</a>
+{% if job.is_advert %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('adverts.detail', job_id=job.id) }}">Advert {{ job.reference }}</a>
+{% else %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('recruitment.job_form', job_id=job.id) }}">Edit Job &amp; Criteria</a>{% endif %}
 {% endblock %}
 {% block content %}
 <div class="slicer-tabs">
@@ -16,6 +17,40 @@
 </div>
 
 {% if tab == 'applicants' %}
+{#- Shortlist → Department Manager picks who goes to interview → HR emails invitations and regrets. -#}
+<section class="admin-panel">
+  <div class="admin-panel-head">
+    <div><h3>Shortlist and interviews</h3>
+      <p class="small muted">Shortlisted {{ counts.get('Shortlisted', 0) }} · For interview {{ counts.get('Interview', 0) }}
+        · Not selected {{ counts.get('Not selected', 0) }} · Rejected {{ counts.get('Rejected', 0) }}</p></div>
+    <div class="row-actions" style="flex-wrap:wrap">
+      {% if review and review.status == 'Pending' %}
+        <span class="status-badge st-Pending">With {{ review.reviewer.full_name }}</span>
+      {% elif department_manager %}
+        <form method="post" action="{{ url_for('recruitment.shortlist_send', job_id=job.id) }}"
+              data-confirm-title="Send the shortlist?" data-confirm-ok="Send shortlist"
+              data-confirm="{{ counts.get('Shortlisted', 0) }} shortlisted applicant(s) go to {{ department_manager.full_name }}, who picks who comes for an interview. You'll be notified when they've chosen.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="admin-btn-sm admin-btn-primary" {{ 'disabled' if not counts.get('Shortlisted') }}>{{ icon('users') }} Send shortlist to {{ department_manager.full_name }}</button>
+        </form>
+      {% endif %}
+      <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('recruitment.job_messages', job_id=job.id, kind='invitation') }}">{{ icon('mail') }} Interview invitations ({{ counts.get('Interview', 0) }})</a>
+      <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('recruitment.job_messages', job_id=job.id, kind='regret') }}">{{ icon('mail') }} Regret letters ({{ counts.get('Not selected', 0) }})</a>
+      <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('recruitment.panel', job_id=job.id) }}">{{ icon('users') }} Interview panel</a>
+    </div>
+  </div>
+  {% if not department_manager %}
+    <p class="small muted">This advert's department has no Department Manager with an account, so the shortlist can't be sent for review. Set one on the Departments page.</p>
+  {% endif %}
+  {% if review %}
+    <p class="small">
+      {% if review.status == 'Pending' %}Sent to {{ review.reviewer.full_name }} by {{ review.sent_by.full_name }} on {{ review.created_at|dtt }}: {{ review.application_ids|length }} applicant(s) waiting for their selection.
+      {% else %}{{ review.reviewer.full_name }} picked {{ review.selected_ids|length }} of {{ review.application_ids|length }} for interview on {{ review.completed_at|dtt }}.{% endif %}
+      <a href="{{ url_for('recruitment.shortlist_review', review_id=review.id) }}">View</a></p>
+    {% if review.comment %}<div class="review-comment">{{ review.comment }}</div>{% endif %}
+  {% endif %}
+</section>
+
 <form class="filter-section" method="get">
   <div class="filter-grid">
     <div class="filter-field"><label>Minimum ATS score: <span class="range-out" id="ms-out">{{ args.get('min_score', 0) }}</span>%</label>

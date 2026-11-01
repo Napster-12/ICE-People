@@ -61,7 +61,7 @@
         <span class="sub">{{ p.position_number }}{% if p.is_ad_hoc %} · ad hoc{% endif %}</span></td>
       <td>{{ p.department.name }}<span class="sub">{{ p.business_unit or '' }}</span></td>
       <td>{{ p.branch or '—' }}<span class="sub">{{ p.region or '' }}</span></td>
-      <td>{{ p.job_grade.grade if p.job_grade else '—' }}</td>
+      <td>{{ p.job_grade.name if p.job_grade else '—' }}</td>
       <td>{{ p.budgeted_ctc|money if p.budgeted_ctc is not none else '—' }}</td>
       <td>{{ p.holder.full_name if p.holder else '—' }}</td>
       <td>{{ status(p.status) }}</td></tr>

@@ -6,10 +6,14 @@ from app.services.dates import now
 LINE_MANAGER_OR_HOD = "@line_manager_or_hod"
 ORIGINATOR_MANAGER = "@originator_manager"
 GCOO_OR_EXCO = "@gcoo_or_exco"
+DEPARTMENT_MANAGER = "@department_manager"
+DEPARTMENT_LINE_MANAGER = "@department_line_manager"
 SPECIAL_APPROVERS = {
-    LINE_MANAGER_OR_HOD: "Line Manager / HOD of the originator",
+    LINE_MANAGER_OR_HOD: "Line Manager / Department Manager of the originator",
     ORIGINATOR_MANAGER: "Originator's manager",
     GCOO_OR_EXCO: "GCOO, or an Exco member",
+    DEPARTMENT_MANAGER: "Department Manager of the request's department",
+    DEPARTMENT_LINE_MANAGER: "Line Manager above the department's Department Manager",
 }
 
 INSTANCE_STATUSES = ["Pending", "Approved", "Returned", "Rejected", "Cancelled"]

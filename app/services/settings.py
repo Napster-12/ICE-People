@@ -12,9 +12,14 @@ DEFAULTS = {
                            "Inactive approval steps get a reminder after this many business hours."),
     "default_sla_days": ("2", "Default approval SLA (business days)", "Used for new routing rules."),
     "probation_months": ("6", "Probation period (months)", "Default probation length for new starters."),
-    "casual_default_hours": ("520", "Casual role estimated hours",
-                             "Hours used for casual CTC when a requisition doesn't state them."),
+    "advert_closing_days": ("21", "Advert open for (days)", "Default closing date for a new or re-advertised advert."),
+    "advert_ee_statement": ("Icebolethu Group is an equal opportunity employer and embraces the principles of the "
+                            "Employment Equity Act. Preference may be given to candidates from designated groups in "
+                            "line with our Employment Equity plan.",
+                            "Advert EE and equal opportunity statement",
+                            "Added to every new advert (JA-004). Recruiters can adjust it per advert."),
 }
+TEXT_KEYS = {"advert_ee_statement"}   # every other setting is a number
 
 
 def get(key, cast=str):

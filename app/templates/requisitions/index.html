@@ -33,7 +33,7 @@
     {% for r in rows %}
     <tr>
       <td><strong><a href="{{ url_for('requisitions.detail', req_id=r.id) }}">{{ r.reference }}</a></strong></td>
-      <td><strong>{{ r.title }}</strong><span class="sub">{{ 'Grade ' ~ r.job_grade.grade if r.job_grade }}{{ ' · by ' ~ r.originator.full_name }}</span></td>
+      <td><strong>{{ r.title }}</strong><span class="sub">{{ r.job_grade.name if r.job_grade }}{{ ' · by ' ~ r.originator.full_name }}</span></td>
       <td>{{ r.department.name if r.department else '—' }}</td>
       <td>{{ r.employment_type or '—' }}<span class="sub">{{ r.headcount_type or '' }}</span></td>
       <td>{{ r.ctc|money if r.ctc is not none else '—' }}</td>

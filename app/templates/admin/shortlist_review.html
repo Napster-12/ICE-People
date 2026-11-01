@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% from "admin/_macros.html" import score_badge %}
+{% block title %}Shortlist · {{ review.job.title }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('recruitment.shortlists') if not current_user.is_hr else url_for('recruitment.job_detail', job_id=review.job_id) }}">← {{ 'Shortlist reviews' if not current_user.is_hr else review.job.title }}</a>{% endblock %}
+{% block heading %}{{ review.job.title }}{% endblock %}
+{% block subheading %}Shortlist from {{ review.sent_by.full_name }}, {{ review.created_at|dtt }}.
+{% if can_review %}Tick who goes to interview; the rest won't be invited.{% endif %}{% endblock %}
+{% block actions %}{{ status(review.status) }}{% endblock %}
+{% block content %}
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Shortlisted applicants</h3>
+      <span class="results-count">{{ review.application_ids|length }} applicant(s), best ATS score first</span></div>
+    <div class="table-responsive"><table class="admin-table">
+      <tr><th>Interview</th><th>Applicant</th><th>ATS score</th><th>Experience</th><th>Qualification</th><th>CV</th><th>Status</th></tr>
+      {% for a in review.applications %}
+      {% set c = a.candidate %}
+      <tr>
+        <td>{% if can_review %}<input type="checkbox" name="app_ids" value="{{ a.id }}" aria-label="Interview {{ c.full_name }}">
+            {% else %}{{ 'Yes' if a.id in (review.selected_ids or []) else '—' }}{% endif %}</td>
+        <td><strong>{{ c.full_name }}</strong><span class="sub">{{ c.current_title or '' }}{{ ' · ' ~ c.location if c.location }}</span>
+          {% if a.cover_note %}<details><summary>Cover note</summary><div class="small">{{ a.cover_note }}</div></details>{% endif %}</td>
+        <td>{{ score_badge(a.score) }}</td>
+        <td>{{ c.years_experience ~ ' years' if c.years_experience is not none else '—' }}</td>
+        <td>{{ education_labels.get(c.education_level, '—') if c.education_level else '—' }}</td>
+        <td>{% if c.cv_file %}<a href="{{ url_for('recruitment.shortlist_cv', review_id=review.id, app_id=a.id) }}" target="_blank">Open CV</a>{% else %}—{% endif %}</td>
+        <td>{{ status(a.status) }}</td>
+      </tr>
+      {% endfor %}
+    </table></div>
+  </section>
+
+  {% if can_review %}
+  <section class="admin-panel admin-form">
+    <div class="admin-form-row"><label for="comment">Comment for HR (optional)</label>
+      <textarea id="comment" name="comment" style="min-height:80px" placeholder="e.g. Please schedule the interviews for next week."></textarea></div>
+    <div><button class="filter-btn">{{ icon('check') }} Send my selection to HR</button></div>
+  </section>
+  {% elif review.comment %}
+  <section class="admin-panel"><div class="admin-panel-head"><h3>Comment</h3></div><div class="review-comment">{{ review.comment }}</div></section>
+  {% endif %}
+</form>
+{% endblock %}

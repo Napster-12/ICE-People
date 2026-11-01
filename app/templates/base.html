@@ -4,7 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Careers{% endblock %} · {% block site_name %}Icebolethu Group{% endblock %}</title>
-  <link rel="icon" href="{{ asset('logo.png') }}">
+  {# The Icebolethu handshake-and-sun mark (the same icon as IGSP and Icebolethu Self Service). #}
+  <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+  <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+  <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">

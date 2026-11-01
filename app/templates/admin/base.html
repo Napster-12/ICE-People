@@ -1,116 +1,160 @@
 {% extends "base.html" %}
 {% block site_name %}{{ system_name }}{% endblock %}
-{% block body_class %}app-body{% endblock %}
+{% block body_class %}ig-body{% endblock %}
 {% block layout %}
 <a class="skip-link" href="#main">Skip to content</a>
 
-<div class="shell">
-  <nav class="rail" id="rail" aria-label="Main">
-    <a class="rail-brand" href="{{ url_for('dashboards.home') }}">
-      <span class="brand-mark" aria-hidden="true">ICE</span>
-      <span class="rail-label brand-text">ICE People<small>Administration System</small></span>
-    </a>
-    <div class="rail-group">
-      {% for link in nav.links %}
-      <a class="rail-item {{ 'active' if link.active }}" href="{{ url_for(link.endpoint) }}" title="{{ link.label }}">
-        {{ icon(link.icon) }}<span class="rail-label">{{ link.label }}</span>
-        {% if link.endpoint == 'approvals.inbox' and pending_approvals %}<span class="rail-count">{{ pending_approvals }}</span>{% endif %}
-      </a>
-      {% endfor %}
-    </div>
-    {% for menu in nav.menus %}
-    <div class="rail-group">
-      <div class="rail-heading">{{ menu.title }}</div>
-      {% for item in menu['items'] %}
-      <a class="rail-item {{ 'active' if item.active }}" href="{{ url_for(item.endpoint) }}" title="{{ item.label }}">
-        {{ icon(item.icon) }}<span class="rail-label">{{ item.label }}</span></a>
-      {% endfor %}
-    </div>
-    {% endfor %}
-    <div class="rail-foot rail-label">
+{#- Layout taken from the IGSP admin area: white sidebar (logo, links, account), then the page on the grey background. -#}
+<div class="ig-shell">
+  <aside class="ig-sidebar">
+    <a class="ig-brand" href="{{ url_for('dashboards.home') }}">
       <img src="{{ asset('logo.png') }}" alt="Icebolethu Group">
-    </div>
-  </nav>
-  <div class="rail-scrim" aria-hidden="true"></div>
+      <span>ICE People Administration</span>
+    </a>
 
-  <div class="workspace">
-    <header class="masthead">
-      <div class="toolbar">
-        <button class="tool-btn rail-toggle" type="button" aria-label="Show or hide navigation" aria-controls="rail">{{ icon('menu') }}</button>
+    <button type="button" class="ig-menu-toggle" data-menu-toggle aria-controls="ig-menu" aria-expanded="false">
+      {{ icon('menu') }}<span>Menu</span>
+    </button>
+
+    <div class="ig-sidebar-menu" id="ig-menu">
+      <nav class="ig-nav" aria-label="Main">
+        {% for link in nav.links %}
+        <a class="ig-nav-link{{ ' is-active' if link.active }}" href="{{ url_for(link.endpoint) }}"{% if link.active %} aria-current="page"{% endif %}>
+          {{ icon(link.icon) }}<span>{{ link.label }}</span>
+          {% if link.endpoint == 'approvals.inbox' and pending_approvals %}<span class="ig-nav-count">{{ pending_approvals }}</span>{% endif %}
+        </a>
+        {% endfor %}
+        {% for menu in nav.menus %}
+        <div class="ig-nav-heading">{{ menu.title }}</div>
+        {% for item in menu['items'] %}
+        <a class="ig-nav-link{{ ' is-active' if item.active }}" href="{{ url_for(item.endpoint) }}"{% if item.active %} aria-current="page"{% endif %}>
+          {{ icon(item.icon) }}<span>{{ item.label }}</span></a>
+        {% endfor %}
+        {% endfor %}
+        <div class="ig-nav-heading">My account</div>
+        {% for item in nav.user_menu %}
+        <a class="ig-nav-link{{ ' is-active' if item.active }}" href="{{ url_for(item.endpoint) }}"{% if item.active %} aria-current="page"{% endif %}>
+          {{ icon(item.icon) }}<span>{{ item.label }}</span></a>
+        {% endfor %}
+        <a class="ig-nav-link" href="{{ url_for('careers.index') }}" target="_blank">{{ icon('external') }}<span>Careers site</span></a>
+      </nav>
+
+      <div class="ig-account">
+        <div class="ig-avatar" aria-hidden="true">{{ current_user.full_name|initials }}</div>
+        <div class="ig-account-text">
+          <strong>{{ current_user.full_name }}</strong>
+          <span>{{ current_user.email or current_user.username }}</span>
+          <span class="ig-account-role">{{ current_user.role_names|sort|join(' · ') }}</span>
+        </div>
+        <form method="post" action="{{ url_for('auth.logout') }}" class="ig-logout-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="ig-logout">{{ icon('logout') }}<span>Sign out</span></button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <main class="ig-main" id="main">
+    <header class="ig-page-head">
+      <div class="ig-page-title">
+        <div class="page-crumb">{% block crumb %}{% endblock %}</div>
+        <h1>{% block heading %}{% endblock %}</h1>
+        <p class="ig-subtitle">{% block subheading %}Icebolethu Group · Human Resources{% endblock %}</p>
+      </div>
+      <div class="ig-page-tools">
         {% if nav.search %}
-        <form class="toolbar-search" method="get" action="{{ url_for(nav.search) }}" role="search">
+        <form class="ig-search" method="get" action="{{ url_for(nav.search) }}" role="search">
           {{ icon('search') }}
-          <input type="search" name="q" placeholder="Search requisitions by title or REQ number" aria-label="Search requisitions"
+          <input type="search" name="q" placeholder="Search requisitions" aria-label="Search requisitions by title or REQ number"
                  value="{{ request.args.get('q', '') if request.endpoint == nav.search }}">
         </form>
         {% endif %}
-        <div class="toolbar-right">
-          <a class="tool-btn" href="{{ url_for('portal.notifications') }}" title="Notifications" aria-label="Notifications">{{ icon('mail') }}
-            {% if unread_notifications %}<span class="tool-badge">{{ unread_notifications }}</span>{% endif %}</a>
-          <details class="menu">
-            <summary class="tool-user" aria-label="Your account">
-              <span class="avatar">{{ current_user.full_name|initials }}</span>
-              <span class="tool-user-name">{{ current_user.full_name }}</span>{{ icon('chevron') }}
-            </summary>
-            <div class="menu-pop menu-pop-right">
-              <div class="menu-head">
-                <span class="avatar lg">{{ current_user.full_name|initials }}</span>
-                <div><strong>{{ current_user.full_name }}</strong>
-                  <small>{{ current_user.email or current_user.username }}</small>
-                  <small>{{ current_user.role_names|sort|join(' · ') }}</small></div>
-              </div>
-              {% for item in nav.user_menu %}
-              <a class="menu-item {{ 'active' if item.active }}" href="{{ url_for(item.endpoint) }}">{{ icon(item.icon) }} {{ item.label }}</a>
-              {% endfor %}
-              <a class="menu-item" href="{{ url_for('careers.index') }}" target="_blank">{{ icon('external') }} Careers site</a>
-              <form method="post" action="{{ url_for('auth.logout') }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="menu-item menu-signout">{{ icon('logout') }} Sign out</button>
-              </form>
-            </div>
-          </details>
-        </div>
-      </div>
-      <div class="page-head">
-        <div class="page-head-text">
-          <div class="page-crumb">{% block crumb %}{% endblock %}</div>
-          <h1 class="page-title">{% block heading %}{% endblock %}</h1>
-          <p class="page-sub">{% block subheading %}Icebolethu Group · Human Resources{% endblock %}</p>
-        </div>
-        <div class="page-actions">{% block actions %}{% endblock %}</div>
+        <div class="ig-page-actions page-actions">{% block actions %}{% endblock %}</div>
+        {% set on_notes = request.endpoint == 'portal.notifications' %}
+        <a href="{{ url_for('portal.notifications') }}" class="ig-bell{{ ' has-unread' if unread_notifications }}{{ ' is-active' if on_notes }}"
+           title="Notifications" aria-label="Notifications{% if unread_notifications %}, {{ unread_notifications }} unread{% endif %}">
+          <span class="ig-bell-icon">{{ icon('bell') }}</span>
+          <span class="ig-bell-count{{ ' is-zero' if not unread_notifications }}">{{ unread_notifications or 0 }}</span>
+        </a>
       </div>
     </header>
 
-    <main class="page-body" id="main">
-      {% include "_flashes.html" %}
-      {% block content %}{% endblock %}
-    </main>
-  </div>
+    {% include "_flashes.html" %}
+    {% block content %}{% endblock %}
+  </main>
 </div>
 
+<dialog class="ig-modal" id="confirm-modal" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+  <form method="dialog" class="ig-modal-box">
+    <div class="ig-modal-icon" aria-hidden="true">!</div>
+    <h2 id="confirm-title">Please confirm</h2>
+    <p id="confirm-text"></p>
+    <div class="ig-modal-actions">
+      <button value="cancel" class="admin-btn-sm admin-btn-secondary">Cancel</button>
+      <button value="ok" class="admin-btn-sm admin-btn-primary" id="confirm-ok">Confirm</button>
+    </div>
+  </form>
+</dialog>
 <script>
 (function () {
-  var body = document.body, toggle = document.querySelector('.rail-toggle');
-  var narrow = window.matchMedia('(max-width: 900px)');
-  try { if (localStorage.getItem('rail') === 'collapsed') body.classList.add('rail-collapsed'); } catch (e) {}
-  toggle.addEventListener('click', function () {
-    if (narrow.matches) { body.classList.toggle('rail-open'); return; }
-    var collapsed = body.classList.toggle('rail-collapsed');
-    try { localStorage.setItem('rail', collapsed ? 'collapsed' : 'open'); } catch (e) {}
-  });
-  document.querySelector('.rail-scrim').addEventListener('click', function () { body.classList.remove('rail-open'); });
-  var menus = document.querySelectorAll('details.menu');
+  // Phones and tablets: the sidebar becomes a top bar with a Menu button (as in IGSP's shell.js).
+  var body = document.body, toggle = document.querySelector('[data-menu-toggle]');
+  function setOpen(open) {
+    body.classList.toggle('ig-menu-open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  toggle.addEventListener('click', function () { setOpen(!body.classList.contains('ig-menu-open')); });
   document.addEventListener('click', function (e) {
-    menus.forEach(function (m) { if (!m.contains(e.target)) m.open = false; });
+    if (body.classList.contains('ig-menu-open') && !e.target.closest('.ig-sidebar')) setOpen(false);
   });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { menus.forEach(function (m) { m.open = false; }); body.classList.remove('rail-open'); }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setOpen(false); });
+  // Approval forms (_ui.act_form): Return for revision and Reject open the comment box, which then needs a reason.
+  var ACT = {return: ['Reason for returning (required)', 'Return for revision', 'admin-btn-secondary'],
+             reject: ['Reason for rejecting (required)', 'Reject', 'admin-btn-danger']};
+  document.addEventListener('click', function (e) {
+    var open = e.target.closest('[data-act-open]'), cancel = e.target.closest('[data-act-cancel]');
+    if (!open && !cancel) return;
+    var form = (open || cancel).closest('.act-form'), box = form.querySelector('.act-comment'),
+        text = box.querySelector('textarea'), confirm = box.querySelector('[data-act-confirm]');
+    form.querySelector('.act-buttons').hidden = !!open;
+    box.hidden = !open;
+    text.disabled = !open; text.required = !!open;
+    if (open) {
+      var a = ACT[open.dataset.actOpen];
+      box.querySelector('[data-act-label]').textContent = a[0];
+      confirm.value = open.dataset.actOpen;
+      confirm.textContent = a[1];
+      confirm.className = 'admin-btn-sm ' + a[2];
+      text.focus();
+    }
   });
-  // Confirm dangerous actions: <form data-confirm="Are you sure?">
+  // Confirmations: <form data-confirm="Message" data-confirm-title="…" data-confirm-ok="…" data-confirm-danger>
+  // open the popup below instead of the browser's own box; the form is sent only when the action is confirmed.
+  var modal = document.getElementById('confirm-modal'), pending = null;
   document.addEventListener('submit', function (e) {
-    var msg = e.target.getAttribute('data-confirm');
-    if (msg && !window.confirm(msg)) e.preventDefault();
+    var form = e.target, msg = form.getAttribute('data-confirm');
+    if (!msg) return;
+    if (form.dataset.confirmed) { delete form.dataset.confirmed; return; }
+    e.preventDefault();
+    pending = {form: form, submitter: e.submitter || null};
+    var danger = form.hasAttribute('data-confirm-danger');
+    document.getElementById('confirm-title').textContent = form.dataset.confirmTitle || 'Please confirm';
+    document.getElementById('confirm-text').textContent = msg;
+    var ok = document.getElementById('confirm-ok');
+    ok.textContent = form.dataset.confirmOk || 'Confirm';
+    ok.className = 'admin-btn-sm ' + (danger ? 'admin-btn-danger-solid' : 'admin-btn-primary');
+    modal.classList.toggle('is-danger', danger);
+    modal.showModal();
+    ok.focus();
   });
+  modal.addEventListener('close', function () {
+    if (modal.returnValue === 'ok' && pending) {
+      pending.form.dataset.confirmed = '1';
+      pending.form.requestSubmit(pending.submitter);
+    }
+    pending = null;
+  });
+  modal.addEventListener('click', function (e) { if (e.target === modal) modal.close('cancel'); });   // backdrop
 })();
 </script>
 {% block scripts %}{% endblock %}

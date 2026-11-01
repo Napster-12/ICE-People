@@ -3,7 +3,7 @@
 {% block title %}Thank you{% endblock %}
 
 {% block hero %}
-{% call page_hero("Thank you!", compact=True, id='thanks') %}
+{% call page_hero("Thank you!", compact=True, id='thanks', photo='login-bg.jpg') %}
   {% if app_row.title %}
     <p class="poster-lead">Your application for <strong>{{ app_row.title }}</strong> has been received.</p>
   {% else %}

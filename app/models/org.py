@@ -1,6 +1,5 @@
-"""Organisation: business units, departments, cost centres, regions and branches, job families, grades and
-salary bands, the approved positions register, employees."""
-from decimal import Decimal
+"""Organisation: business units, departments, cost centres, regions and branches, job families, job grades,
+the approved positions register, employees."""
 
 from app.extensions import db
 from app.models.base import EncryptedString, TimestampMixin
@@ -72,10 +71,13 @@ class Department(db.Model):
     name = db.Column(db.String(120), nullable=False)
     hod_employee_id = db.Column(db.Integer, db.ForeignKey("employees.id", use_alter=True), index=True)
     business_unit_id = db.Column(db.Integer, db.ForeignKey("business_units.id"), index=True)
+    # Pre-filled on a Department Manager's ad-hoc position request.
+    job_family_id = db.Column(db.Integer, db.ForeignKey("job_families.id"), index=True)
     active = db.Column(db.Boolean, default=True, nullable=False)
 
     hod = db.relationship("Employee", foreign_keys=[hod_employee_id], post_update=True)
     business_unit = db.relationship(BusinessUnit)
+    job_family = db.relationship(JobFamily)
     cost_centres = db.relationship("CostCentre", back_populates="department", order_by="CostCentre.code")
 
     def __str__(self):
@@ -97,21 +99,15 @@ class CostCentre(db.Model):
 
 
 class JobGrade(db.Model):
-    """Job grade 1–12 with its annual CTC salary band (maintained by HR Admin)."""
+    """Job grade: Intern, Junior, Senior, Manager or Exco. `grade` is its rank (1–5) for ordering and routing-rule
+    conditions such as `grade >= 4` (Manager and above). Grades carry no salary: a position's budgeted CTC does."""
     __tablename__ = "job_grades"
     id = db.Column(db.Integer, primary_key=True)
     grade = db.Column(db.Integer, unique=True, nullable=False)
     name = db.Column(db.String(80), nullable=False)
-    band_min = db.Column(db.Numeric(14, 2), nullable=False, default=0)
-    band_max = db.Column(db.Numeric(14, 2), nullable=False, default=0)
-    hourly_rate = db.Column(db.Numeric(10, 2), nullable=False, default=0)
-
-    @property
-    def midpoint(self):
-        return ((Decimal(self.band_min) + Decimal(self.band_max)) / 2).quantize(Decimal("0.01"))
 
     def __str__(self):
-        return f"Grade {self.grade} · {self.name}"
+        return self.name
 
 
 class PositionRegister(db.Model):
@@ -246,8 +242,11 @@ class Employee(TimestampMixin, db.Model):
         return f"{self.full_name} ({self.employee_number})"
 
 
+ASSET_STATUSES = ["Issued", "Returned", "Lost"]
+
+
 class Asset(db.Model):
-    """Asset register entry (laptop, phone, access card...) issued to an employee."""
+    """Asset register entry (laptop, phone, access card...) issued to an employee. Managed by ICT."""
     __tablename__ = "assets"
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), nullable=False, index=True)

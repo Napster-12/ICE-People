@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% block title %}Assets{% endblock %}
+{% block heading %}Asset Register{% endblock %}
+{% block subheading %}Laptops, phones, access cards and other equipment issued to staff{% endblock %}
+{% block actions %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('admin.asset_form') }}">{{ icon('plus') }} Issue Asset</a>{% endblock %}
+{% block content %}
+<form class="filter-section" method="get"><div class="filter-grid">
+  <div class="filter-field"><label for="q">Search</label><input id="q" name="q" value="{{ args.get('q', '') }}" placeholder="Tag, description or employee"></div>
+  <div class="filter-field"><label for="category">Category</label><select id="category" name="category"><option value="">All categories</option>
+    {% for c in categories %}<option {{ 'selected' if args.get('category') == c }}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="filter-field"><label for="status">Status</label><select id="status" name="status"><option value="">All statuses</option>
+    {% for s in statuses %}<option {{ 'selected' if args.get('status') == s }}>{{ s }} ({{ counts.get(s, 0) }})</option>{% endfor %}</select></div>
+  <div class="filter-actions"><button class="filter-btn">{{ icon('filter') }} Filter</button>
+    <a class="filter-btn filter-btn-secondary" href="{{ url_for('admin.assets') }}">Reset</a></div>
+</div></form>
+<section class="admin-panel">
+  <div class="admin-panel-head"><h3>Assets</h3><span class="results-count">{{ pager.total }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Tag</th><th>Category</th><th>Description</th><th>Issued to</th><th>Issued</th><th>Returned</th><th>Status</th><th>Allocation form</th><th></th></tr>
+    {% for a in rows %}
+    <tr><td><strong>{{ a.asset_tag }}</strong></td><td>{{ a.category or '—' }}</td><td>{{ a.description or '—' }}</td>
+      <td>{{ a.employee.full_name }}<span class="sub">{{ a.employee.employee_number }}</span></td>
+      <td class="small">{{ a.issued_on|dt if a.issued_on else '—' }}</td><td class="small">{{ a.returned_on|dt if a.returned_on else '—' }}</td>
+      <td><span class="status-badge st-{{ a.status }}">{{ a.status }}</span></td>
+      <td class="small">{% if forms.get(a.id) %}{{ icon('file') }} <a href="{{ url_for('portal.download', file_id=forms[a.id].id) }}">View</a>{% else %}<span class="muted">Not attached</span>{% endif %}</td>
+      <td><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.asset_form', asset_id=a.id) }}">Edit</a></td></tr>
+    {% else %}<tr><td colspan="9" class="empty-row">No assets.</td></tr>{% endfor %}
+  </table></div>
+  {% include "_pager.html" %}
+</section>
+{% endblock %}

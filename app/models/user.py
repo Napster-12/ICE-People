@@ -10,13 +10,13 @@ from app.models.base import TimestampMixin
 
 EMPLOYEE = "Employee"
 LINE_MANAGER = "Line Manager"
-HOD = "HOD"
+HOD = "Department Manager"   # head of a department (was "HOD"; renamed 31 Oct 2026)
 HRBP = "HR Business Partner"
 RECRUITER = "Recruiter"
 HR_MANAGER = "HR Manager"
 GROUP_HR = "Group HR Manager"
 HR_OD = "HR OD"
-FINANCE = "Finance / Budget Controller"
+FINANCE = "Finance"
 PAYROLL = "Payroll"
 IT = "IT"
 ASSET_CONTROLLER = "Asset Controller"
@@ -29,7 +29,7 @@ EXCO = "Exco"
 ALL_ROLES = [EMPLOYEE, LINE_MANAGER, HOD, HRBP, RECRUITER, HR_MANAGER, GROUP_HR, HR_OD, FINANCE,
              PAYROLL, IT, ASSET_CONTROLLER, COMPLIANCE, GCOO, EXCO, HR_ADMIN, PANEL]
 HR_ROLES = {HRBP, RECRUITER, HR_MANAGER, GROUP_HR, HR_OD, HR_ADMIN}
-# Roles that may see the executive / strategic flag ("HOD and above").
+# Roles that may see the executive / strategic flag ("Department Manager and above").
 EXECUTIVE_ROLES = {HOD, HR_MANAGER, GROUP_HR, GCOO, EXCO, HR_ADMIN}
 # Roles allowed to see sensitive personal fields (ID number, bank, demographics, health).
 SENSITIVE_ROLES = {HR_MANAGER, GROUP_HR, HR_ADMIN, PAYROLL}

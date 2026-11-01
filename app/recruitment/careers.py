@@ -4,7 +4,7 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Application, Candidate, Job
-from app.services import audit, careers
+from app.services import adverts, audit, careers
 from app.web import paginate
 
 bp = Blueprint("careers", __name__)
@@ -56,6 +56,13 @@ def job_detail(job_id):
     if not job:
         return redirect(url_for("careers.index"))
     questions = careers.eligibility_questions(job)
+    if request.method == "GET":
+        # Links on job portals carry ?src=LinkedIn etc.; remember it for the application's source (JA-006).
+        channel = adverts.channel_for(request.args.get("src"))
+        if request.args.get("src") or str(job.id) not in session.get("job_src", {}):
+            session["job_src"] = {**session.get("job_src", {}), str(job.id): channel}
+        adverts.record(job, channel, "views")
+        db.session.commit()
     if request.method == "POST":
         unanswered, reasons = careers.eligibility_problems(job, request.form)
         if unanswered:
@@ -77,11 +84,14 @@ def apply(job_id):
         return redirect(url_for("careers.index"))
     if job.id not in session.get("eligible_jobs", []):
         flash("Please answer the eligibility questions first.", "info")
-        return redirect(url_for("careers.job_detail", job_id=job.id, _anchor="check"))
+        return redirect(url_for("careers.job_detail", job_id=job.id, _anchor="apply"))
     if request.method == "POST":
         candidate = careers.save_candidate_from_form(request.form, request.files.get("cv"))
         if candidate:
-            ref = careers.upsert_application(candidate, job, request.form.get("cover_note", "").strip())
+            channel = session.get("job_src", {}).get(str(job.id), adverts.CAREERS_SITE)
+            ref = careers.upsert_application(candidate, job, request.form.get("cover_note", "").strip(),
+                                             source=channel)
+            adverts.record(job, channel, "applications")
             # Every CV also lives in the talent pool for future openings.
             careers.upsert_application(candidate, None, source="Talent pool")
             audit.record("application.submitted", "candidate", candidate.id, after={"job_id": job.id, "ref": ref},

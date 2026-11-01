@@ -1,6 +1,7 @@
 {% extends "admin/base.html" %}
+{# A new form starts from `defaults` (a Department Manager's department, cost centre and job family). #}
 {% macro val(field) -%}{{ values.get(field) if values else (position[field] if position and position[field] is not none else '') }}{%- endmacro %}
-{% macro sel(field, id) -%}{{ 'selected' if (values.get(field)|int(0) if values else (position[field] if position else 0)) == id }}{%- endmacro %}
+{% macro sel(field, id) -%}{{ 'selected' if (values.get(field)|int(0) if values else (position[field] if position else (defaults or {}).get(field) or 0)) == id }}{%- endmacro %}
 {% if ad_hoc %}{% set page_title = 'Change ad-hoc position ' ~ position.position_number if position else 'Request an ad-hoc position' %}
 {% elif position %}{% set page_title = 'Edit ' ~ position.position_number %}{% else %}{% set page_title = 'New position · ' ~ fy_label(fy) %}{% endif %}
 {% block title %}{{ page_title }}{% endblock %}
@@ -8,9 +9,9 @@
 {% elif ad_hoc %}<a class="admin-crumb" href="{{ url_for('positions.adhoc_list') }}">← Ad-hoc requests</a>
 {% else %}<a class="admin-crumb" href="{{ url_for('positions.index', fy=fy) }}">← Approved positions</a>{% endif %}{% endblock %}
 {% block heading %}{{ page_title }}{% endblock %}
-{% block subheading %}{% if ad_hoc %}For a position the business needs that isn't on the register. Approval: line manager → Finance (unbudgeted) → Group HR Manager → GCOO or Exco member.
+{% block subheading %}{% if ad_hoc %}For a position the business needs that isn't on the register. Approval: Finance (unbudgeted) → GCOO or Exco member; requests raised by HR go to the Department Manager first.
 {% elif planned %}Planned positions become vacant when the {{ fy_label(fy) }} register is approved.
-{% else %}The grade changes through a regrade approval; department, cost centre and budgeted CTC are fixed once approved.{% endif %}{% endblock %}
+{% else %}HR can change the job grade and budgeted CTC at any time; the department and cost centre are fixed once approved.{% endif %}{% endblock %}
 {% block content %}
 <form method="post" class="admin-split" novalidate>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -18,18 +19,24 @@
     <div class="admin-form-row"><label for="title">Position title *</label><input id="title" name="title" maxlength="160" value="{{ val('title') }}" required></div>
     <div class="admin-form-grid">
       <div class="admin-form-row"><label for="department_id">Department *</label>
+        {% if locked_department %}
+        <select id="department_id" disabled><option value="{{ locked_department.id }}" selected>{{ locked_department.name }}</option></select>
+        <input type="hidden" name="department_id" value="{{ locked_department.id }}">
+        <span class="hint">Your department.</span>
+        {% else %}
         <select id="department_id" name="department_id" {{ 'disabled' if not planned }}><option value="0">Choose…</option>
-          {% for d in ref.departments %}<option value="{{ d.id }}" {{ sel('department_id', d.id) }}>{{ d.name }}</option>{% endfor %}</select></div>
+          {% for d in ref.departments %}<option value="{{ d.id }}" data-manager-position="{{ ref.manager_positions.get(d.id, '') }}" data-job-family="{{ d.job_family_id or '' }}" {{ sel('department_id', d.id) }}>{{ d.name }}</option>{% endfor %}</select>
+        {% endif %}</div>
       <div class="admin-form-row"><label for="cost_centre_id">Cost centre *</label>
         <select id="cost_centre_id" name="cost_centre_id" {{ 'disabled' if not planned }}><option value="0">Choose…</option>
           {% for c in ref.cost_centres %}<option value="{{ c.id }}" data-dept="{{ c.department_id }}" {{ sel('cost_centre_id', c.id) }}>{{ c }}</option>{% endfor %}</select></div>
     </div>
     <div class="admin-form-grid">
       <div class="admin-form-row"><label for="job_grade_id">Job grade *</label>
-        <select id="job_grade_id" name="job_grade_id" {{ 'disabled' if not planned }}><option value="0">Choose…</option>
+        <select id="job_grade_id" name="job_grade_id"><option value="0">Choose…</option>
           {% for g in ref.grades %}<option value="{{ g.id }}" {{ sel('job_grade_id', g.id) }}>{{ g }}</option>{% endfor %}</select></div>
       <div class="admin-form-row"><label for="budgeted_ctc">Budgeted CTC (R)</label>
-        <input id="budgeted_ctc" name="budgeted_ctc" inputmode="decimal" value="{{ val('budgeted_ctc') }}" {{ 'disabled' if not planned }} placeholder="e.g. 250000.00">
+        <input id="budgeted_ctc" name="budgeted_ctc" inputmode="decimal" value="{{ val('budgeted_ctc') }}" placeholder="e.g. 250000.00">
         {% if ad_hoc %}<span class="hint">Leave blank if the position isn't budgeted; Finance approves unbudgeted positions.</span>{% endif %}</div>
     </div>
     <div class="admin-form-grid">
@@ -41,9 +48,15 @@
           {% for f in ref.families %}<option value="{{ f.id }}" {{ sel('job_family_id', f.id) }}>{{ f.name }}</option>{% endfor %}</select></div>
     </div>
     <div class="admin-form-row"><label for="reports_to_id">Reports to</label>
+      {% if locked_department %}
+      {% set r = locked_reports_to %}
+      <select id="reports_to_id" disabled><option selected>{% if r %}{{ r.position_number }} · {{ r.title }}{% if r.holder %} ({{ r.holder.full_name }}){% endif %}{% else %}{{ current_user.full_name }}{% endif %}</option></select>
+      <span class="hint">{% if r %}You: positions you request report to you.{% else %}You. Your own position isn't on the register yet, so HR links it once it is.{% endif %}</span>
+      {% else %}
       <select id="reports_to_id" name="reports_to_id"><option value="0">—</option>
         {% for r in reports_to %}<option value="{{ r.id }}" {{ sel('reports_to_id', r.id) }}>{{ r.position_number }} · {{ r.title }}{% if r.holder %} ({{ r.holder.full_name }}){% endif %}</option>{% endfor %}</select>
-      <span class="hint">The manager's position. The manager sees and recruits for the positions that report to them.</span></div>
+      <span class="hint" id="reports-to-hint">The manager's position, filled in with the department's Department Manager when you choose the department. The manager sees and recruits for the positions that report to them.</span>
+      {% endif %}</div>
     <div class="admin-form-row"><label for="minimum_requirements">Minimum requirements</label>
       <textarea id="minimum_requirements" name="minimum_requirements" style="min-height:120px" placeholder="One per line, e.g. Matric&#10;2 years' sales experience">{{ val('minimum_requirements') }}</textarea>
       <span class="hint">One per line. They drive the eligibility check on the careers page.</span></div>
@@ -72,9 +85,31 @@
       o.hidden = !show; o.disabled = !show && !cc.disabled;
       if (!show && o.selected && !cc.disabled) cc.value = '0';
     });
+    // A department with a single cost centre: choose it.
+    var mine = Array.prototype.filter.call(cc.options, function (o) { return o.dataset.dept === dept.value; });
+    if (!cc.disabled && cc.value === '0' && mine.length === 1) cc.value = mine[0].value;
   }
   dept.addEventListener('change', filter);
   filter();
+  // An empty job family takes the department's default (set on the Departments page).
+  var family = document.getElementById('job_family_id');
+  dept.addEventListener('change', function () {
+    var preset = (dept.selectedOptions[0] || {}).dataset.jobFamily;
+    if (family && preset && family.value === '0') family.value = preset;
+  });
+  // "Reports to" follows the department: its Department Manager's position, until HR picks someone else.
+  var rep = document.querySelector('select[name="reports_to_id"]'), hint = document.getElementById('reports-to-hint');
+  if (rep) {
+    var auto = rep.value === '0' || rep.value === (dept.selectedOptions[0] || {}).dataset.managerPosition;
+    rep.addEventListener('change', function () { auto = false; });
+    dept.addEventListener('change', function () {
+      var manager = dept.selectedOptions[0].dataset.managerPosition;
+      if (!auto) return;
+      rep.value = manager || '0';
+      hint.textContent = manager ? "Filled in with the department's Department Manager. You can change it."
+        : "This department's Department Manager has no position on the register yet, so it can't be filled in.";
+    });
+  }
 })();
 </script>
 {% endblock %}

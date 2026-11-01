@@ -1,0 +1,101 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% from "admin/_macros.html" import score_badge %}
+{% block title %}Interview panel · {{ job.title }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('recruitment.job_detail', job_id=job.id) }}">← {{ job.title }}</a>{% endblock %}
+{% block heading %}Interview panel{% endblock %}
+{% block subheading %}{{ job.title }}{{ ' · ' ~ job.reference if job.reference }}. One panel interviews and scores every candidate.{% endblock %}
+{% block actions %}
+{% if panel.invited_at %}<span class="status-badge st-Approved">Invitations sent {{ panel.invited_at|dtt }}</span>{% endif %}
+<form method="post" data-confirm-title="Send the invitations?" data-confirm-ok="Send invitations"
+      data-confirm="Each panel member gets a notification, an email and a calendar invite for every interview. Candidates who haven't been invited yet get their interview invitation.">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="invite">
+  <button class="admin-btn-sm admin-btn-primary">{{ icon('mail') }} {{ 'Send invitations again' if panel.invited_at else 'Send invitations' }}</button>
+</form>
+{% endblock %}
+{% block content %}
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Candidates and interview slots</h3>
+        <span class="results-count">{{ apps|length }} picked for interview</span></div>
+      {% if apps %}
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="slots">
+        <div class="table-responsive"><table class="admin-table">
+          <tr><th>Candidate</th><th>Date</th><th>Time</th><th>Venue or video link</th></tr>
+          {% for a in apps %}
+          <tr>
+            <td><strong>{{ a.candidate.full_name }}</strong><span class="sub">ATS {{ a.score|round|int }}% · {{ a.reference }}</span></td>
+            <td><input class="cell-input" type="date" name="date_{{ a.id }}" value="{{ form.get('date_' ~ a.id) or (a.slot.starts_at.strftime('%Y-%m-%d') if a.slot else '') }}" aria-label="Date for {{ a.candidate.full_name }}"></td>
+            <td><input class="cell-input" type="time" name="time_{{ a.id }}" value="{{ form.get('time_' ~ a.id) or (a.slot.starts_at.strftime('%H:%M') if a.slot else '') }}" aria-label="Time for {{ a.candidate.full_name }}"></td>
+            <td><input class="cell-input" style="width:100%" type="text" name="venue_{{ a.id }}" value="{{ form.get('venue_' ~ a.id) or (a.slot.venue if a.slot else '') }}" placeholder="e.g. Head office boardroom" aria-label="Venue for {{ a.candidate.full_name }}"></td>
+          </tr>
+          {% endfor %}
+        </table></div>
+        <div style="margin-top:14px"><button class="admin-btn-sm admin-btn-secondary">{{ icon('calendar') }} Save slots</button></div>
+      </form>
+      {% else %}<p class="muted">Nobody has been picked for interview yet. The Department Manager picks them from the shortlist.</p>{% endif %}
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Results</h3><span class="results-count">Combined score = the panel's average weighted score</span></div>
+      <div class="table-responsive"><table class="admin-table">
+        <tr><th>Rank</th><th>Candidate</th><th>Combined score</th><th>Scored</th><th>Recommendations</th><th></th></tr>
+        {% for r in results %}
+        <tr>
+          <td>{{ loop.index if r.average is not none else '—' }}</td>
+          <td><strong>{{ r.application.candidate.full_name }}</strong>{% if r.application.slot %}<span class="sub">{{ r.application.slot.starts_at|dtt }}</span>{% endif %}</td>
+          <td>{{ score_badge(r.average) if r.average is not none else '—' }}</td>
+          <td>{{ r.scored }} of {{ r.panel }}</td>
+          <td class="small">{% for k, v in r.tally.items() if v %}{{ k }} {{ v }}{{ ' · ' if not loop.last }}{% else %}—{% endfor %}</td>
+          <td><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('recruitment.scorecard', app_id=r.application.id) }}">Scorecards</a></td>
+        </tr>
+        {% else %}<tr><td colspan="6" class="empty-row">No candidates yet.</td></tr>{% endfor %}
+      </table></div>
+    </section>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Panel</h3><span class="results-count">{{ panel.members|length }} member(s)</span></div>
+      {% for m in panel.members %}
+      <div class="org-row">
+        <div style="flex:1;min-width:0"><strong>{{ m.user.full_name }}</strong>
+          <span class="sub">{{ m.role }}{{ ' · invited ' ~ (m.invited_at|dtt) if m.invited_at }}</span></div>
+        {% if m.role != 'Department Manager' %}
+        <form method="post" data-confirm-danger data-confirm-title="Remove from the panel?" data-confirm-ok="Remove" data-confirm="{{ m.user.full_name }} won't score these interviews.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="remove">
+          <input type="hidden" name="member_id" value="{{ m.id }}">
+          <button class="admin-btn-sm admin-btn-danger" aria-label="Remove {{ m.user.full_name }}">{{ icon('trash') }}</button>
+        </form>{% endif %}
+      </div>
+      {% else %}<p class="muted small">No panel members yet.</p>{% endfor %}
+      <form method="post" class="admin-form" style="margin-top:14px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="add">
+        <div class="admin-form-row"><label for="user_id">Invite a manager from the business</label>
+          <select id="user_id" name="user_id" required><option value="">Choose a manager…</option>
+            {% for u in eligible %}<option value="{{ u.id }}">{{ u.full_name }}{{ ' · ' ~ u.employee.department.name if u.employee and u.employee.department }}</option>{% endfor %}
+          </select></div>
+        <div><button class="admin-btn-sm admin-btn-primary">{{ icon('plus') }} Add to panel</button></div>
+      </form>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Scoring criteria</h3><span class="results-count">Each scored 1–5</span></div>
+      <form method="post" class="admin-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="criteria">
+        {% set rows = panel.criteria + [{'name': '', 'weight': ''}] * (8 - panel.criteria|length) %}
+        {% for c in rows %}
+        <div class="org-row">
+          <input type="text" name="c_name" value="{{ c.name }}" placeholder="Criterion" aria-label="Criterion {{ loop.index }}">
+          <input class="org-code" type="number" name="c_weight" min="1" max="100" value="{{ c.weight }}" placeholder="%" aria-label="Weight {{ loop.index }}">
+        </div>
+        {% endfor %}
+        <p class="hint">Weights add up to 100. They can't change once scoring starts.</p>
+        <div><button class="admin-btn-sm admin-btn-secondary">Save criteria</button></div>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

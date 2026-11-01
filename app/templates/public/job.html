@@ -1,23 +1,50 @@
 {% extends "base.html" %}
-{% from "_poster.html" import page_hero, info_row with context %}
+{% from "_poster.html" import page_hero, job_meta with context %}
 {% block title %}{{ job.title }}{% endblock %}
 
+{#- Layout (1 Nov 2026): compact hero with the facts as chips; the role and the eligibility check on the left,
+    "At a glance" with an Apply button on the right (it stays in view while scrolling). -#}
 {% block hero %}
 {% call page_hero(job.title, kicker="Vacancy", compact=True, id='job') %}
-  {% if job.location %}{{ info_row('pin', 'Location', job.location) }}{% endif %}
-  {% if job.closing_date %}{{ info_row('calendar', 'Closing date', job.closing_date|longdate) }}{% endif %}
-  {{ info_row('briefcase', 'Department', (job.department or 'Icebolethu Group') ~ (' · ' ~ job.job_type if job.job_type else '')) }}
-  <div class="poster-actions"><a class="pill-btn orange" href="#check">Apply now {{ icon('arrow') }}</a></div>
+  {{ job_meta(job) }}
+  <div class="poster-actions">
+    <a class="pill-btn orange" href="#apply">Apply now {{ icon('arrow') }}</a>
+    <a class="pill-btn outline" href="{{ url_for('careers.index') }}#vacancies">{{ icon('back') }} All vacancies</a>
+  </div>
 {% endcall %}
 {% endblock %}
 
 {% block content %}
-<a href="{{ url_for('careers.index') }}#vacancies" class="back-link">{{ icon('back') }} All vacancies</a>
 <div class="detail-grid">
-  <article class="card job-desc">
-    <h2 class="card-title">About the role</h2>
-    {{ job.description|jobdesc }}
-  </article>
+  <div class="detail-main">
+    <article class="card job-desc">
+      <h2 class="card-title">About the role</h2>
+      {{ job.description|jobdesc }}
+    </article>
+
+    <section class="card apply-card" id="apply">
+      <div class="apply-head">
+        {% include "public/_apply_steps.html" with context %}
+        <h2>Check that you meet the minimum requirements</h2>
+        <p>Answer all {{ questions|length }} questions · your answers are not stored</p>
+      </div>
+      <form class="igsp-form apply-body" method="post" action="{{ url_for('careers.job_detail', job_id=job.id) }}#apply">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <ol class="eligibility-list">
+          {% for q in questions %}{% set name = 'q' ~ loop.index0 %}
+          <li class="eligibility-q">
+            <span class="eligibility-text">{{ q.text }}</span>
+            <span class="yesno" role="radiogroup" aria-label="{{ q.text }}">
+              <label><input type="radio" name="{{ name }}" value="yes" required {{ 'checked' if answers.get(name) == 'yes' }}><span>Yes</span></label>
+              <label><input type="radio" name="{{ name }}" value="no" {{ 'checked' if answers.get(name) == 'no' }}><span>No</span></label>
+            </span>
+          </li>
+          {% endfor %}
+        </ol>
+        <div class="apply-actions"><button type="submit">Continue to application {{ icon('arrow') }}</button></div>
+      </form>
+    </section>
+  </div>
 
   <aside class="detail-side">
     <div class="card req-card">
@@ -29,30 +56,8 @@
         <div class="tag-list">{% for s in job.required_skills.split(',') %}<span class="tag">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
       {% if job.preferred_skills %}<h4>Advantageous</h4>
         <div class="tag-list">{% for s in job.preferred_skills.split(',') %}<span class="tag soft">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+      <a class="pill-btn orange side-apply" href="#apply">Apply now {{ icon('arrow') }}</a>
     </div>
   </aside>
 </div>
-
-<section class="card apply-card" id="check">
-  <div class="apply-head">
-    {% include "public/_apply_steps.html" with context %}
-    <h2>Check that you meet the minimum requirements</h2>
-    <p>{{ job.title }} · answer all {{ questions|length }} questions · your answers are not stored</p>
-  </div>
-  <form class="igsp-form apply-body" method="post" action="{{ url_for('careers.job_detail', job_id=job.id) }}#check">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <ol class="eligibility-list">
-      {% for q in questions %}{% set name = 'q' ~ loop.index0 %}
-      <li class="eligibility-q">
-        <span class="eligibility-text">{{ q.text }}</span>
-        <span class="yesno" role="radiogroup" aria-label="{{ q.text }}">
-          <label><input type="radio" name="{{ name }}" value="yes" required {{ 'checked' if answers.get(name) == 'yes' }}><span>Yes</span></label>
-          <label><input type="radio" name="{{ name }}" value="no" {{ 'checked' if answers.get(name) == 'no' }}><span>No</span></label>
-        </span>
-      </li>
-      {% endfor %}
-    </ol>
-    <button type="submit">Continue to application {{ icon('arrow') }}</button>
-  </form>
-</section>
 {% endblock %}

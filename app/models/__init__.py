@@ -2,7 +2,9 @@
 from app.models.budget import BudgetLine, BudgetMovement, OverspendAlert  # noqa: F401
 from app.models.org import (ApprovedPosition, Asset, Branch, BusinessUnit, CostCentre, Department,  # noqa: F401
                             Employee, JobFamily, JobGrade, LeaveEntry, PositionChange, PositionRegister, Region)
-from app.models.recruitment import Application, Candidate, Job  # noqa: F401
+from app.models.recruitment import (AdvertPosting, AdvertVersion, Application, Candidate,  # noqa: F401
+                                    CandidateMessage, InterviewPanel, InterviewSlot, Job, JobDescriptionTemplate,
+                                    PanelMember, Scorecard, ShortlistReview)
 from app.models.requisition import Requisition, RequisitionVersion  # noqa: F401
 from app.models.system import (AuditLog, IntegrationLog, Notification, NotificationTemplate,  # noqa: F401
                                PublicHoliday, RefSequence, Setting, StoredFile)

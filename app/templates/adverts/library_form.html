@@ -1,0 +1,75 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ 'Edit' if template.id else 'Add' }} job description{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('adverts.library') }}">← JD Library</a>{% endblock %}
+{% block heading %}{{ template.title if template.id else 'Add job description' }}{% endblock %}
+{% block subheading %}Adverts copy this text and these minimums when they're drafted. Changing it doesn't change existing adverts.{% endblock %}
+{% block content %}
+{% set v = form if form else template %}
+<form method="post" class="admin-split">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel admin-form">
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="title">Job title *</label><input id="title" type="text" name="title" required value="{{ v.title or '' }}"></div>
+      <div class="admin-form-row"><label for="job_family_id">Job family</label>
+        <select id="job_family_id" name="job_family_id"><option value="">None</option>
+          {% for f in families %}<option value="{{ f.id }}" {{ 'selected' if (v.job_family_id|string) == (f.id|string) }}>{{ f.name }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="admin-form-row"><label for="description">Job description *</label>
+      <textarea id="description" name="description" required style="min-height:340px" placeholder="ABOUT THE ROLE&#10;...&#10;&#10;KEY RESPONSIBILITIES&#10;- ...">{{ v.description or '' }}</textarea>
+      <span class="hint">ALL-CAPS lines become headings and lines starting with "-" become bullets. The position's minimum requirements are added to each advert automatically.</span></div>
+  </section>
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel admin-form">
+      <div class="admin-panel-head" style="margin:0"><h3>ATS screening criteria</h3></div>
+      <p class="hint" style="margin:0">Applicants to adverts drafted from this JD are scored against these.</p>
+      <div class="admin-form-row"><label for="min_education">Minimum qualification</label>
+        <select id="min_education" name="min_education">
+          {% for lvl, name in education_levels %}<option value="{{ lvl }}" {{ 'selected' if (v.min_education or 0)|int == lvl }}>{{ name }}</option>{% endfor %}
+        </select></div>
+      <div class="admin-form-row"><label for="min_experience">Minimum years of experience</label>
+        <input id="min_experience" type="number" name="min_experience" min="0" max="40" value="{{ v.min_experience or 0 }}"></div>
+      <div class="admin-form-row"><label for="required_skills">Required skills</label>
+        <textarea id="required_skills" name="required_skills" style="min-height:70px">{{ v.required_skills or '' }}</textarea></div>
+      <div class="admin-form-row"><label for="preferred_skills">Advantageous skills</label>
+        <textarea id="preferred_skills" name="preferred_skills" style="min-height:60px">{{ v.preferred_skills or '' }}</textarea></div>
+    </section>
+    <section class="admin-panel admin-form" id="ats-weights">
+      <div class="admin-panel-head" style="margin:0"><h3>ATS weights</h3><span class="results-count" data-weight-total></span></div>
+      <p class="hint" style="margin:0">How much each part counts towards an applicant's score. They must add up to 100;
+        0 leaves a part out. Standard: {% for k, label in weight_labels.items() %}{{ label|lower }} {{ standard_weights[k] }}{{ ', ' if not loop.last }}{% endfor %}.</p>
+      {% for k, label in weight_labels.items() %}
+      <div class="admin-form-row"><label for="w_{{ k }}">{{ label }} (%)</label>
+        <input id="w_{{ k }}" type="number" name="w_{{ k }}" min="0" max="100" step="1" required value="{{ weights[k] }}" data-weight></div>
+      {% endfor %}
+      <div><button type="button" class="admin-btn-sm admin-btn-secondary" data-weights-reset>Use the standard weights</button></div>
+    </section>
+    <section class="admin-panel admin-form">
+      <div class="admin-form-row"><label for="review_date">Next review date *</label>
+        <input id="review_date" type="date" name="review_date" required value="{{ v.review_date or '' }}">
+        <span class="hint">Recruiters and HR Admin are reminded 30 days before.</span></div>
+      <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if v.active }}> Active (offered for new adverts)</label>
+      <div><button class="filter-btn">{{ icon('check') }} Save</button></div>
+    </section>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var box = document.getElementById('ats-weights'), inputs = box.querySelectorAll('[data-weight]'),
+      total = box.querySelector('[data-weight-total]'), standard = {{ standard_weights|tojson }};
+  function sum() {
+    var t = 0;
+    inputs.forEach(function (i) { t += parseInt(i.value || '0', 10) || 0; });
+    total.textContent = 'Total ' + t + (t === 100 ? '' : ' (must be 100)');
+    total.style.color = t === 100 ? '' : 'var(--danger)';
+  }
+  inputs.forEach(function (i) { i.addEventListener('input', sum); });
+  box.querySelector('[data-weights-reset]').addEventListener('click', function () {
+    inputs.forEach(function (i) { i.value = standard[i.id.slice(2)]; });
+    sum();
+  });
+  sum();
+})();
+</script>
+{% endblock %}

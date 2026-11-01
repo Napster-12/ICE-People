@@ -9,7 +9,7 @@ from tests.conftest import PASSWORD, login, login_path, user
 
 PUBLIC_ENDPOINTS = {"static", "careers.index", "careers.job_detail", "careers.apply", "careers.talent_pool",
                     "careers.application_done", "careers.check_status", "auth.login", "auth.login_form", "auth.logout",
-                    "auth.legacy_login"}
+                    "auth.legacy_login", "favicon"}
 
 
 def test_login_success_is_audited(client):
@@ -93,7 +93,7 @@ def test_sign_in_returns_to_next_page(client):
 
 
 def test_duplicate_user_email_rejected(client):
-    login(client, "hradmin")
+    login(client, "it")
     u = user("employee")
     r = client.post(f"/admin/users/{u.id}", data={"username": "employee", "full_name": "Employee Tester",
                                                  "email": "finance@test.invalid", "active": "1",
@@ -144,9 +144,13 @@ def test_every_staff_view_has_roles_decorator(app):
     ("finance", "/budget/", 200),
     ("compliance", "/admin/audit", 200),
     ("it", "/admin/integrations", 200),
-    ("hradmin", "/admin/users", 200),
+    ("hradmin", "/admin/users", 403),
+    ("it", "/admin/users", 200),
+    ("it", "/admin/assets", 200),
+    ("hradmin", "/admin/assets", 403),
     ("recruiter", "/recruitment/", 200),
-    ("hradmin", "/approvals/dashboard", 200),
+    ("hradmin", "/approvals/dashboard", 403),
+    ("it", "/approvals/dashboard", 200),
     ("linemanager", "/approvals/dashboard", 403),
 ])
 def test_role_access(client, username, url, expected):

@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% from "_poster.html" import page_hero, info_row with context %}
+{% from "_poster.html" import page_hero, job_meta with context %}
 {% block title %}Apply · {{ job.title }}{% endblock %}
 
 {% block hero %}
 {% call page_hero(job.title, kicker="Application", compact=True, id='job') %}
-  {% if job.location %}{{ info_row('pin', 'Location', job.location) }}{% endif %}
-  {% if job.closing_date %}{{ info_row('calendar', 'Closing date', job.closing_date|longdate) }}{% endif %}
-  {{ info_row('briefcase', 'Department', (job.department or 'Icebolethu Group') ~ (' · ' ~ job.job_type if job.job_type else '')) }}
+  {{ job_meta(job) }}
+  <div class="poster-actions">
+    <a class="pill-btn outline" href="{{ url_for('careers.job_detail', job_id=job.id) }}">{{ icon('back') }} Back to the job</a>
+  </div>
 {% endcall %}
 {% endblock %}
 
 {% block content %}
-<a href="{{ url_for('careers.job_detail', job_id=job.id) }}" class="back-link">{{ icon('back') }} Back to the job</a>
-<section class="card apply-card" id="apply">
+<section class="card apply-card apply-narrow" id="apply">
   <div class="apply-head">
     {% include "public/_apply_steps.html" with context %}
     <h2>Apply for this position</h2>
@@ -20,7 +20,7 @@
   </div>
   <form class="igsp-form apply-body" method="post" enctype="multipart/form-data">
     {% include "public/_applicant_fields.html" %}
-    <button type="submit">Submit application</button>
+    <div class="apply-actions"><button type="submit">Submit application {{ icon('arrow') }}</button></div>
   </form>
 </section>
 {% endblock %}

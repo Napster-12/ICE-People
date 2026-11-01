@@ -8,6 +8,8 @@ The score is a weighted percentage made up of:
   - job-description keywords     (10%)
 Components that don't apply to a job (e.g. no preferred skills listed) are
 dropped and the remaining weights are rescaled so the total is still 100%.
+A job can carry its own weights (`ats_weights`, copied from its JD in the library);
+a component weighted 0 isn't scored.
 """
 import io
 import logging
@@ -23,6 +25,44 @@ WEIGHTS = {
     "education": 10,
     "keywords": 10,
 }
+WEIGHT_LABELS = {
+    "required": "Required skills",
+    "preferred": "Advantageous skills",
+    "experience": "Years of experience",
+    "education": "Qualification",
+    "keywords": "Job-description keywords",
+}
+
+
+def weights_for(job):
+    """The job's own ATS weights, or the standard WEIGHTS."""
+    try:
+        custom = job["ats_weights"]
+    except (KeyError, IndexError):
+        custom = None
+    return dict(custom) if custom else dict(WEIGHTS)
+
+
+def parse_weights(raw):
+    """Weights typed on a form ({key: text}). Returns (weights, errors); weights is None when they equal the
+    standard WEIGHTS, so the job follows any later change to the standard."""
+    if not any(str(raw.get(key) or "").strip() for key in WEIGHT_LABELS):
+        return None, []                                  # none sent (e.g. an older form): the standard weights
+    weights, errors = {}, []
+    for key, label in WEIGHT_LABELS.items():
+        try:
+            value = int(str(raw.get(key, "")).strip())
+        except ValueError:
+            errors.append(f"{label}: enter a whole number from 0 to 100.")
+            continue
+        if not 0 <= value <= 100:
+            errors.append(f"{label}: enter a whole number from 0 to 100.")
+        weights[key] = value
+    if not errors and sum(weights.values()) != 100:
+        errors.append(f"The ATS weights must add up to 100 (they add up to {sum(weights.values())}).")
+    if errors:
+        return None, errors
+    return (None if weights == WEIGHTS else weights), []
 
 EDUCATION_LEVELS = [
     (0, "None specified"),
@@ -303,13 +343,15 @@ def score_candidate(job, candidate):
             "matched": hits[:15],
         }
 
+    weights = weights_for(job)
+    components = {k: c for k, c in components.items() if weights.get(k, 0) > 0}
     if not components:
         return 0.0, {"components": {}, "note": "Job has no screening criteria."}
 
-    total_weight = sum(WEIGHTS[k] for k in components)
-    score = sum(WEIGHTS[k] * c["score"] for k, c in components.items()) / total_weight
+    total_weight = sum(weights[k] for k in components)
+    score = sum(weights[k] * c["score"] for k, c in components.items()) / total_weight
     for key, comp in components.items():
-        comp["weight"] = round(100 * WEIGHTS[key] / total_weight, 1)
+        comp["weight"] = round(100 * weights[key] / total_weight, 1)
         comp["score"] = round(comp["score"], 1)
 
     breakdown = {

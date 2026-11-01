@@ -1,0 +1,37 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import kv with context %}
+{% block title %}Create advert{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('adverts.index') }}">← Job Adverts</a>{% endblock %}
+{% block heading %}Create advert · {{ req.title }}{% endblock %}
+{% block subheading %}{{ req.reference }} is fully approved. The draft is filled in from the requisition, its position and the JD library.{% endblock %}
+{% block content %}
+<div class="admin-split">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>From the requisition</h3></div>
+    <div class="kv-grid">
+      {{ kv('Position', req.approved_position|string if req.approved_position) }}
+      {{ kv('Department', req.department.name if req.department) }}
+      {{ kv('Employment type', req.employment_type) }}
+      {{ kv('Job grade', req.job_grade|string if req.job_grade) }}
+      {{ kv('Branch', req.approved_position.branch.name if req.approved_position and req.approved_position.branch) }}
+      {{ kv('Required start', req.required_start_date|dt if req.required_start_date) }}
+    </div>
+    <h4 class="kv-label" style="margin-top:18px">Minimum requirements (from the position)</h4>
+    <div class="review-comment" style="margin-top:6px;white-space:pre-line">{{ req.approved_position.minimum_requirements if req.approved_position and req.approved_position.minimum_requirements else 'None recorded on the position. The careers site will ask the advert’s own minimums instead.' }}</div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Start from the JD library</h3></div>
+    <form method="post" class="admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-form-row"><label for="template_id">Job description</label>
+        <select id="template_id" name="template_id">
+          <option value="0">No template: start from a blank outline</option>
+          {% for t in templates %}<option value="{{ t.id }}" {{ 'selected' if match and match.id == t.id }}>{{ t.title }}{{ ' · ' ~ t.job_family.name if t.job_family }}{{ ' (review due)' if t.review_due }}</option>{% endfor %}
+        </select>
+        <span class="hint">{% if match %}Matched on {{ 'title' if match.title|lower == req.title|lower else 'job family' }}.{% elif templates %}No template matches this title or job family.{% else %}The JD library is empty. <a href="{{ url_for('adverts.template_form') }}">Add a job description</a>.{% endif %}</span></div>
+      <div><button class="filter-btn">{{ icon('plus') }} Create draft advert</button></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

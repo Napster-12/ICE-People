@@ -51,6 +51,7 @@ def create_app(config_name=None, overrides=None):
 
 def _register_blueprints(app):
     from app.admin.routes import bp as admin_bp
+    from app.adverts.routes import bp as adverts_bp
     from app.approvals.routes import bp as approvals_bp
     from app.auth.routes import bp as auth_bp
     from app.budget.routes import bp as budget_bp
@@ -62,7 +63,7 @@ def _register_blueprints(app):
     from app.requisitions.routes import bp as requisitions_bp
 
     for bp in (careers_bp, auth_bp, dashboards_bp, portal_bp, requisitions_bp, positions_bp, approvals_bp, budget_bp,
-               recruitment_bp, admin_bp):
+               adverts_bp, recruitment_bp, admin_bp):
         app.register_blueprint(bp)
 
 
@@ -72,6 +73,7 @@ def _register_template_helpers(app):
     from app.nav import nav_for
     from app.services import ats
     from app.services.dates import today
+    from app.services.places import SA_PLACES
 
     filters.register(app)
 
@@ -96,6 +98,7 @@ def _register_template_helpers(app):
             "icon": app.jinja_env.get_template("_icons.html").module.icon,
             "is_admin": current_user.is_authenticated,
             "system_name": "ICE People Administration System",
+            "sa_places": SA_PLACES,
         }
         if current_user.is_authenticated:
             from app.services.notifications import unread_count
@@ -120,6 +123,11 @@ def _register_handlers(app):
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "same-origin")
         return response
+
+    @app.route("/favicon.ico")
+    def favicon():
+        """Browsers ask for /favicon.ico directly (e.g. for a CV or PDF opened in a tab)."""
+        return app.send_static_file("favicon.ico")
 
     @app.errorhandler(DomainError)
     def domain_error(exc):
@@ -150,6 +158,7 @@ def _register_handlers(app):
 
 def _register_file_access():
     from app.models import Requisition
+    from app.models.user import IT
     from app.services import files, requisitions
 
     def requisition_rule(user, entity_id):
@@ -159,5 +168,9 @@ def _register_file_access():
     def candidate_rule(user, _entity_id):
         return user.is_hr
 
+    def asset_rule(user, _entity_id):
+        return user.has_role(IT)
+
     files.register_access("requisition", requisition_rule)
     files.register_access("candidate", candidate_rule)
+    files.register_access("asset_allocation", asset_rule)

@@ -2,7 +2,7 @@
 {% from "_ui.html" import status, act_form with context %}
 {% block title %}My Approvals{% endblock %}
 {% block heading %}My Approvals{% endblock %}
-{% block subheading %}Items waiting for your decision. A comment is required for every action.{% endblock %}
+{% block subheading %}Items waiting for your decision. Approve needs no comment; give a reason to return or reject.{% endblock %}
 {% block actions %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('approvals.delegations') }}">{{ icon('users') }} Delegation</a>{% endblock %}
 {% block content %}
 <section class="admin-panel">
@@ -35,7 +35,7 @@
     {% for d in done %}
     <tr><td><strong><a href="{{ d.info.link }}">{{ d.info.ref }}</a></strong><span class="sub">{{ d.info.title }}</span></td>
       <td>L{{ d.step.level }} · {{ d.step.name }}</td><td>{{ status(d.step.status) }}</td>
-      <td class="small">{{ d.step.comment|truncate(80) }}</td><td>{{ d.step.acted_at|dtt }}</td></tr>
+      <td class="small">{{ d.step.comment|truncate(80) if d.step.comment else '—' }}</td><td>{{ d.step.acted_at|dtt }}</td></tr>
     {% else %}<tr><td colspan="5" class="empty-row">No decisions yet.</td></tr>{% endfor %}
   </table></div>
   {% include "_pager.html" %}

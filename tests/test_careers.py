@@ -92,7 +92,7 @@ def test_unanswered_check_stays_on_step_one(client):
 def test_apply_needs_the_check(client):
     job = make_job()
     r = client.get(f"/jobs/{job.id}/apply")
-    assert r.status_code == 302 and r.location.endswith(f"/jobs/{job.id}#check")
+    assert r.status_code == 302 and r.location.endswith(f"/jobs/{job.id}#apply")
     pass_check(client, job)
     assert b"Submit application" in client.get(f"/jobs/{job.id}/apply").data
 
@@ -132,8 +132,10 @@ def test_ats_admin_pages(client):
     for url in ["/recruitment/", "/recruitment/jobs", f"/recruitment/jobs/{job.id}",
                 f"/recruitment/jobs/{job.id}?tab=pool", "/recruitment/candidates",
                 f"/recruitment/candidates?job_id={job.id}", f"/recruitment/candidates/{cand.id}",
-                f"/recruitment/candidates/{cand.id}/cv", "/recruitment/jobs/new", f"/recruitment/jobs/{job.id}/export.csv"]:
+                f"/recruitment/candidates/{cand.id}/cv", f"/recruitment/jobs/{job.id}/export.csv"]:
         assert client.get(url).status_code == 200, url
+    # New openings are adverts raised from approved requisitions.
+    assert client.get("/recruitment/jobs/new").headers["Location"].endswith("/adverts/")
     app_row = Application.query.filter_by(job_id=job.id).one()
     client.post(f"/recruitment/applications/{app_row.id}/update", data={"status": "Shortlisted", "notes": "Strong"})
     assert db.session.get(Application, app_row.id).status == "Shortlisted"
@@ -177,3 +179,12 @@ def test_legacy_import(app, tmp_path):
     from app.models import User
     old = User.query.filter_by(username="oldadmin").one()
     assert {"HR Admin", "Recruiter"} <= old.role_names and old.check_password("Old-pass-2026")
+
+
+def test_location_suggests_sa_places(client):
+    from app.services.places import PROVINCE_PLACES, SA_PLACES
+    assert len(PROVINCE_PLACES) == 9 and len(SA_PLACES) == len(set(SA_PLACES)) > 200
+    assert all(p.rsplit(", ", 1)[1] in PROVINCE_PLACES for p in SA_PLACES)
+    page = client.get("/talent-pool").get_data(as_text=True)
+    assert 'list="sa-places"' in page and '<option value="Durban, KwaZulu-Natal">' in page
+    assert '<option value="Gqeberha (Port Elizabeth), Eastern Cape">' in page

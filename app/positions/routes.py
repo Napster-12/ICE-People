@@ -150,7 +150,7 @@ def detail(position_id):
         "positions/detail.html", p=p, reqs=reqs, approvals=approvals, my_steps=my_steps,
         fy_label=budget.fy_label, change_kinds=[k for k in POSITION_CHANGE_KINDS if p.status in positions.CHANGE_FROM[k]],
         pending_change=positions.pending_change(p), grades=positions.reference_data()["grades"],
-        can_edit=current_user.has_role(*EDIT_ROLES) and p.status not in ("Abolished", "Rejected", "Pending approval"),
+        can_edit=current_user.has_role(*EDIT_ROLES) and p.status not in ("Abolished", "Rejected"),
         can_delete=current_user.has_role(*EDIT_ROLES) and p.status == "Planned"
         and positions.register_editable(p.financial_year),
         can_change=current_user.has_role(*EDIT_ROLES),
@@ -257,7 +257,10 @@ def adhoc_new(position_id=None):
             flash(str(exc), "error")
     return render_template("positions/form.html", position=p, fy=budget.financial_year_for(today()),
                            fy_label=budget.fy_label, ref=positions.reference_data(),
-                           reports_to=_reports_to_choices(p), values=request.form, planned=True, ad_hoc=True)
+                           reports_to=_reports_to_choices(p), values=request.form, planned=True, ad_hoc=True,
+                           defaults=positions.ad_hoc_defaults(current_user),
+                           locked_department=positions.ad_hoc_department(current_user),
+                           locked_reports_to=positions.ad_hoc_reports_to(current_user))
 
 
 # ------------------------------------------------------------ dashboard

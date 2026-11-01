@@ -33,6 +33,50 @@ DEFAULT_TEMPLATES = {
     "delegation_set": ("Delegation set",
                        "You are a delegate for {{ user }}",
                        "{{ user }} has delegated approvals to you from {{ start }} to {{ end }}."),
+    "advert_published": ("Advert published",
+                         "Advert live: {{ ref }} {{ title }}",
+                         "Advert {{ ref }} ({{ title }}) is live on {{ channels }} until {{ closing }}.{% if failed %}\n\nCouldn't publish to: {{ failed }}. Check the integration log.{% endif %}"),
+    "advert_closed": ("Advert closed",
+                      "Advert closed: {{ ref }} {{ title }}",
+                      "Advert {{ ref }} ({{ title }}) has closed with {{ applications }} application(s).\n\nReason: {{ reason }}"),
+    "jd_review_due": ("Job description review due",
+                      "JD review due: {{ title }}",
+                      "The job description for {{ title }} is due for its annual review on {{ due }}."),
+    "shortlist_review": ("Shortlist sent to the Department Manager",
+                         "Shortlist to review: {{ ref }} {{ title }}",
+                         "{{ sender }} sent you {{ count }} shortlisted applicant(s) for {{ ref }} ({{ title }}).\n"
+                         "Choose who goes to interview."),
+    "shortlist_reviewed": ("Department Manager reviewed the shortlist",
+                           "Shortlist reviewed: {{ ref }} {{ title }}",
+                           "{{ reviewer }} picked {{ selected }} applicant(s) for interview for {{ ref }} ({{ title }}); "
+                           "{{ not_selected }} were not selected.{% if comment %}\n\nComment: {{ comment }}{% endif %}\n\n"
+                           "You can now send the interview invitations and regret letters."),
+    "panel_invite": ("Interview panel invitation",
+                     "Interview panel: {{ ref }} {{ title }}",
+                     "{{ sender }} has invited you to the interview panel for {{ ref }} ({{ title }}) as {{ role }}.\n\n"
+                     "Interviews:\n{{ slots }}\n\nOpen Interviews to score in the HR system to see the CVs and "
+                     "score each candidate after their interview. Calendar invites follow for each interview."),
+    "panel_added": ("Added to an interview panel",
+                    "You're on the interview panel: {{ ref }} {{ title }}",
+                    "{{ sender }} has added you to the interview panel for {{ ref }} ({{ title }}).\n\n"
+                    "HR will send you the interview dates and calendar invites. You'll then see each candidate "
+                    "and their CV under Interviews to score, and score them after their interview."),
+    "panel_scored": ("Interview panel finished scoring a candidate",
+                     "Panel scores in: {{ name }} for {{ title }}",
+                     "The whole interview panel has scored {{ name }} for {{ title }}. Combined score: {{ average }}%."),
+    "candidate_interview_invite": ("Applicant: interview invitation",
+                                   "Interview invitation: {{ title }} at Icebolethu Group",
+                                   "Dear {{ name }}\n\nThank you for applying for {{ title }} (reference {{ ref }}). "
+                                   "We are pleased to invite you to an interview.\n\nDate: {{ date }}\nTime: {{ time }}\n"
+                                   "Venue: {{ venue }}{% if note %}\n\n{{ note }}{% endif %}\n\nPlease reply to confirm "
+                                   "that you can attend.\n\nKind regards\nIcebolethu Group Human Resources"),
+    "candidate_regret": ("Applicant: regret",
+                         "Your application for {{ title }} at Icebolethu Group",
+                         "Dear {{ name }}\n\nThank you for applying for {{ title }} (reference {{ ref }}) and for "
+                         "your interest in Icebolethu Group. After careful consideration, we regret that your "
+                         "application was not successful this time.{% if note %}\n\n{{ note }}{% endif %}\n\n"
+                         "Your CV stays in our talent pool, and we may contact you when a matching position opens."
+                         "\n\nKind regards\nIcebolethu Group Human Resources"),
     "budget_overspend": ("Budget overspend alert",
                          "Budget alert: {{ cost_centre }} at {{ pct }}%",
                          "Cost centre {{ cost_centre }} has committed and consumed {{ pct }}% of its {{ fy }} budget ({{ used }} of {{ amount }})."),

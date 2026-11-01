@@ -6,7 +6,9 @@
     <div><label>Full name *</label><input type="text" name="full_name" required value="{{ form.full_name }}"></div>
     <div><label>Email address *</label><input type="email" name="email" required value="{{ form.email }}"></div>
     <div><label>Phone number</label><input type="tel" name="phone" value="{{ form.phone }}" placeholder="e.g. 082 123 4567"></div>
-    <div><label>Location</label><input type="text" name="location" value="{{ form.location }}" placeholder="City, province"></div>
+    <div><label>Location</label><input type="text" name="location" value="{{ form.location }}" placeholder="Start typing a town or province"
+        list="sa-places" autocomplete="off">
+      <datalist id="sa-places">{% for p in sa_places %}<option value="{{ p }}">{% endfor %}</datalist></div>
   </div>
 </div>
 
@@ -19,9 +21,9 @@
       <select name="education_level">
         {% for lvl, name in education_levels %}<option value="{{ lvl }}" {{ 'selected' if form.education_level == lvl|string }}>{{ name if lvl else 'Select…' }}</option>{% endfor %}
       </select></div>
-    <div><label>Key skills</label><input type="text" name="skills" value="{{ form.skills }}" placeholder="e.g. Customer service, MS Excel"></div>
+    <div><label>Key skills</label><input type="text" name="skills" value="{{ form.skills }}" placeholder="e.g. Customer service, MS Excel">
+      <span class="hint">Separate skills with commas.</span></div>
   </div>
-  <div class="hint">Separate skills with commas.</div>
 </div>
 
 <div class="step-group">

@@ -1,0 +1,35 @@
+{% extends "admin/base.html" %}
+{% block title %}Asset{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('admin.assets') }}">← Assets</a>{% endblock %}
+{% block heading %}{{ item.asset_tag if item else 'Issue Asset' }}{% endblock %}
+{% block content %}
+{% set chosen = item.employee_id if item else employee_id %}
+<form method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="admin-panel admin-form">
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="asset_tag">Asset tag</label><input id="asset_tag" name="asset_tag" value="{{ (item.asset_tag if item else request.form.get('asset_tag')) or '' }}" required placeholder="e.g. LT-0452"></div>
+      <div class="admin-form-row"><label for="category">Category</label><input id="category" name="category" list="categories" value="{{ (item.category if item else request.form.get('category')) or '' }}" placeholder="e.g. Laptop">
+        <datalist id="categories">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist></div>
+      <div class="admin-form-row"><label for="status">Status</label><select id="status" name="status">
+        {% for s in statuses %}<option {{ 'selected' if item and item.status == s }}>{{ s }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="admin-form-row"><label for="description">Description</label><input id="description" name="description" value="{{ (item.description if item else request.form.get('description')) or '' }}" placeholder="e.g. Dell Latitude 5440"></div>
+    <div class="admin-form-grid">
+      <div class="admin-form-row"><label for="employee_id">Issued to</label><select id="employee_id" name="employee_id" required><option value="">Choose an employee</option>
+        {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if chosen == e.id }}>{{ e.full_name }} ({{ e.employee_number }})</option>{% endfor %}</select></div>
+      <div class="admin-form-row"><label for="issued_on">Issued on</label><input id="issued_on" type="date" name="issued_on" value="{{ item.issued_on.isoformat() if item and item.issued_on }}"></div>
+      <div class="admin-form-row"><label for="returned_on">Returned on</label><input id="returned_on" type="date" name="returned_on" value="{{ item.returned_on.isoformat() if item and item.returned_on }}">
+        <span class="hint">Set to today when marked Returned and left blank.</span></div>
+    </div>
+    <div class="admin-form-row"><label for="allocation_form">Asset allocation form</label>
+      {% if forms %}<p class="small">{{ icon('file') }} <a href="{{ url_for('portal.download', file_id=forms[0].id) }}">{{ forms[0].original_name }}</a>
+        <span class="muted">· uploaded {{ forms[0].created_at|dt }}{{ ' by ' ~ forms[0].uploaded_by.full_name if forms[0].uploaded_by }}</span></p>{% endif %}
+      <input id="allocation_form" type="file" name="allocation_form" accept=".pdf,.docx,.jpg,.jpeg,.png">
+      <span class="hint">The signed form for this asset. {{ 'Uploading a new one replaces it as the current form; earlier ones are kept.' if forms else 'PDF, Word or a photo, up to 10 MB.' }}</span></div>
+    {% if forms|length > 1 %}<details class="small"><summary>Earlier forms ({{ forms|length - 1 }})</summary><ul class="detail-list" style="border:none;margin:0;padding:0">
+      {% for f in forms[1:] %}<li>{{ icon('file') }}<a href="{{ url_for('portal.download', file_id=f.id) }}">{{ f.original_name }}</a><span class="sub">{{ f.created_at|dt }}</span></li>{% endfor %}</ul></details>{% endif %}
+    <div><button class="filter-btn">Save asset</button></div>
+  </section>
+</form>
+{% endblock %}

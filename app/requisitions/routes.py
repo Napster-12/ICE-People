@@ -7,12 +7,12 @@ from sqlalchemy.orm import joinedload
 
 from app.auth.decorators import roles_required
 from app.extensions import db
-from app.models import AuditLog, CostCentre, Department, JobGrade, Requisition
+from app.models import ApprovedPosition, AuditLog, CostCentre, Department, Requisition
 from app.models.org import EMPLOYMENT_TYPES
 from app.models.requisition import REQUISITION_STATUSES
 from app.models.user import EXECUTIVE_ROLES
 from app.requisitions.forms import RequisitionForm
-from app.services import budget, files, requisitions, workflow
+from app.services import adverts, budget, files, requisitions, workflow
 from app.services.dates import today
 from app.services.errors import DomainError
 from app.services.requisitions import CREATE_ROLES, SEE_ALL_ROLES, ValidationFailed
@@ -151,14 +151,14 @@ def detail(req_id):
         if step and workflow.can_act(step, current_user):
             my_step = step
     preview = None
-    if req.status in requisitions.EDITABLE and req.job_grade and req.employment_type:
+    if req.status in requisitions.EDITABLE and req.approved_position and req.employment_type:
         try:
             fy = budget.financial_year_for(req.required_start_date or today())
-            ctc = budget.calculate_ctc(req.job_grade, req.employment_type, req.required_start_date,
-                                       req.contract_end_date, req.estimated_hours)
+            ctc = budget.calculate_ctc(req.approved_position, req.employment_type, req.required_start_date,
+                                       req.contract_end_date)
             available = budget.available_budget(req.cost_centre_id, fy) if req.cost_centre_id else None
-            preview = {"ctc": ctc, "available": available, "fy": fy,
-                       "over": available is not None and ctc > available}
+            preview = {"ctc": ctc, "available": available, "fy": fy, "unbudgeted": ctc is None,
+                       "over": ctc is not None and available is not None and ctc > available}
         except DomainError:
             preview = None
     timeline = (AuditLog.query.filter_by(entity="requisition", entity_id=str(req.id))
@@ -170,7 +170,8 @@ def detail(req_id):
                            can_cancel=(req.status in requisitions.CANCELLABLE_BY_ORIGINATOR
                                        and current_user.id == req.originator_id),
                            can_close=req.status in requisitions.CLOSABLE_UNFILLED and current_user.is_hr,
-                           show_exec=current_user.has_role(*EXECUTIVE_ROLES), fy_label=budget.fy_label)
+                           show_exec=current_user.has_role(*EXECUTIVE_ROLES), fy_label=budget.fy_label,
+                           advert=adverts.advert_for(req))
 
 
 @bp.route("/<int:req_id>/submit", methods=["POST"])
@@ -239,7 +240,7 @@ def api_cost_centres():
 def api_budget_check():
     """Live CTC and availability preview while filling in the form."""
     from app.services.dates import format_money
-    grade = db.session.get(JobGrade, request.args.get("job_grade_id", type=int) or 0)
+    position = db.session.get(ApprovedPosition, request.args.get("position_id", type=int) or 0)
     cc_id = request.args.get("cost_centre_id", type=int)
 
     def as_date(key):
@@ -249,10 +250,11 @@ def api_budget_check():
             return None
     start, end = as_date("start"), as_date("end")
     try:
-        ctc = budget.calculate_ctc(grade, request.args.get("employment_type"), start, end,
-                                   request.args.get("hours", type=int))
+        ctc = budget.calculate_ctc(position, request.args.get("employment_type"), start, end)
     except DomainError as exc:
         return jsonify({"ok": False, "message": str(exc)})
+    if ctc is None:
+        return jsonify({"ok": False, "message": budget.UNBUDGETED_NOTE})
     fy = budget.financial_year_for(start or today())
     available = budget.available_budget(cc_id, fy) if cc_id else None
     return jsonify({"ok": True, "ctc": format_money(ctc), "fy": budget.fy_label(fy),

@@ -15,7 +15,8 @@ from app.extensions import db
 from app.integrations import get_adapter
 from app.models import Delegation, Role, RoutingRule, User, WorkflowInstance, WorkflowStep
 from app.models.user import EXCO, GCOO, HR_ADMIN
-from app.models.workflow import GCOO_OR_EXCO, LINE_MANAGER_OR_HOD, ORIGINATOR_MANAGER
+from app.models.workflow import (DEPARTMENT_LINE_MANAGER, DEPARTMENT_MANAGER, GCOO_OR_EXCO, LINE_MANAGER_OR_HOD,
+                                 ORIGINATOR_MANAGER)
 from app.services import audit, settings
 from app.services.calendar import add_business_days, business_hours_between
 from app.services.conditions import evaluate
@@ -88,6 +89,11 @@ def resolve_approver(rule_value, originator, department):
         user = manager_user(originator) or hod_user(department)
     elif rule_value == ORIGINATOR_MANAGER:
         user = manager_user(originator)
+    elif rule_value == DEPARTMENT_MANAGER:
+        user = hod_user(department)
+    elif rule_value == DEPARTMENT_LINE_MANAGER:          # the Line Manager the Department Manager reports to
+        head = hod_user(department)
+        user = (manager_user(head) if head else None) or manager_user(originator)
     elif rule_value == GCOO_OR_EXCO:
         user = first_user_with_role(GCOO, exclude=originator) or first_user_with_role(EXCO, exclude=originator)
     else:
@@ -103,6 +109,9 @@ def resolve_approver(rule_value, originator, department):
     if user is None:
         user = first_user_with_role(HR_ADMIN, exclude=originator)
         note = (note + " " if note else "") + "No approver found; routed to HR Admin."
+        if user is None:                                 # HR Admin raised it: never leave a step with nobody
+            user = manager_user(originator)
+            note = note.replace("routed to HR Admin.", "routed to the originator's manager.")
     return user, note
 
 
@@ -193,8 +202,8 @@ def can_act(step, user):
 def act(step, user, action, comment):
     if action not in ACTIONS:
         raise DomainError("Choose approve, return for revision or reject.")
-    if not (comment or "").strip():
-        raise DomainError("A comment is required for every approval action.")
+    if action != "approve" and not (comment or "").strip():          # approving needs no comment
+        raise DomainError("Give a reason when you return or reject a request.")
     if step.instance.status != "Pending" or step.status != "Pending":
         raise DomainError("This approval step is no longer waiting for a decision.")
     if not can_act(step, user):
@@ -203,7 +212,7 @@ def act(step, user, action, comment):
     instance = step.instance
     step.status = ACTIONS[action]
     step.action = action
-    step.comment = comment.strip()
+    step.comment = (comment or "").strip() or None
     step.actor_id = user.id
     step.acted_at = now()
     audit.record("approval." + action, instance.entity_type, instance.entity_id,

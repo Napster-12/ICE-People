@@ -43,6 +43,8 @@ OPEN_REQUISITION = ("Draft", "Submitted", "In Approval", "Returned", "Approved",
 ADVERTISED_REQUISITION = ("Advertised", "Interviewing", "Offer")
 ALWAYS_EDITABLE = ["title", "branch_id", "job_family_id", "reports_to_id", "minimum_requirements", "critical"]
 PLANNED_EDITABLE = ALWAYS_EDITABLE + ["department_id", "cost_centre_id", "job_grade_id", "budgeted_ctc"]
+# HR may change the grade and budgeted CTC at any stage, an ad-hoc request in approval included (31 Oct 2026).
+HR_EDITABLE = ALWAYS_EDITABLE + ["job_grade_id", "budgeted_ctc"]
 CHANGE_FROM = {"Freeze": ("Vacant",), "Unfreeze": ("Frozen",), "Abolish": ("Vacant", "Frozen"),
                "Regrade": ("Vacant", "Filled", "Frozen")}
 MIN_JUSTIFICATION = 50
@@ -179,6 +181,22 @@ def _clean(values):
     return v
 
 
+def department_manager_position(department_id, exclude=None):
+    """The position held by a department's Department Manager (its head): the default "reports to" for the
+    department's positions. None if the department has no manager or they hold no position on the register."""
+    dept = db.session.get(Department, department_id or 0)
+    position = dept.hod.approved_position if dept is not None and dept.hod is not None else None
+    return None if position is None or (exclude is not None and position.id == exclude.id) else position
+
+
+def _default_reports_to(values, position=None):
+    """Fill an empty "reports to" with the Department Manager's position."""
+    if not values.get("reports_to_id"):
+        manager = department_manager_position(values.get("department_id"), exclude=position)
+        values["reports_to_id"] = manager.id if manager else None
+    return values
+
+
 def validate(values, position=None):
     errors = []
     if not values.get("title"):
@@ -191,7 +209,7 @@ def validate(values, position=None):
         errors.append("Choose a cost centre.")
     elif dept is not None and cc.department_id != dept.id:
         errors.append("The cost centre must belong to the chosen department.")
-    if not values.get("job_grade_id"):
+    if db.session.get(JobGrade, values.get("job_grade_id") or 0) is None:     # also catches a stale form's old grade
         errors.append("Choose a job grade.")
     ctc = values.get("budgeted_ctc")
     if values.get("budgeted_ctc_raw") and ctc is None:
@@ -209,7 +227,7 @@ def create_planned(values, user, financial_year):
     if not register_editable(financial_year):
         raise DomainError(f"The {budget.fy_label(financial_year)} register is approved or in approval. "
                           "Request an ad-hoc position instead.")
-    values = _clean(values)
+    values = _default_reports_to(_clean(values))
     errors = validate(values)
     if errors:
         raise DomainError(" ".join(errors))
@@ -223,12 +241,12 @@ def create_planned(values, user, financial_year):
 
 
 def update(position, values, user):
-    """Edit a position. Before approval every field can change; after it, only descriptive fields
-    (grade changes go through a regrade approval)."""
-    if position.status in ("Abolished", "Rejected", "Pending approval"):
+    """Edit a position (HR). Before register approval every field can change; after it, and while an ad-hoc
+    request is in approval, everything except the department and cost centre."""
+    if position.status in ("Abolished", "Rejected"):
         raise DomainError(f"A {position.status.lower()} position can't be edited.")
     planned = position.status in ("Planned", "Returned")
-    allowed = PLANNED_EDITABLE if planned else ALWAYS_EDITABLE
+    allowed = PLANNED_EDITABLE if planned else HR_EDITABLE
     values = _clean(values)
     merged = {f: values.get(f, getattr(position, f)) if f in allowed else getattr(position, f)
               for f in PLANNED_EDITABLE}
@@ -302,6 +320,34 @@ def _describe_register(instance):
 
 # ------------------------------------------------------------ ad-hoc requests
 
+def ad_hoc_department(user):
+    """The department a Department Manager may request ad-hoc positions for (their own); None for HR and others,
+    who may choose any department."""
+    if user.is_hr or not user.has_role(HOD) or not user.department_id:
+        return None
+    return db.session.get(Department, user.department_id)
+
+
+def ad_hoc_reports_to(user):
+    """The position a Department Manager's ad-hoc position reports to: their own (None if it isn't on the register)."""
+    if ad_hoc_department(user) is None or user.employee is None:
+        return None
+    return user.employee.approved_position
+
+
+def ad_hoc_defaults(user):
+    """Pre-filled fields on a new ad-hoc request: a Department Manager's department, their cost centre (if it
+    belongs to that department), the department's default job family and their own position as "reports to"."""
+    dept = ad_hoc_department(user)
+    if dept is None:
+        return {}
+    own_cc = user.employee.cost_centre_id if user.employee else None
+    centres = [c.id for c in dept.cost_centres]
+    manager_position = ad_hoc_reports_to(user)
+    return {"department_id": dept.id, "cost_centre_id": own_cc if own_cc in centres else (centres[0] if centres else None),
+            "job_family_id": dept.job_family_id, "reports_to_id": manager_position.id if manager_position else None}
+
+
 def validate_ad_hoc(values):
     errors = validate(values)
     if len((values.get("justification") or "").strip()) < MIN_JUSTIFICATION:
@@ -313,6 +359,14 @@ def request_ad_hoc(values, user, position=None):
     """Create (or resubmit a returned) ad-hoc position request and start its approval."""
     values = _clean(values)
     values["justification"] = (values.get("justification") or "").strip()
+    own = ad_hoc_department(user)
+    if own is not None:
+        if values.get("department_id") != own.id:
+            raise DomainError(f"You can only request ad-hoc positions for {own.name}.")
+        manager_position = ad_hoc_reports_to(user)            # always reports to the Department Manager
+        values["reports_to_id"] = manager_position.id if manager_position else None
+    else:
+        values = _default_reports_to(values, position)
     errors = validate_ad_hoc(values)
     if errors:
         raise DomainError(" ".join(errors))
@@ -336,7 +390,8 @@ def request_ad_hoc(values, user, position=None):
     db.session.flush()
     return workflow.start("adhoc_position", "position", position.id, user,
                           {"department_id": position.department_id,
-                           "budgeted_ctc": float(position.budgeted_ctc or 0)},
+                           "budgeted_ctc": float(position.budgeted_ctc or 0),
+                           "raised_by": "HR" if user.is_hr else "Manager"},
                           department=position.department)
 
 
@@ -434,7 +489,7 @@ workflow.register("position_register", describe=_describe_register, on_approved=
                   sample_context={"financial_year": 2026, "positions": 10})
 workflow.register("adhoc_position", describe=_describe_position, on_approved=_adhoc_approved,
                   on_returned=_adhoc_returned, on_rejected=_adhoc_rejected,
-                  sample_context={"department_id": 1, "budgeted_ctc": 0.0})
+                  sample_context={"department_id": 1, "budgeted_ctc": 0.0, "raised_by": "Manager"})
 workflow.register("position_change", describe=_describe_change, on_approved=_change_approved,
                   on_returned=_change_outcome("Returned"), on_rejected=_change_outcome("Rejected"),
                   sample_context={"kind": "Freeze", "department_id": 1})
@@ -453,7 +508,7 @@ def csv_template():
     fy = budget.fy_label(budget.financial_year_for(today()))[2:]
     cc = CostCentre.query.join(Department).order_by(Department.code, CostCentre.code).first()
     if cc is not None:
-        w.writerow([fy, cc.department.code, cc.code, "Sales Consultant", "4", "", "", "250000.00", "",
+        w.writerow([fy, cc.department.code, cc.code, "Sales Consultant", "Junior", "", "", "250000.00", "",
                     "Matric | 1 year of sales experience | Valid driver's licence"])
     return out.getvalue()
 
@@ -467,7 +522,7 @@ def import_csv(text, user):
         return 0, [f"Row 1: the header must be {', '.join(CSV_COLUMNS)}."]
     departments = {d.code.upper(): d for d in Department.query.all()}
     centres = {c.code.upper(): c for c in CostCentre.query.all()}
-    grades = {str(g.grade): g for g in JobGrade.query.all()}
+    grades = {g.name.lower(): g for g in JobGrade.query.all()}            # Intern, Junior, Senior, Manager, Exco
     branches = {b.code.upper(): b for b in Branch.query.all()}
     families = {f.code.upper(): f for f in JobFamily.query.all()}
     numbers = {p.position_number.upper(): p for p in ApprovedPosition.query.all()}
@@ -492,9 +547,9 @@ def import_csv(text, user):
             problems.append(f"cost centre {cc.code} doesn't belong to {dept.code}")
         if not row["title"]:
             problems.append("title is required")
-        grade = grades.get(row["grade"])
+        grade = grades.get(row["grade"].lower())
         if grade is None:
-            problems.append(f"unknown grade '{row['grade']}'")
+            problems.append(f"unknown grade '{row['grade']}' (use Intern, Junior, Senior, Manager or Exco)")
         branch = branches.get(row["branch_code"].upper()) if row["branch_code"] else None
         if row["branch_code"] and branch is None:
             problems.append(f"unknown branch '{row['branch_code']}'")
@@ -627,7 +682,7 @@ def dashboard_workbook(data, financial_year):
     for p in sorted(data["positions"], key=lambda p: p.position_number):
         detail.append([p.position_number, p.title, str(p.business_unit or ""), p.department.name,
                        str(p.branch or ""), str(p.region or ""), p.cost_centre.code if p.cost_centre else "",
-                       p.job_grade.grade if p.job_grade else "", str(p.job_family or ""), p.status,
+                       p.job_grade.name if p.job_grade else "", str(p.job_family or ""), p.status,
                        "Yes" if p.is_ad_hoc else "", p.vacant_since,
                        (today() - p.vacant_since).days if p.vacant_since else "",
                        p.holder.full_name if p.holder else ""])
@@ -641,8 +696,11 @@ def dashboard_workbook(data, financial_year):
 
 
 def reference_data():
+    departments = Department.query.filter_by(active=True).order_by(Department.name).all()
+    managers = {d.id: department_manager_position(d.id) for d in departments}
     return {
-        "departments": Department.query.filter_by(active=True).order_by(Department.name).all(),
+        "departments": departments,
+        "manager_positions": {d_id: p.id for d_id, p in managers.items() if p is not None},
         "cost_centres": CostCentre.query.filter_by(active=True).order_by(CostCentre.code).all(),
         "grades": JobGrade.query.order_by(JobGrade.grade).all(),
         "branches": Branch.query.filter_by(active=True).order_by(Branch.name).all(),

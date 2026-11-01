@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}Departments{% endblock %}
 {% block heading %}Departments &amp; Cost Centres{% endblock %}
-{% block subheading %}The HOD is used as an approver when the originator has no line manager{% endblock %}
+{% block subheading %}The Department Manager is used as an approver when the originator has no line manager{% endblock %}
 {% block content %}
 <div class="admin-split">
   <section class="admin-panel">
@@ -11,10 +11,13 @@
       <div class="admin-form-grid">
         <div class="admin-form-row"><label>Code</label><input name="code" value="{{ d.code }}" required></div>
         <div class="admin-form-row"><label>Name</label><input name="name" value="{{ d.name }}" required></div>
-        <div class="admin-form-row"><label>HOD</label><select name="hod_employee_id"><option value="">—</option>
+        <div class="admin-form-row"><label>Department Manager</label><select name="hod_employee_id"><option value="">—</option>
           {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if d.hod_employee_id == e.id }}>{{ e.full_name }}</option>{% endfor %}</select></div>
         <div class="admin-form-row"><label>Business unit</label><select name="business_unit_id"><option value="">—</option>
           {% for b in business_units %}<option value="{{ b.id }}" {{ 'selected' if d.business_unit_id == b.id }}>{{ b.name }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label>Default job family</label><select name="job_family_id"><option value="">—</option>
+          {% for f in families %}<option value="{{ f.id }}" {{ 'selected' if d.job_family_id == f.id }}>{{ f.name }}</option>{% endfor %}</select>
+          <span class="hint">Pre-filled when the Department Manager requests an ad-hoc position.</span></div>
         <div class="admin-form-row" style="justify-content:flex-end"><button class="admin-btn-sm admin-btn-secondary">Save</button></div>
       </div>
       <div class="tag-list" style="margin-top:10px">{% for c in d.cost_centres %}<span class="tag soft">{{ c.code }} · {{ c.name }}</span>{% else %}<span class="muted small">No cost centres.</span>{% endfor %}</div>

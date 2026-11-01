@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 from app.auth.decorators import roles_required
 from app.extensions import db
 from app.models import Delegation, LeaveEntry, User, WorkflowInstance, WorkflowStep
-from app.models.user import HR_ADMIN, HR_MANAGER
+from app.models.user import IT
 from app.services import audit, workflow
 from app.services.calendar import business_days_between
 from app.services.dates import format_date, now, today
@@ -137,7 +137,7 @@ def end_delegation(delegation_id):
 # ------------------------------------------------------------- dashboard
 
 @bp.route("/dashboard")
-@roles_required(HR_ADMIN, HR_MANAGER)
+@roles_required(IT)
 def dashboard():
     steps = (workflow.pending_steps_query()
              .options(joinedload(WorkflowStep.assignee), joinedload(WorkflowStep.instance))

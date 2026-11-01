@@ -20,7 +20,7 @@
     {% for e in rows %}
     <tr><td><strong><a href="{{ url_for('admin.employee_form', emp_id=e.id) }}">{{ e.full_name }}</a></strong><span class="sub">{{ e.employee_number }}</span></td>
       <td>{{ e.position_title or '—' }}{% if e.critical_role %} <span class="tag warn">Critical</span>{% endif %}</td>
-      <td>{{ e.department.name if e.department else '—' }}</td><td>{{ e.job_grade.grade if e.job_grade else '—' }}</td>
+      <td>{{ e.department.name if e.department else '—' }}</td><td>{{ e.job_grade.name if e.job_grade else '—' }}</td>
       <td>{{ e.manager.full_name if e.manager else '—' }}</td><td>{{ e.start_date|dt }}</td><td>{{ status(e.status) }}</td></tr>
     {% else %}<tr><td colspan="7" class="empty-row">No employees.</td></tr>{% endfor %}
   </table></div>

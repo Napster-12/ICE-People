@@ -9,8 +9,8 @@ from sqlalchemy import func
 
 from app.auth.decorators import roles_required
 from app.models import Application, ApprovedPosition, BudgetLine, Employee, Requisition, WorkflowStep
-from app.models.user import FINANCE, GCOO, HR_ADMIN, HR_MANAGER, HR_ROLES
-from app.services import budget, positions, requisitions, workflow
+from app.models.user import FINANCE, GCOO, HR_ADMIN, HR_MANAGER, HR_ROLES, IT
+from app.services import budget, interviews, positions, requisitions, shortlisting, workflow
 from app.services.dates import now, today
 
 bp = Blueprint("dashboards", __name__)
@@ -75,13 +75,13 @@ def _admin_home(user, steps):
     hr = user.has_role(*HR_ROLES)
     to_screen = Application.query.filter(Application.job_id.isnot(None), Application.status == "New").count() if hr else 0
     overdue = (workflow.pending_steps_query().filter(WorkflowStep.due_at < now()).count()
-               if user.has_role(HR_ADMIN, HR_MANAGER) else 0)
+               if user.has_role(IT) else 0)
     stats = [
         _stat(awaiting, "Requisitions awaiting approval", url_for("requisitions.index")),
         _stat(pos.get("In recruitment", 0), "Vacancies in recruitment", url_for("positions.dashboard") if pos else None),
         _stat(pos.get("Vacant", 0), "Vacant positions", url_for("positions.dashboard") if pos else None),
         _stat(len(steps), "Waiting for you", url_for("approvals.inbox")),
-        _stat(overdue, "Items overdue", url_for("approvals.dashboard"), alert=True) if user.has_role(HR_ADMIN, HR_MANAGER)
+        _stat(overdue, "Items overdue", url_for("approvals.dashboard"), alert=True) if user.has_role(IT)
         else _stat(at_finance, "Over budget in approval", url_for("requisitions.index"), alert=True),
     ]
     if hr:
@@ -91,7 +91,8 @@ def _admin_home(user, steps):
     if pos:
         ta_text += f" · {pos.get('In recruitment', 0)} vacancies in recruitment"
     if hr:
-        ta_text += f" · {to_screen} applications to screen"
+        from app.services import adverts
+        ta_text += f" · {adverts.ready_query().count()} ready to advertise · {to_screen} applications to screen"
     tiles = [_tile("TA", "Talent acquisition", ta_text,
                    url_for("recruitment.dashboard" if hr else "requisitions.index"), "Open talent acquisition",
                    tone="featured")]
@@ -114,7 +115,7 @@ def _admin_home(user, steps):
               later=COMING_SOON),
         _tile("S3", "Post to Sage 300", "Approved records ready to post to Sage 300 People", later=COMING_SOON),
     ]
-    if user.has_role(HR_ADMIN, HR_MANAGER):
+    if user.has_role(IT):
         tiles.append(_tile("RD", "Reports & dashboards", "Approvals ageing, budget impact and vacancies",
                            url_for("approvals.dashboard"), "Open reports"))
     elif user.has_role(*BUDGET_ROLES):
@@ -126,7 +127,7 @@ def _admin_home(user, steps):
                            url_for("admin.employees"), "Open employees"))
     tiles.append(_tile("SA", "Skills audit: qualifications", "Qualifications captured and certificates to verify",
                        later=COMING_SOON))
-    if user.has_role(HR_ADMIN):
+    if user.has_role(IT):
         tiles.append(_tile("ST", "Settings", "Workflows, approval routing, templates, roles and notifications",
                            url_for("admin.settings_page"), "Open settings"))
     return {"intro": "Everything managers have started and staff have responded to, in one place",
@@ -140,6 +141,15 @@ def _manager_home(user, steps):
         label, tone = _due_label(s.due_at)
         tasks.append({"label": label, "tone": tone, "text": f"{s.name}: {info['ref']} {info['title']}".strip(),
                       "link": info["link"]})
+    to_score = [r for r in interviews.to_score(user) if not r["scored"]]
+    for r in to_score:                                                    # interviews on the user's panels
+        tasks.append({"label": "Interview", "tone": "info",
+                      "text": f"Score {r['application'].candidate.full_name} for {r['job'].title}",
+                      "link": url_for("recruitment.scorecard", app_id=r["application"].id)})
+    for review in shortlisting.reviews_for(user, pending_only=True):     # shortlists HR sent the Department Manager
+        tasks.append({"label": "Shortlist", "tone": "urgent",
+                      "text": f"Pick who goes to interview: {review.job.title} ({len(review.application_ids)})",
+                      "link": url_for("recruitment.shortlist_review", review_id=review.id)})
     returned = (Requisition.query.filter_by(originator_id=user.id, status="Returned")
                 .order_by(Requisition.updated_at.desc()).all())
     for r in returned:
@@ -158,17 +168,28 @@ def _manager_home(user, steps):
                                          Requisition.status.in_(positions.OPEN_REQUISITION)).count()
     glance = [(team, "people report to you"), (pos.get("Vacant", 0), "vacant positions in your area"),
               (pos.get("In recruitment", 0), "vacancies in recruitment"), (open_mine, "open requisitions you raised")]
-    tiles = [
-        _tile("+", "Raise a requisition",
-              "Pick an approved vacant position, or request an ad-hoc position first. "
-              "Approval: line manager, Finance, HR, GCOO.", url_for("requisitions.new"), "Start", tone="featured"),
-        _tile("AP", "Approvals", "Requests waiting for your decision", url_for("approvals.inbox"),
-              f"{len(steps)} waiting"),
-        _tile("RQ", "My requisitions", "Track the requests you've raised through approval",
-              url_for("requisitions.index"), f"{open_mine} open"),
+    if user.has_role(*requisitions.CREATE_ROLES):         # Department Managers raise requisitions
+        requisition_tiles = [
+            _tile("+", "Raise a requisition",
+                  "Pick an approved vacant position, or request an ad-hoc position first. "
+                  "Approval: line manager, Finance, HR, GCOO.", url_for("requisitions.new"), "Start", tone="featured"),
+            _tile("AP", "Approvals", "Requests waiting for your decision", url_for("approvals.inbox"),
+                  f"{len(steps)} waiting"),
+            _tile("RQ", "My requisitions", "Track the requests you've raised through approval",
+                  url_for("requisitions.index"), f"{open_mine} open"),
+        ]
+    else:                                                    # Line Managers approve their Department Managers' requests
+        requisition_tiles = [
+            _tile("AP", "Approvals", "Requisitions and requests waiting for your decision", url_for("approvals.inbox"),
+                  f"{len(steps)} waiting", tone="featured"),
+            _tile("RQ", "Team requisitions", "Follow the requisitions your Department Managers have raised",
+                  url_for("requisitions.index"), "View requisitions"),
+        ]
+    tiles = requisition_tiles + [
         _tile("VD", "Vacancy dashboard", "Your area's approved positions: filled, vacant and in recruitment",
               url_for("positions.dashboard"), "Open dashboard"),
-        _tile("IN", "Interviews", "Score candidates and recommend an appointment", later=COMING_SOON),
+        _tile("IN", "Interviews", "Score candidates and recommend an appointment",
+              url_for("recruitment.interviews_to_score"), f"{len(to_score)} to score"),
         _tile("ON", "Onboarding", "Induction checklists, buddy, 30/60/90-day check-ins, probation reviews",
               later=COMING_SOON),
         _tile("EX", "Start an exit", "Resignation, end of contract or other exit; handover and asset return",

@@ -10,7 +10,7 @@
 {% if can_resubmit %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('positions.adhoc_new', position_id=p.id) }}">{{ icon('edit') }} Change and resubmit</a>{% endif %}
 {% if can_edit and not can_resubmit %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('positions.edit', position_id=p.id) }}">{{ icon('edit') }} Edit</a>{% endif %}
 {% if can_delete %}
-<form method="post" action="{{ url_for('positions.delete', position_id=p.id) }}" onsubmit="return confirm('Delete {{ p.position_number }} from the register?')">
+<form method="post" action="{{ url_for('positions.delete', position_id=p.id) }}" data-confirm-danger data-confirm-title="Delete {{ p.position_number }}?" data-confirm-ok="Delete position" data-confirm="This planned position is removed from the register.">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="admin-btn-sm admin-btn-danger">{{ icon('trash') }} Delete</button></form>
 {% endif %}
 {% endblock %}

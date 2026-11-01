@@ -23,14 +23,15 @@ ORG = {
     "hrbp": (["HR Business Partner"], "HR", "hrmanager"),
     "recruiter": (["Recruiter"], "HR", "hrmanager"),
     "hradmin": (["HR Admin"], "HR", "hrmanager"),
-    "hod": (["HOD"], "SAL", "gcoo"),
-    "linemanager": (["Line Manager"], "SAL", "hod"),
-    "employee": ([], "SAL", "linemanager"),
-    "finance": (["Finance / Budget Controller"], "FIN", "gcoo"),
+    # Icebolethu's order (31 Oct 2026): employee → Department Manager → Line Manager → Exco/GCOO.
+    "linemanager": (["Line Manager"], "SAL", "gcoo"),
+    "hod": (["Department Manager"], "SAL", "linemanager"),
+    "employee": ([], "SAL", "hod"),
+    "finance": (["Finance"], "FIN", "gcoo"),
     "payroll": (["Payroll"], "FIN", "finance"),
     "it": (["IT"], "OPS", "gcoo"),
     "compliance": (["Compliance"], "OPS", "gcoo"),
-    "otherhod": (["HOD"], "FIN", "gcoo"),
+    "otherhod": (["Department Manager"], "FIN", "gcoo"),
     "exco": (["Exco"], "OPS", None),
 }
 
@@ -124,11 +125,11 @@ def login(client, username, password=PASSWORD):
 
 
 def make_position(status="Vacant", **fields):
-    """An approved position on the current register (vacant, grade 4, Sales by default)."""
+    """An approved position on the current register (vacant, Junior, Sales by default)."""
     from app.services.refs import next_reference
     sal = Department.query.filter_by(code="SAL").first()
     values = dict(title="Sales Consultant", department_id=sal.id, cost_centre_id=sal.cost_centres[0].id,
-                  job_grade_id=JobGrade.query.filter_by(grade=4).first().id, financial_year=financial_year(),
+                  job_grade_id=JobGrade.query.filter_by(name="Junior").first().id, financial_year=financial_year(),
                   budgeted_ctc=Decimal("250000.00"))
     values.update(fields)
     p = ApprovedPosition(position_number=next_reference("POS"), status=status,
@@ -139,7 +140,7 @@ def make_position(status="Vacant", **fields):
 
 
 def make_requisition(originator, submit=True, **overrides):
-    """A complete, valid requisition (permanent, replacement, grade 4, Sales), raised from its own new vacant
+    """A complete, valid requisition (permanent, replacement, Junior, Sales), raised from its own new vacant
     position. Position fields (title, department, cost centre, grade) and the headcount type set the position."""
     from app.models import Requisition
     from app.services import requisitions

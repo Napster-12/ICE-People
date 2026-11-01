@@ -6,6 +6,11 @@
 {% block subheading %}{{ req.department.name if req.department else 'No department yet' }} · raised by {{ req.originator.full_name }} on {{ req.created_at|dt }}{% endblock %}
 {% block actions %}
 {{ status(req.status) }}
+{% if advert and current_user.is_hr %}
+  <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('adverts.detail', job_id=advert.id) }}">{{ icon('external') }} Advert {{ advert.reference }}</a>
+{% elif req.status == 'Approved' and current_user.is_hr %}
+  <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('adverts.new', req_id=req.id) }}">{{ icon('plus') }} Create advert</a>
+{% endif %}
 {% if can_edit %}
   <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('requisitions.edit', req_id=req.id) }}">{{ icon('edit') }} Edit</a>
   <form method="post" action="{{ url_for('requisitions.submit', req_id=req.id) }}">
@@ -15,6 +20,7 @@
 {% endif %}
 {% endblock %}
 {% block content %}
+{% if req.status == 'Approved' and not advert %}<div class="alert alert-info">Fully approved.{% if current_user.is_hr %} Create the advert to publish this vacancy on the careers site.{% else %} HR will advertise it next.{% endif %}</div>{% endif %}
 {% if req.status == 'Returned' %}<div class="alert alert-info">This requisition was returned for revision. Edit it and resubmit: approval restarts at level 1.</div>{% endif %}
 {% if req.is_over_budget %}<div class="alert alert-warning"><strong>Over budget</strong> by {{ req.budget_shortfall|money }}.</div>{% endif %}
 
@@ -86,18 +92,23 @@
       <div class="admin-panel-head"><h3>Budget</h3></div>
       {% if req.budget_snapshot_at %}
         {{ kv('Financial year', fy_label(req.financial_year)) }}
+        {% if req.ctc is none %}<p class="small">Unbudgeted ad-hoc position, approved by Finance: no budget check, nothing committed.</p>
+        {% else %}
         {{ kv('Estimated CTC', req.ctc|money) }}
         {{ kv('Available at submission', req.budget_available|money) }}
         {{ kv('Shortfall', req.budget_shortfall|money) }}
+        {% endif %}
         {% if req.committed_amount|float > 0 %}{{ kv('Committed', req.committed_amount|money) }}{% endif %}
         {% if req.consumed_amount|float > 0 %}{{ kv('Consumed', req.consumed_amount|money) }}{% endif %}
         <p class="hint">Snapshot taken {{ req.budget_snapshot_at|dtt }}.</p>
+      {% elif preview and preview.unbudgeted %}
+        <p class="small">Unbudgeted ad-hoc position, approved by Finance: no budget check, nothing committed.</p>
       {% elif preview %}
         {{ kv('Estimated CTC', preview.ctc|money) }}
         {{ kv('Available in ' ~ fy_label(preview.fy), preview.available|money if preview.available is not none else '—') }}
         {% if preview.over %}<div class="alert alert-warning small" style="margin-top:10px">Currently over budget.</div>{% endif %}
         <p class="hint">Live estimate. A snapshot is taken on submit.</p>
-      {% else %}<p class="muted">Add a grade, employment type and cost centre to see the budget.</p>{% endif %}
+      {% else %}<p class="muted">Choose a position and employment type to see the budget.</p>{% endif %}
     </section>
 
     <section class="admin-panel">
@@ -120,7 +131,9 @@
     <section class="admin-panel">
       <div class="admin-panel-head"><h3>{{ 'Cancel' if can_cancel else 'Close unfilled' }}</h3></div>
       <form method="post" action="{{ url_for('requisitions.cancel' if can_cancel else 'requisitions.close', req_id=req.id) }}"
-            class="admin-form" data-confirm="{{ 'Cancel this requisition?' if can_cancel else 'Close this requisition unfilled and release its budget?' }}">
+            class="admin-form" data-confirm-danger data-confirm-title="{{ 'Cancel this requisition?' if can_cancel else 'Close this requisition unfilled?' }}"
+            data-confirm-ok="{{ 'Cancel requisition' if can_cancel else 'Close unfilled' }}"
+            data-confirm="{{ 'It stops here and its approval chain is cancelled.' if can_cancel else 'Its committed budget is released and the position becomes vacant again.' }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="admin-form-row"><label for="reason">Reason{{ ' (required)' if can_close }}</label>
           <textarea id="reason" name="reason" style="min-height:70px" {{ 'required' if can_close }}></textarea></div>

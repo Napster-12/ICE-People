@@ -1,0 +1,133 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv, approval_chain, act_form with context %}
+{% block title %}{{ job.reference }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('adverts.index') }}">← Job Adverts</a>{% endblock %}
+{% block heading %}{{ job.reference }} · {{ job.title }}{% endblock %}
+{% block subheading %}{{ job.department or 'Icebolethu Group' }} · cycle {{ job.cycle }} · drafted by {{ job.created_by.full_name if job.created_by else 'HR' }} on {{ job.created_at|dt }}{% endblock %}
+{% block actions %}
+{{ status('Live' if job.status == 'Open' else job.status) }}
+{% if job.status in ('Draft', 'Returned') %}
+  <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('adverts.edit', job_id=job.id) }}">{{ icon('edit') }} Edit</a>
+  <form method="post" action="{{ url_for('adverts.submit', job_id=job.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="admin-btn-sm admin-btn-primary" {{ 'disabled' if problems }}>{{ icon('arrow') }} Send for approval</button>
+  </form>
+{% elif job.status == 'Open' %}
+  <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('careers.job_detail', job_id=job.id) }}" target="_blank" rel="noopener">{{ icon('external') }} View on careers site</a>
+  <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('recruitment.job_detail', job_id=job.id) }}">{{ icon('users') }} Applicants</a>
+{% elif job.status == 'Closed' %}
+  <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('recruitment.job_detail', job_id=job.id) }}">{{ icon('users') }} Applicants</a>
+  <form method="post" action="{{ url_for('adverts.readvertise', job_id=job.id) }}" data-confirm-title="Re-advertise?" data-confirm-ok="Start new cycle" data-confirm="A new advert cycle starts as a draft and goes to the HR Manager for approval again.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="admin-btn-sm admin-btn-primary">{{ icon('back') }} Re-advertise</button>
+  </form>
+{% endif %}
+{% endblock %}
+{% block content %}
+{% if job.status in ('Draft', 'Returned') and problems %}
+<div class="alert alert-warning"><strong>Before it can go for approval:</strong> {{ problems|join(' ') }}</div>
+{% elif job.status == 'In Approval' %}
+<div class="alert alert-info">Waiting for the HR Manager. Once approved it goes live on the careers site{{ ' and ' ~ job.channels|join(', ') if job.channels }}.</div>
+{% elif job.status == 'Open' %}
+<div class="alert alert-info">Live until {{ job.closing_date|dt }}. It closes automatically after the closing date.</div>
+{% elif job.status == 'Closed' and job.close_reason %}
+<div class="alert alert-info">Closed {{ job.closed_at|dtt }}: {{ job.close_reason }}</div>
+{% endif %}
+
+{% if my_step %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Your decision · Level {{ my_step.level }} {{ my_step.name }}</h3>
+    <span class="results-count">Due {{ my_step.due_at|dtt }}</span></div>
+  <p class="small muted" style="margin-bottom:10px">Approving publishes the advert straight away.</p>
+  {{ act_form(my_step, url_for('adverts.detail', job_id=job.id)) }}
+</section>
+{% endif %}
+
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Advert</h3></div>
+      <div class="kv-grid">
+        {{ kv('Requisition', job.requisition.reference if job.requisition) }}
+        {{ kv('Location', job.location) }}
+        {{ kv('Employment type', job.job_type) }}
+        {{ kv('Closing date', job.closing_date|dt if job.closing_date) }}
+        {{ kv('Minimum qualification', education) }}
+        {{ kv('Experience', (job.min_experience ~ '+ years') if job.min_experience is not none) }}
+        {{ kv('Required skills', job.required_skills) }}
+        {{ kv('JD template', job.jd_template.title if job.jd_template) }}
+        {% set w = job.ats_weights %}
+        {{ kv('ATS weights', ('From the JD: ' ~ w.required ~ ' / ' ~ w.preferred ~ ' / ' ~ w.experience ~ ' / ' ~ w.education ~ ' / ' ~ w.keywords) if w else 'Standard') }}
+      </div>
+      <div class="job-desc" style="margin-top:16px">{{ job.description|jobdesc }}</div>
+      <div class="review-comment" style="margin-top:12px">{{ job.ee_statement or 'No EE statement yet.' }}</div>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Approval</h3>
+        {% if current %}<span class="results-count">Round {{ current.round }} · {{ current.status }}</span>{% endif %}</div>
+      {% if current %}{{ approval_chain(current) }}{% else %}<p class="muted">The HR Manager approves the advert once it's sent for approval.</p>{% endif %}
+      {% if instances|length > 1 %}
+      <details style="margin-top:16px"><summary>Earlier rounds ({{ instances|length - 1 }})</summary>
+        {% for inst in instances[1:] %}<h4 style="margin:16px 0 8px">Round {{ inst.round }} · {{ inst.status }}</h4>{{ approval_chain(inst) }}{% endfor %}
+      </details>
+      {% endif %}
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>History</h3></div>
+      <ul class="timeline">
+        {% for e in timeline %}
+        <li><strong>{{ e.action|replace('_', ' ')|replace('.', ' · ') }}</strong>
+          {% if e.after and e.after.status %} → {{ e.after.status }}{% endif %}
+          <span class="sub">{{ e.username or 'system' }} · {{ e.timestamp|dtt }}{% if e.detail %} · {{ e.detail }}{% endif %}</span></li>
+        {% else %}<li class="muted">No history yet.</li>{% endfor %}
+      </ul>
+      {% if job.versions %}
+      <details style="margin-top:12px"><summary>Versions ({{ job.versions|length }})</summary>
+        <div class="table-responsive" style="margin-top:10px"><table class="admin-table">
+          <tr><th>Version</th><th>Cycle</th><th>Saved</th><th>By</th><th>Closing</th></tr>
+          {% for v in job.versions %}<tr><td>v{{ v.version }}</td><td>{{ v.cycle }}</td><td>{{ v.created_at|dtt }}</td>
+            <td>{{ v.created_by.full_name if v.created_by }}</td><td>{{ v.data.closing_date|dt if v.data.closing_date }}</td></tr>{% endfor %}
+        </table></div>
+      </details>
+      {% endif %}
+    </section>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Channels</h3></div>
+      {% for cycle, postings in stats.cycles %}
+      <h4 class="kv-label" style="margin:{{ '0' if loop.first else '14px' }} 0 6px">Cycle {{ cycle }}</h4>
+      <div class="table-responsive"><table class="admin-table">
+        <tr><th>Channel</th><th>Views</th><th>Applied</th><th>Status</th></tr>
+        {% for p in postings %}<tr><td>{{ p.channel }}{% if p.error %}<span class="sub">{{ p.error }}</span>{% endif %}</td>
+          <td>{{ p.views }}</td><td>{{ p.applications }}</td><td>{{ status(p.status) }}</td></tr>{% endfor %}
+      </table></div>
+      {% else %}
+      <p class="muted" style="margin:0">Goes out on the {{ careers_site|lower }}{{ ' and ' ~ job.channels|join(', ') if job.channels }} once approved.</p>
+      {% endfor %}
+      {% if job.status == 'Open' %}
+      <p class="hint">Link for job portals and social media: {{ url_for('careers.job_detail', job_id=job.id, _external=True) }}?src=LinkedIn (use the channel's name).</p>
+      {% endif %}
+      {% if stats.hires %}
+      <h4 class="kv-label" style="margin:14px 0 6px">Source of hire</h4>
+      {% for source, n in stats.hires.items() %}{{ kv(source, n) }}{% endfor %}
+      {% endif %}
+    </section>
+
+    {% if job.status == 'Open' %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Close early</h3></div>
+      <form method="post" action="{{ url_for('adverts.close', job_id=job.id) }}" class="admin-form" data-confirm-danger data-confirm-title="Close this advert?" data-confirm-ok="Close advert" data-confirm="It is taken down from the careers site and every channel. Applications already received are kept.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="admin-form-row"><label for="reason">Reason</label>
+          <textarea id="reason" name="reason" style="min-height:70px" placeholder="e.g. Enough strong applicants"></textarea></div>
+        <div><button class="admin-btn-sm admin-btn-danger">Close advert</button></div>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

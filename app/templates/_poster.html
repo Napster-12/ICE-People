@@ -2,16 +2,31 @@
 
 {% macro wave(id='w') -%}{%- endmacro %}
 
-{% macro page_hero(title, kicker=None, compact=False, id='hero') -%}
-<section class="hero{{ ' compact' if compact }}">
+{% macro page_hero(title, kicker=None, compact=False, id='hero', photo=None) -%}
+<section class="hero{{ ' compact' if compact }}{{ ' has-photo' if photo }}">
   <div class="hero-inner">
-    {% if kicker %}<div class="hero-kicker">{{ kicker }}</div>{% endif %}
-    <h1 class="hero-title">{{ title }}</h1>
-    {{ caller() if caller }}
+    <div class="hero-text">
+      {% if kicker %}<div class="hero-kicker">{{ kicker }}</div>{% endif %}
+      <h1 class="hero-title">{{ title }}</h1>
+      {{ caller() if caller }}
+    </div>
+    {% if photo %}<div class="hero-photo"><img src="{{ asset(photo) }}" alt=""></div>{% endif %}
   </div>
+  <img class="hero-burst" src="{{ asset('sunburst.svg') }}" alt="" aria-hidden="true">
+  <img class="hero-burst hero-burst-yellow" src="{{ asset('sunburst-yellow.svg') }}" alt="" aria-hidden="true">
+  <img class="hero-burst hero-burst-small" src="{{ asset('sunburst.svg') }}" alt="" aria-hidden="true">
 </section>
 {%- endmacro %}
 
 {% macro info_row(icon_name, label, value) -%}
-<div class="info-row">{{ icon(icon_name) }}<span class="info-label">{{ label }}</span> <span>{{ value }}</span></div>
+<div class="info-row">{{ icon(icon_name) }}<span class="info-text"><span class="info-label">{{ label }}</span> {{ value }}</span></div>
+{%- endmacro %}
+
+{# The job's key facts as one row of chips under the title (job and apply pages). #}
+{% macro job_meta(job) -%}
+<ul class="meta-chips">
+  <li>{{ icon('briefcase') }}{{ job.department or 'Icebolethu Group' }}{{ ' · ' ~ job.job_type if job.job_type }}</li>
+  {% if job.location %}<li>{{ icon('pin') }}{{ job.location }}</li>{% endif %}
+  {% if job.closing_date %}<li>{{ icon('calendar') }}Closes {{ job.closing_date|longdate }}</li>{% endif %}
+</ul>
 {%- endmacro %}

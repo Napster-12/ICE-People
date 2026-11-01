@@ -1,0 +1,22 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}Shortlist reviews{% endblock %}
+{% block heading %}Shortlist reviews{% endblock %}
+{% block subheading %}Shortlists HR sent you. Choose who goes to interview; HR then sends the invitations.{% endblock %}
+{% block content %}
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Vacancy</th><th>Sent by</th><th>Applicants</th><th>Status</th><th></th></tr>
+    {% for r in reviews %}
+    <tr>
+      <td><strong>{{ r.job.title }}</strong><span class="sub">{{ r.job.reference or '' }}{{ ' · ' ~ r.job.location if r.job.location }}</span></td>
+      <td>{{ r.sent_by.full_name }}<span class="sub">{{ r.created_at|dtt }}</span></td>
+      <td>{{ r.application_ids|length }}{% if r.status == 'Completed' %}<span class="sub">{{ r.selected_ids|length }} picked</span>{% endif %}</td>
+      <td>{{ status(r.status) }}</td>
+      <td><a class="admin-btn-sm {{ 'admin-btn-primary' if r.status == 'Pending' else 'admin-btn-secondary' }}"
+             href="{{ url_for('recruitment.shortlist_review', review_id=r.id) }}">{{ 'Review' if r.status == 'Pending' else 'View' }}</a></td>
+    </tr>
+    {% else %}<tr><td colspan="5" class="empty-row">No shortlists yet. HR sends them here when an advert's applicants are shortlisted.</td></tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

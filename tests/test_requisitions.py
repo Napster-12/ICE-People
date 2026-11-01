@@ -5,7 +5,7 @@ from datetime import timedelta
 import pytest
 
 from app.extensions import db
-from app.models import AuditLog, Department, JobGrade, Requisition, StoredFile
+from app.models import AuditLog, Department, Requisition, StoredFile
 from app.services import requisitions
 from app.services.dates import today
 from app.services.errors import DomainError
@@ -110,14 +110,21 @@ def test_scoping(app):
                               cost_centre_id=Department.query.filter_by(code="HR").first().cost_centres[0].id)
     assert requisitions.can_view(user("linemanager"), lm_req)
     assert not requisitions.can_view(user("linemanager"), hr_req)
-    assert requisitions.can_view(user("hod"), lm_req)           # HOD of Sales: department scope / approver
-    assert not requisitions.can_view(user("otherhod"), lm_req)  # HOD of another department
+    assert requisitions.can_view(user("hod"), lm_req)           # Department Manager of Sales: department scope / approver
+    assert not requisitions.can_view(user("otherhod"), lm_req)  # Department Manager of another department
     assert requisitions.can_view(user("finance"), hr_req)       # Finance sees all
     assert requisitions.can_view(user("grouphr"), hr_req)       # approver of the HRBP's request
 
 
-def test_routes_new_draft_submit_and_detail(client):
+def test_line_manager_cannot_raise_requisitions(client):
     login(client, "linemanager")
+    assert client.get("/requisitions/new").status_code == 403
+    assert client.get("/requisitions/").status_code == 200          # still sees the requisitions they approve
+    assert b"New Requisition" not in client.get("/requisitions/").data
+
+
+def test_routes_new_draft_submit_and_detail(client):
+    login(client, "hod")
     position = make_position(title="Branch Consultant")
     taken = make_position(title="Not mine", department_id=Department.query.filter_by(code="HR").first().id,
                           cost_centre_id=Department.query.filter_by(code="HR").first().cost_centres[0].id)
@@ -181,10 +188,11 @@ def test_attachment_whitelist_size_and_download_permission(client, app):
 
 
 def test_cost_centre_api(client):
-    login(client, "linemanager")
+    login(client, "hod")
     sal = Department.query.filter_by(code="SAL").first()
     data = client.get(f"/requisitions/api/cost-centres?department_id={sal.id}").get_json()
     assert [d["id"] for d in data] == [c.id for c in sal.cost_centres]
-    check = client.get(f"/requisitions/api/budget-check?job_grade_id={JobGrade.query.first().id}"
+    position = make_position()
+    check = client.get(f"/requisitions/api/budget-check?position_id={position.id}"
                        f"&employment_type=Permanent&cost_centre_id={sal.cost_centres[0].id}").get_json()
-    assert check["ok"] and check["ctc"].startswith("R ")
+    assert check["ok"] and check["ctc"] == "R 250 000.00"                    # the position's budgeted CTC
