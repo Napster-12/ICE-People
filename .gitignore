@@ -13,3 +13,7 @@ htmlcov/
 .DS_Store
 *.db.before-*
 tests/
+seed.py
+seed_ict_demo.py
+seed_jd_library.py
+legacy/seed_dummy.py
