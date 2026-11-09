@@ -8,12 +8,15 @@ ORIGINATOR_MANAGER = "@originator_manager"
 GCOO_OR_EXCO = "@gcoo_or_exco"
 DEPARTMENT_MANAGER = "@department_manager"
 DEPARTMENT_LINE_MANAGER = "@department_line_manager"
+FINANCE_DEPARTMENT_MANAGER = "@finance_department_manager"   # 8 Nov 2026: approves the positions register
+FINANCE_DEPARTMENT_CODE = "FIN"
 SPECIAL_APPROVERS = {
     LINE_MANAGER_OR_HOD: "Line Manager / Department Manager of the originator",
     ORIGINATOR_MANAGER: "Originator's manager",
     GCOO_OR_EXCO: "GCOO, or an Exco member",
     DEPARTMENT_MANAGER: "Department Manager of the request's department",
     DEPARTMENT_LINE_MANAGER: "Line Manager above the department's Department Manager",
+    FINANCE_DEPARTMENT_MANAGER: "Finance Department Manager (head of the Finance department)",
 }
 
 INSTANCE_STATUSES = ["Pending", "Approved", "Returned", "Rejected", "Cancelled"]

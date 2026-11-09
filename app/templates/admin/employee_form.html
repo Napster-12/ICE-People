@@ -10,7 +10,8 @@
   <section class="admin-panel admin-form">
     <div class="admin-panel-head" style="margin:0"><h3>Employment</h3></div>
     <div class="admin-form-grid">
-      <div class="admin-form-row"><label for="employee_number">Employee number *</label><input id="employee_number" name="employee_number" value="{{ emp.employee_number if emp }}" required {{ ro }}></div>
+      <div class="admin-form-row"><label for="employee_number">Employee number *</label><input id="employee_number" name="employee_number" value="{{ request.form.get('employee_number') or (emp.employee_number if emp else suggested_number) }}" required {{ ro }}>
+        {% if not emp %}<span class="hint">The next free ICE number. You can change it, for example to match Sage 300.</span>{% endif %}</div>
       <div class="admin-form-row"><label for="first_name">First name *</label><input id="first_name" name="first_name" value="{{ emp.first_name if emp }}" required {{ ro }}></div>
       <div class="admin-form-row"><label for="last_name">Last name *</label><input id="last_name" name="last_name" value="{{ emp.last_name if emp }}" required {{ ro }}></div>
       <div class="admin-form-row"><label for="email">Email</label><input id="email" type="email" name="email" value="{{ emp.email or '' if emp }}" {{ ro }}></div>
@@ -20,7 +21,7 @@
         {% for d in departments %}<option value="{{ d.id }}" {{ 'selected' if emp and emp.department_id == d.id }}>{{ d.name }}</option>{% endfor %}</select></div>
       <div class="admin-form-row"><label for="cost_centre_id">Cost centre</label><select id="cost_centre_id" name="cost_centre_id" {{ ro }}><option value="">—</option>
         {% for c in cost_centres %}<option value="{{ c.id }}" {{ 'selected' if emp and emp.cost_centre_id == c.id }}>{{ c }}</option>{% endfor %}</select></div>
-      <div class="admin-form-row"><label for="job_grade_id">Grade</label><select id="job_grade_id" name="job_grade_id" {{ ro }}><option value="">—</option>
+      <div class="admin-form-row"><label for="job_grade_id">Occupational level</label><select id="job_grade_id" name="job_grade_id" {{ ro }}><option value="">—</option>
         {% for g in grades %}<option value="{{ g.id }}" {{ 'selected' if emp and emp.job_grade_id == g.id }}>{{ g }}</option>{% endfor %}</select></div>
       <div class="admin-form-row"><label for="manager_id">Manager</label><select id="manager_id" name="manager_id" {{ ro }}><option value="">—</option>
         {% for m in managers %}{% if not emp or m.id != emp.id %}<option value="{{ m.id }}" {{ 'selected' if emp and emp.manager_id == m.id }}>{{ m }}</option>{% endif %}{% endfor %}</select></div>

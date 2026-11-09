@@ -30,7 +30,8 @@ CHANNELS = PORTAL_CHANNELS
 DEFAULT_CHANNELS = ["Internal", "Intranet"]
 JOB_TYPE_FOR = {"Permanent": "Full-time", "Contract": "Contract", "Casual": "Part-time"}
 FIELDS = ["title", "department", "location", "job_type", "description", "required_skills", "preferred_skills",
-          "min_experience", "min_education", "ats_weights", "closing_date", "ee_statement", "channels"]
+          "min_experience", "min_education", "ats_weights", "closing_date", "ee_statement", "channels",
+          "eligibility_questions"]
 JD_FIELDS = ["title", "job_family_id", "description", "required_skills", "preferred_skills", "min_experience",
              "min_education", "ats_weights", "review_date", "active"]
 JD_REMIND_DAYS = 30
@@ -157,6 +158,7 @@ def draft_from_requisition(req, user, template=None, use_library=True):
               ats_weights=template.ats_weights if template else None,
               closing_date=today() + timedelta(days=settings.get("advert_closing_days", int)),
               ee_statement=settings.get("advert_ee_statement"), channels=list(DEFAULT_CHANNELS),
+              eligibility_questions=[],                     # typed by the specialist for every advert
               status="Draft", cycle=1, created_by_id=user.id, created_at=now())
     db.session.add(job)
     db.session.flush()
@@ -170,6 +172,29 @@ def _save_version(job, user):
     job.version = (job.version or 0) + 1
     db.session.add(AdvertVersion(job_id=job.id, version=job.version, cycle=job.cycle, data=data_snapshot(job),
                                  created_by_id=user.id if user else None, created_at=now()))
+
+
+MAX_ELIGIBILITY_QUESTIONS = 10
+
+
+def parse_eligibility(rows):
+    """rows: [(question, qualifying answer)] from the advert form. Returns (questions, errors). Blank rows are
+    skipped; each question needs "yes" or "no" as the answer that lets the applicant continue."""
+    questions, errors = [], []
+    for text, answer in rows:
+        text = " ".join((text or "").split())
+        if not text:
+            continue
+        if len(text) > 300:
+            errors.append(f"Keep each eligibility question under 300 characters ({text[:40]}…).")
+        if answer not in ("yes", "no"):
+            errors.append(f"Choose the answer that qualifies for: {text}")
+        questions.append({"text": text, "answer": answer if answer in ("yes", "no") else "yes"})
+    if len(questions) > MAX_ELIGIBILITY_QUESTIONS:
+        errors.append(f"Ask at most {MAX_ELIGIBILITY_QUESTIONS} eligibility questions.")
+    if len({q["text"].lower() for q in questions}) != len(questions):
+        errors.append("Each eligibility question must be different.")
+    return questions, errors
 
 
 def problems(job):
@@ -195,6 +220,8 @@ def problems(job):
         errors.append("Enter the employment equity and equal opportunity statement.")
     if any(c not in CHANNELS for c in job.channels or []):
         errors.append("Choose channels from the list.")
+    if not job.eligibility_questions:
+        errors.append("Type at least one eligibility question for applicants.")
     return errors
 
 
@@ -311,6 +338,7 @@ def readvertise(job, user):
     set_status(job, "Draft", detail=f"Re-advertised: cycle {job.cycle + 1}")
     job.cycle += 1
     job.closing_date = today() + timedelta(days=settings.get("advert_closing_days", int))
+    job.eligibility_questions = []                          # typed again for every advertising cycle
     _save_version(job, user)
     return job
 

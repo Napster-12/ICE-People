@@ -37,6 +37,68 @@ def register_cli(app):
         db.session.commit()
         click.echo(f"Job descriptions due for review: {due}.")
 
+    @app.cli.command("send-test-email")
+    @click.option("--to", "to", required=True, help="Who gets the test email")
+    def send_test_email(to):
+        """Send a test email with the configured mail settings (MAIL_PROVIDER, SMTP_*, EMAIL_COPY_TO)."""
+        from app.integrations import IntegrationError, get_adapter
+        from app.services.dates import format_datetime, now
+        cfg = app.config
+        cfg["EMAIL_ASYNC"] = False                             # wait for the server, to report the result
+        copies = cfg.get("EMAIL_COPY_TO") or "nobody"
+        body = (f"This is a test email from the {cfg.get('SMTP_FROM_NAME') or 'ICE People Administration System'}.\n\n"
+                f"Sent: {format_datetime(now())}\nMail provider: {cfg['MAIL_PROVIDER']}\n"
+                f"Server: {cfg['SMTP_HOST']}:{cfg['SMTP_PORT']}\nFrom: {cfg['SMTP_FROM'] or '-'}\n"
+                f"Copy of every email to: {copies}\n\nIf you can read this, email is working.")
+        from app.services.emails import designed
+        subject = "ICE People: test email"
+        try:
+            get_adapter("email").send_email(to, subject, body, html=designed("test", subject, body, "/dashboard"))
+        except IntegrationError as exc:
+            db.session.commit()                                # keep the integration log of the failure
+            sys.exit(f"The test email failed: {exc}")
+        db.session.commit()
+        if cfg["MAIL_PROVIDER"] != "smtp":
+            click.echo("MAIL_PROVIDER isn't smtp, so the email was only printed above (mock).")
+        else:
+            others = [c.strip() for c in (cfg.get("EMAIL_COPY_TO") or "").split(",")
+                      if c.strip() and c.strip().lower() != to.lower()]
+            click.echo(f"Test email sent to {to}" + (f", copy to {', '.join(others)}." if others else "."))
+
+    @app.cli.command("send-email-samples")
+    @click.option("--to", "to", required=True, help="Who gets the samples")
+    @click.option("--key", "keys", multiple=True, help="Only these template keys (default: every template)")
+    def send_email_samples(to, keys):
+        """Email one designed sample of every notification template, filled in with example values, for review."""
+        from app.integrations import IntegrationError, get_adapter
+        from app.models import NotificationTemplate
+        from app.services import emails
+        from app.services.notifications import ensure_templates
+        app.config["EMAIL_ASYNC"] = False                      # wait for the server, to report each result
+        ensure_templates()
+        q = NotificationTemplate.query.order_by(NotificationTemplate.name)
+        templates = [t for t in q if not keys or t.key in keys]
+        sent = 0
+        for tpl in templates:
+            subject, body, link, context = emails.sample(tpl.key, tpl.subject, tpl.body)
+            subject = f"[Sample] {subject}"
+            try:
+                get_adapter("email").send_email(to, subject, body,
+                                                html=emails.designed(tpl.key, subject, body, link, context))
+                sent += 1
+            except IntegrationError as exc:
+                click.echo(f"{tpl.key}: failed ({exc})")
+        db.session.commit()
+        click.echo(f"Sent {sent} of {len(templates)} samples to {to}.")
+
+    @app.cli.command("expire-offers")
+    def expire_offers():
+        """Daily: offers the candidate didn't answer by their expiry date lapse (HR Admin is told)."""
+        from app.services import onboarding
+        count = onboarding.expire_all()
+        db.session.commit()
+        click.echo(f"{count} offer(s) expired.")
+
     @app.cli.command("set-password")
     @click.argument("username")
     def set_password(username):

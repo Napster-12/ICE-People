@@ -13,15 +13,15 @@ from werkzeug.utils import secure_filename
 from app.auth.decorators import roles_required
 from app.extensions import db
 from app.models import Application, Candidate, Job, PanelMember, ShortlistReview, User
-from app.models.recruitment import APPLICATION_STATUSES, MESSAGE_KINDS, RECOMMENDATIONS
-from app.models.user import HOD, HR_ROLES
+from app.models.recruitment import APPLICATION_STATUSES, INTERVIEW_PLATFORMS, MESSAGE_KINDS, RECOMMENDATIONS
+from app.models.user import HOD, RECRUITMENT_ROLES
 from app.services import ats, audit, careers, files, interviews, shortlisting
 from app.services.dates import now
 from app.services.errors import DomainError
-from app.web import back, paginate
+from app.web import back, paginate, questions_input
 
 bp = Blueprint("recruitment", __name__, url_prefix="/recruitment")
-HR = tuple(HR_ROLES)
+HR = tuple(RECRUITMENT_ROLES)   # HR and the Talent Acquisition Specialist
 
 
 @bp.route("/")
@@ -227,7 +227,8 @@ def job_messages(job_id):
     if kind not in MESSAGE_KINDS:
         kind = "invitation"
     if request.method == "POST":
-        details = {k: request.form.get(k, "") for k in ("date", "time", "venue", "note")}
+        details = {k: request.form.get(k, "") for k in ("date", "time", "platform", "venue", "meeting_id",
+                                                        "passcode", "note")}
         try:
             sent = shortlisting.send_messages(job, current_user, kind, request.form.getlist("app_ids", type=int),
                                               details)
@@ -238,7 +239,8 @@ def job_messages(job_id):
             db.session.rollback()
             flash(str(exc), "error")
     return render_template("admin/job_messages.html", job=job, kind=kind, kinds=MESSAGE_KINDS,
-                           recipients=shortlisting.recipients(job, kind), form=request.form)
+                           recipients=shortlisting.recipients(job, kind), form=request.form,
+                           platforms=INTERVIEW_PLATFORMS)
 
 
 @bp.route("/shortlists")
@@ -251,20 +253,23 @@ def shortlists():
 @roles_required(HOD, *HR)
 def shortlist_review(review_id):
     review = db.session.get(ShortlistReview, review_id) or abort(404)
-    if review.reviewer_id != current_user.id and not current_user.is_hr:
+    if review.reviewer_id != current_user.id and not current_user.can_recruit:
         abort(403)
     if request.method == "POST":
         try:
             shortlisting.complete_review(review, current_user, request.form.getlist("app_ids", type=int),
-                                         request.form.get("comment", ""))
+                                         request.form.get("comment", ""), questions_input(request.form))
             db.session.commit()
             flash("Thank you. HR has been told who goes to interview.", "success")
             return redirect(url_for("recruitment.shortlists"))
         except DomainError as exc:
             db.session.rollback()
             flash(str(exc), "error")
+    panel = interviews.panel_for(review.job)
     return render_template("admin/shortlist_review.html", review=review,
-                           can_review=shortlisting.can_review(current_user, review))
+                           can_review=shortlisting.can_review(current_user, review), form=request.form,
+                           questions=questions_input(request.form) if request.method == "POST"
+                           else (panel.questions if panel else []), max_questions=interviews.MAX_QUESTIONS)
 
 
 @bp.route("/shortlists/<int:review_id>/cv/<int:app_id>")
@@ -272,7 +277,7 @@ def shortlist_review(review_id):
 def shortlist_cv(review_id, app_id):
     review = db.session.get(ShortlistReview, review_id) or abort(404)
     application = db.session.get(Application, app_id) or abort(404)
-    if not (current_user.is_hr or shortlisting.reviewer_can_see(current_user, review, application)):
+    if not (current_user.can_recruit or shortlisting.reviewer_can_see(current_user, review, application)):
         abort(403)
     return _serve_cv(application.candidate)
 
@@ -297,21 +302,30 @@ def panel(job_id):
                     abort(404)
                 interviews.remove_member(panel, member, current_user)
                 message = "Removed from the panel."
-            elif action == "criteria":
-                interviews.save_criteria(panel, zip(request.form.getlist("c_name"), request.form.getlist("c_weight")))
-                message = "Scoring criteria saved."
+            elif action == "questions":
+                interviews.save_questions(panel, questions_input(request.form), current_user)
+                message = "Interview questions saved."
             elif action == "slots":
                 for app in interviews.candidates(job):
                     d, t = request.form.get(f"date_{app.id}", ""), request.form.get(f"time_{app.id}", "")
                     venue = request.form.get(f"venue_{app.id}", "")
+                    platform = request.form.get(f"platform_{app.id}", "In person")
                     if not (d or t or venue) and app.slot is None:
                         continue
                     try:
                         starts = datetime.strptime(f"{d} {t}", "%Y-%m-%d %H:%M")
                     except ValueError:
                         starts = None
-                    interviews.set_slot(app, starts, venue)
+                    interviews.set_slot(app, starts, venue, platform=platform,
+                                        meeting_id=request.form.get(f"meeting_id_{app.id}", ""),
+                                        passcode=request.form.get(f"passcode_{app.id}", ""))
                 message = "Interview slots saved."
+            elif action == "successful":
+                application = db.session.get(Application, request.form.get("app_id", type=int)) or abort(404)
+                if application.job_id != job.id:
+                    abort(404)
+                interviews.mark_successful(application, current_user, request.form.get("comment", ""))
+                message = f"{application.candidate.full_name} marked successful. HR Admin has been told to make the offer."
             elif action == "invite":
                 members, invited = interviews.send_invitations(job, current_user)
                 message = (f"Invitations sent to the {members} panel member(s)"
@@ -325,9 +339,14 @@ def panel(job_id):
             db.session.rollback()
             flash(str(exc), "error")
     db.session.commit()                                     # a new panel is kept
+    action = request.form.get("action")                     # after a failed save, show what was typed
     return render_template("admin/panel.html", job=job, panel=panel, apps=interviews.candidates(job),
+                           platforms=INTERVIEW_PLATFORMS,
                            eligible=interviews.eligible_members(panel), results=interviews.ranking(job),
+                           questions=questions_input(request.form) if action == "questions" else panel.questions,
+                           locked=interviews.scoring_started(panel), max_questions=interviews.MAX_QUESTIONS,
                            form=request.form)
+
 
 
 @bp.route("/interviews")
@@ -339,7 +358,7 @@ def interviews_to_score():
 
 def _scorable(app_id):
     application = db.session.get(Application, app_id) or abort(404)
-    if not (current_user.is_hr or interviews.membership(current_user, application.job)):
+    if not (current_user.can_recruit or interviews.membership(current_user, application.job)):
         abort(403)
     return application
 
@@ -351,9 +370,11 @@ def scorecard(app_id):
     panel = interviews.panel_for(application.job)
     if request.method == "POST":
         try:
-            scores = {c["name"]: request.form.get(f"score_{i}") for i, c in enumerate(panel.criteria)}
-            interviews.submit_scorecard(application, current_user, scores, request.form.get("comment", ""),
-                                        request.form.get("recommendation"))
+            count = len(panel.questions or [])
+            interviews.submit_scorecard(application, current_user,
+                                        [request.form.get(f"score_{i}") for i in range(count)],
+                                        [request.form.get(f"note_{i}", "") for i in range(count)],
+                                        request.form.get("recommendation"), request.form.get("comment", ""))
             db.session.commit()
             flash(f"Your scores for {application.candidate.full_name} are in.", "success")
             return redirect(url_for("recruitment.scorecard", app_id=application.id))
@@ -363,25 +384,17 @@ def scorecard(app_id):
     return render_template("admin/scorecard.html", app=application, panel=panel,
                            mine=interviews.my_scorecard(current_user, application),
                            can_score=interviews.can_score(current_user, application),
+                           on_panel=interviews.on_panel_for(current_user, application),
                            show_all=interviews.can_see_scores(current_user, application),
                            result=interviews.result(application, panel), recommendations=RECOMMENDATIONS,
-                           form=request.form)
+                           teams_link=interviews.teams_link(application) if application.slot else None,
+                           score_levels=interviews.SCORES, form=request.form)
 
 
 @bp.route("/interviews/<int:app_id>/cv")
 @roles_required()
 def interview_cv(app_id):
     return _serve_cv(_scorable(app_id).candidate)
-
-
-@bp.route("/interviews/<int:app_id>/invite.ics")
-@roles_required()
-def interview_ics(app_id):
-    application = _scorable(app_id)
-    if not (application.slot and application.slot.ics):
-        abort(404)
-    return Response(application.slot.ics, mimetype="text/calendar",
-                    headers={"Content-Disposition": f'attachment; filename="interview-{application.reference}.ics"'})
 
 
 @bp.route("/jobs/<int:job_id>/export.csv")

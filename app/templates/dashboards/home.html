@@ -4,8 +4,8 @@
 {% block subheading %}{{ date_label }} · {{ intro }}{% endblock %}
 
 {% macro tile(t) -%}
-<{{ 'a' if t.link else 'div' }} class="home-tile {{ t.tone }}"{% if t.link %} href="{{ t.link }}"{% endif %}>
-  <span class="home-tile-badge">{{ t.badge }}</span>
+<{{ 'a' if t.link else 'div' }} class="home-tile {{ t.tone }}"{% if t.link %} href="{{ t.link }}"{% if t.link.startswith('http') %} target="_blank" rel="noopener"{% endif %}{% endif %}>
+  <span class="home-tile-badge">{{ icon(t.icon) }}</span>
   <h3>{{ t.title }}</h3>
   <p>{{ t.text }}</p>
   {% if t.later %}<span class="home-tile-link">{{ t.later }}</span>

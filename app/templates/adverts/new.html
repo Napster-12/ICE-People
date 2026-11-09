@@ -12,7 +12,7 @@
       {{ kv('Position', req.approved_position|string if req.approved_position) }}
       {{ kv('Department', req.department.name if req.department) }}
       {{ kv('Employment type', req.employment_type) }}
-      {{ kv('Job grade', req.job_grade|string if req.job_grade) }}
+      {{ kv('Occupational level', req.job_grade|string if req.job_grade) }}
       {{ kv('Branch', req.approved_position.branch.name if req.approved_position and req.approved_position.branch) }}
       {{ kv('Required start', req.required_start_date|dt if req.required_start_date) }}
     </div>

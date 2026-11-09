@@ -59,6 +59,10 @@
         {% set w = job.ats_weights %}
         {{ kv('ATS weights', ('From the JD: ' ~ w.required ~ ' / ' ~ w.preferred ~ ' / ' ~ w.experience ~ ' / ' ~ w.education ~ ' / ' ~ w.keywords) if w else 'Standard') }}
       </div>
+      <h4 style="margin:18px 0 6px">Eligibility questions</h4>
+      {% if job.eligibility_questions %}
+      <ol class="small" style="margin:0 0 0 18px">{% for q in job.eligibility_questions %}<li>{{ q.text }} <span class="muted">(must answer {{ q.answer|capitalize }})</span></li>{% endfor %}</ol>
+      {% else %}<p class="small muted" style="margin:0">None typed yet. The Talent Acquisition Specialist types them before sending the advert for approval.</p>{% endif %}
       <div class="job-desc" style="margin-top:16px">{{ job.description|jobdesc }}</div>
       <div class="review-comment" style="margin-top:12px">{{ job.ee_statement or 'No EE statement yet.' }}</div>
     </section>

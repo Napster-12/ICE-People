@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero with context %}
+{% block title %}Your offer{% endblock %}
+
+{% block hero %}
+{% call page_hero("Your offer of employment" if offer.status == 'Sent' else "Your offer", compact=True, id='offer') %}
+  <p class="poster-lead">{{ offer.candidate.full_name }} · {{ offer.job.title }} at Icebolethu Group</p>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<div class="card status-card">
+  <div class="status-result" style="margin-top:0">
+    <div class="status-result-head">
+      <div class="title-pill">{{ offer.reference }}</div>
+      <span class="status-badge st-{{ offer.status }}">{{ 'Waiting for your answer' if offer.status == 'Sent' else offer.status }}</span>
+    </div>
+    <table class="offer-summary">
+      <tr><th>Position</th><td>{{ offer.job.title }}</td></tr>
+      <tr><th>Start date</th><td>{{ offer.start_date|dt }}</td></tr>
+      <tr><th>Employment type</th><td>{{ offer.employment_type }}{% if offer.contract_end_date %} (until {{ offer.contract_end_date|dt }}){% endif %}</td></tr>
+      <tr><th>Cost to company</th><td>{{ offer.ctc|money }} per year</td></tr>
+      {% if offer.status == 'Sent' %}<tr><th>Please answer by</th><td>{{ offer.expires_on|dt }}</td></tr>{% endif %}
+    </table>
+    <p style="margin-top:14px"><a class="pill-btn outline-dark" href="{{ url_for('careers.offer_letter', token=token) }}" target="_blank" rel="noopener">Read your offer letter (PDF)</a></p>
+  </div>
+
+  {% if offer.status == 'Sent' %}
+  <form class="igsp-form" method="post" style="margin-top:22px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 style="margin:0 0 8px 0">Accept the offer</h3>
+    <label class="check-row" style="display:flex;gap:10px;align-items:flex-start;font-weight:500">
+      <input type="checkbox" name="confirm" value="1" style="width:auto;margin-top:3px">
+      <span>I have read the offer letter and I accept the offer of employment on the terms it sets out.</span>
+    </label>
+    <button type="submit" name="answer" value="accept" style="margin-top:12px">Accept the offer</button>
+  </form>
+
+  <form class="igsp-form" method="post" style="margin-top:26px;padding-top:20px;border-top:1px solid var(--border)">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 style="margin:0 0 8px 0">Decline the offer</h3>
+    <label for="reason">Would you tell us why? (optional)</label>
+    <textarea id="reason" name="reason" rows="3" placeholder="For example, you've accepted another offer."></textarea>
+    <button type="submit" name="answer" value="decline" class="offer-decline" style="margin-top:12px"
+            onclick="return confirm('Decline this offer? You can\'t change your answer afterwards.')">Decline the offer</button>
+  </form>
+  {% elif offer.status == 'Accepted' %}
+  <p style="margin-top:18px">You accepted this offer on {{ offer.responded_at|dt }}. Welcome to Icebolethu Group! Our HR team will contact you about your contract and your first day.</p>
+  {% elif offer.status == 'Declined' %}
+  <p style="margin-top:18px">You declined this offer on {{ offer.responded_at|dt }}. Thank you for letting us know, and for your interest in Icebolethu Group.</p>
+  {% elif offer.status == 'Expired' %}
+  <p style="margin-top:18px">This offer lapsed on {{ offer.expires_on|dt }} because we didn't receive an answer. If you think this is a mistake, reply to the offer email.</p>
+  {% endif %}
+</div>
+{% endblock %}

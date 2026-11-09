@@ -99,8 +99,9 @@ class CostCentre(db.Model):
 
 
 class JobGrade(db.Model):
-    """Job grade: Intern, Junior, Senior, Manager or Exco. `grade` is its rank (1–5) for ordering and routing-rule
-    conditions such as `grade >= 4` (Manager and above). Grades carry no salary: a position's budgeted CTC does."""
+    """Job grade: one of the five occupational levels (`reference_data.GRADES`), from Support / Unskilled Staff to
+    Top Management. `grade` is its rank (1–5) for ordering and routing-rule conditions such as `grade >= 4` (Senior
+    Management and above). Grades carry no salary: a position's budgeted CTC does."""
     __tablename__ = "job_grades"
     id = db.Column(db.Integer, primary_key=True)
     grade = db.Column(db.Integer, unique=True, nullable=False)

@@ -4,6 +4,8 @@
     <div>
       <img class="footer-logo" src="{{ asset('logo.png') }}" alt="Icebolethu Group">
       <p class="muted small">Serving families and communities with dignity and care.</p>
+      <h4 class="footer-follow">Follow us</h4>
+      {% with social_class = 'footer' %}{% include "_social.html" %}{% endwith %}
     </div>
     <div>
       <h4>Careers</h4>

@@ -26,7 +26,25 @@
       <textarea id="ee_statement" name="ee_statement" style="min-height:90px">{{ job.ee_statement or '' }}</textarea></div>
   </section>
 
+
   <div style="display:flex;flex-direction:column;gap:22px">
+    <section class="admin-panel admin-form" id="eligibility">
+      <div class="admin-panel-head" style="margin:0"><h3>Eligibility questions *</h3>
+        <span class="results-count">{{ (job.eligibility_questions or [])|length }} of {{ max_questions }}</span></div>
+      <p class="hint" style="margin:0">Applicants answer these yes/no questions before they see the application form. Type them for
+        this advert, for example "Do you have a valid Code 10 driver's licence with a PrDP?", and choose the answer that lets
+        the applicant continue. Anyone who gives the other answer is shown why and offered the talent pool. Answers aren't stored.</p>
+      {% set rows = (job.eligibility_questions or []) + [{'text': '', 'answer': 'yes'}] * (max_questions - (job.eligibility_questions or [])|length) %}
+      {% for q in rows %}{% set i = loop.index0 %}
+      <div class="org-row">
+        <input type="text" name="e_text_{{ i }}" maxlength="300" value="{{ q.text }}" placeholder="Question {{ loop.index }}{{ ' (optional)' if loop.index > 1 else '' }}" aria-label="Eligibility question {{ loop.index }}">
+        <select name="e_answer_{{ i }}" class="org-code" style="flex:0 0 150px" aria-label="Answer that qualifies for question {{ loop.index }}">
+          <option value="yes" {{ 'selected' if q.answer == 'yes' }}>Must answer Yes</option>
+          <option value="no" {{ 'selected' if q.answer == 'no' }}>Must answer No</option>
+        </select>
+      </div>
+      {% endfor %}
+    </section>
     <section class="admin-panel admin-form">
       <div class="admin-panel-head" style="margin:0"><h3>Requirements and screening</h3></div>
       <div class="admin-form-row"><label for="min_education">Minimum qualification *</label>
@@ -37,7 +55,7 @@
         <input id="min_experience" type="number" name="min_experience" min="0" max="40" value="{{ job.min_experience if job.min_experience is not none else '' }}"></div>
       <div class="admin-form-row"><label for="required_skills">Required skills</label>
         <textarea id="required_skills" name="required_skills" style="min-height:70px" placeholder="e.g. Sales, Customer service">{{ job.required_skills or '' }}</textarea>
-        <span class="hint">Comma-separated. Used by the CV ranking and the eligibility check.</span></div>
+        <span class="hint">Comma-separated. Used by the CV ranking.</span></div>
       <div class="admin-form-row"><label for="preferred_skills">Advantageous skills</label>
         <textarea id="preferred_skills" name="preferred_skills" style="min-height:60px">{{ job.preferred_skills or '' }}</textarea></div>
     </section>

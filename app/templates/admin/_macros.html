@@ -27,8 +27,10 @@
   <div class="bar"><span class="{{ comp.score|score_class }}" style="width:{{ comp.score }}%"></span></div>
   <div class="detail">
     {% if key in ('required', 'preferred') %}
-      {% for s in comp.matched %}<span class="chip yes">{{ s }}</span>{% endfor %}
-      {% for s in comp.missing %}<span class="chip no">{{ s }}</span>{% endfor %}
+      {#- Sentence-style requirements show a short name, the skills found and the full text on hover (8 Nov 2026). -#}
+      {% set found = comp.get('found', {}) %}{% set details = comp.get('details', {}) %}
+      {% for s in comp.matched %}<span class="chip yes" title="{{ details.get(s, s) }}">{{ s }}{% if found.get(s) %}: {{ found[s]|join(', ') }}{% endif %}</span>{% endfor %}
+      {% for s in comp.missing %}<span class="chip no" title="{{ details.get(s, s) }}">{{ s }}{% if found.get(s) %} (only {{ found[s]|join(', ') }}){% endif %}</span>{% endfor %}
     {% elif key == 'experience' %}
       {{ comp.candidate_years }} yrs (requires {{ comp.required_years }})
     {% elif key == 'education' %}

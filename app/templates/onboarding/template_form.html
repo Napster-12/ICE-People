@@ -1,0 +1,42 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ tpl.name }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('onboarding.templates') }}">← Letter and contract templates</a>{% endblock %}
+{% block heading %}{{ tpl.name }}{% endblock %}
+{% block subheading %}Placeholders look like {{ '{{ name }}' }} and are filled in for each candidate or new starter.{% endblock %}
+{% block actions %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.template_preview', template_id=tpl.id) }}" target="_blank" rel="noopener">{{ icon('file') }} Preview the PDF</a>
+{% endblock %}
+{% block content %}
+<div class="admin-split">
+  <form method="post" class="admin-panel admin-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="admin-form-row"><label for="title">Title on the document *</label><input id="title" name="title" value="{{ form.get('title', tpl.title) }}" required></div>
+    <div class="admin-form-row"><label for="body">Wording *</label>
+      <textarea id="body" name="body" style="min-height:520px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px" required>{{ form.get('body', tpl.body) }}</textarea></div>
+    <div class="row-actions">
+      <button class="filter-btn" name="action" value="save">{{ icon('check') }} Save template</button>
+      <button class="admin-btn-sm admin-btn-secondary" name="action" value="reset" formnovalidate data-confirm-title="Reset to the default wording?" data-confirm-ok="Reset"
+              data-confirm="Your changes to this template are replaced by the original wording.">{{ icon('back') }} Reset to default</button>
+    </div>
+    <p class="hint">The preview shows the saved wording with example values. Save first to see your changes.</p>
+  </form>
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>How it's laid out</h3></div>
+    <ul class="small" style="margin:0 0 14px 0;padding-left:18px;line-height:1.6">
+      <li>A blank line starts a new paragraph; lines inside a paragraph stay on their own line (an address).</li>
+      <li>"# RE: …" is the bold, underlined subject line.</li>
+      <li>A short line with text under it (no full stop), like "1. Remuneration", becomes a bold heading.</li>
+      <li>Lines like "Start date: {{ '{{ start_date }}' }}" become a two-column list.</li>
+      <li>Lines starting with "- " become bullets, and **text** is bold.</li>
+      <li>[signature] is the signature image; [page break] starts a new page.</li>
+    </ul>
+    <div class="admin-panel-head"><h3>Placeholders</h3></div>
+    <table class="admin-table">
+      {% for key, what in placeholders.items() %}
+      <tr><td><code>{{ '{{ ' ~ key ~ ' }}' }}</code></td><td class="small">{{ what }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="hint" style="margin-top:10px">The conditions are a list: write {{ '{% for c in conditions %}- {{ c }}{% endfor %}' }} to print them as bullets.</p>
+  </section>
+</div>
+{% endblock %}

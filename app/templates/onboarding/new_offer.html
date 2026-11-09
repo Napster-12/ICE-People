@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv with context %}
+{% block title %}Prepare offer{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('onboarding.index') }}">← Onboarding</a>{% endblock %}
+{% block heading %}Prepare an offer{% endblock %}
+{% block subheading %}{{ application.candidate.full_name }} · {{ application.job.title }}{% endblock %}
+{% block content %}
+<section class="admin-panel" style="max-width:720px">
+  <div class="kv-grid">
+    {{ kv('Candidate', application.candidate.full_name) }}
+    {{ kv('Email', application.candidate.email) }}
+    {{ kv('Position', application.job.title) }}
+    {{ kv('Requisition', application.job.requisition.reference if application.job.requisition) }}
+    {{ kv('Application', application.reference) }}
+    <div class="kv"><span class="kv-label">Status</span><span class="kv-value">{{ status(application.status) }}</span></div>
+    {{ kv('Marked successful', (application.successful_at|dtt) ~ (' by ' ~ application.successful_by.full_name if application.successful_by else '') if application.successful_at) }}
+    {{ kv('Comment', application.decision_comment) }}
+  </div>
+  {% if application.status != 'Offer' %}
+  <p class="muted" style="margin-top:14px">This candidate isn't waiting for an offer ({{ application.status }}).</p>
+  {% elif can_edit %}
+  <form method="post" style="margin-top:16px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="filter-btn">{{ icon('plus') }} Prepare the offer</button>
+    <p class="hint" style="margin-top:8px">The offer starts from the requisition: its costed CTC, employment type and start date. You can change them before sending.</p>
+  </form>
+  {% else %}
+  <p class="muted" style="margin-top:14px">HR Admin prepares the offer.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -8,8 +8,11 @@
 <div class="ig-shell">
   <aside class="ig-sidebar">
     <a class="ig-brand" href="{{ url_for('dashboards.home') }}">
-      <img src="{{ asset('logo.png') }}" alt="Icebolethu Group">
-      <span>ICE People Administration</span>
+      <img src="{{ asset('favicon.png') }}" alt="Icebolethu Group">
+      <span class="ig-wordmark" aria-label="{{ system_name }}">
+        <strong><b>ICE</b> People</strong>
+        <small>Administration System</small>
+      </span>
     </a>
 
     <button type="button" class="ig-menu-toggle" data-menu-toggle aria-controls="ig-menu" aria-expanded="false">
@@ -31,6 +34,14 @@
           {{ icon(item.icon) }}<span>{{ item.label }}</span></a>
         {% endfor %}
         {% endfor %}
+        {% if current_user.portals|length > 1 %}
+        <div class="ig-nav-heading">Portals</div>
+        {% for p in current_user.portals %}
+        <a class="ig-nav-link{{ ' is-active' if p == portal and request.endpoint == 'dashboards.home' }}" href="{{ url_for('dashboards.switch_portal', name=p) }}">
+          {{ icon('users' if p == 'staff' else 'briefcase' if p == 'manager' else 'dashboard') }}<span>{{ portal_labels[p] }}</span>
+          {% if p == portal %}<span class="ig-nav-count" style="background:var(--text)">here</span>{% endif %}</a>
+        {% endfor %}
+        {% endif %}
         <div class="ig-nav-heading">My account</div>
         {% for item in nav.user_menu %}
         <a class="ig-nav-link{{ ' is-active' if item.active }}" href="{{ url_for(item.endpoint) }}"{% if item.active %} aria-current="page"{% endif %}>
@@ -40,16 +51,19 @@
       </nav>
 
       <div class="ig-account">
-        <div class="ig-avatar" aria-hidden="true">{{ current_user.full_name|initials }}</div>
-        <div class="ig-account-text">
-          <strong>{{ current_user.full_name }}</strong>
-          <span>{{ current_user.email or current_user.username }}</span>
-          <span class="ig-account-role">{{ current_user.role_names|sort|join(' · ') }}</span>
+        <div class="ig-account-card">
+          <div class="ig-account-text">
+            <strong title="{{ current_user.full_name }}">{{ current_user.full_name }}</strong>
+            <span title="{{ current_user.email or current_user.username }}">{{ current_user.email or current_user.username }}</span>
+          </div>
+          {#- The user's department only (8 Nov 2026, at the user's request; was every role, "Employee" included). -#}
+          {% set dept = current_user.employee.department if current_user.employee else none %}
+          {% if dept %}<div class="ig-account-roles"><span title="Department">{{ dept.name }}</span></div>{% endif %}
+          <form method="post" action="{{ url_for('auth.logout') }}" class="ig-logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="ig-logout">Sign out</button>
+          </form>
         </div>
-        <form method="post" action="{{ url_for('auth.logout') }}" class="ig-logout-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="ig-logout">{{ icon('logout') }}<span>Sign out</span></button>
-        </form>
       </div>
     </div>
   </aside>
@@ -108,6 +122,26 @@
     if (body.classList.contains('ig-menu-open') && !e.target.closest('.ig-sidebar')) setOpen(false);
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setOpen(false); });
+  // Interview platform (8 Nov 2026): within [data-platform-scope], "In person" shows [data-offline] (the venue) and
+  // an online platform shows [data-online] (joining link, meeting ID, passcode); inputs swap their placeholders.
+  function syncPlatform(select) {
+    var scope = select.closest('[data-platform-scope]'), online = select.value !== 'In person';
+    scope.querySelectorAll('[data-online]').forEach(function (el) { el.hidden = !online; });
+    scope.querySelectorAll('[data-offline]').forEach(function (el) { el.hidden = online; });
+    scope.querySelectorAll('[data-placeholder-online]').forEach(function (el) {
+      el.placeholder = online ? el.dataset.placeholderOnline : el.dataset.placeholderOffline;
+    });
+  }
+  document.querySelectorAll('[data-platform]').forEach(syncPlatform);
+  document.addEventListener('change', function (e) { if (e.target.matches('[data-platform]')) syncPlatform(e.target); });
+  // Question rows (_ui.question_rows, 8 Nov 2026): "Add another question" shows the next hidden row.
+  document.addEventListener('click', function (e) {
+    var add = e.target.closest('[data-add-row]');
+    if (!add) return;
+    var next = add.closest('[data-rows]').querySelector('.question-row[hidden]');
+    if (next) { next.hidden = false; next.querySelector('textarea').focus(); }
+    if (!add.closest('[data-rows]').querySelector('.question-row[hidden]')) add.hidden = true;
+  });
   // Approval forms (_ui.act_form): Return for revision and Reject open the comment box, which then needs a reason.
   var ACT = {return: ['Reason for returning (required)', 'Return for revision', 'admin-btn-secondary'],
              reject: ['Reason for rejecting (required)', 'Reject', 'admin-btn-danger']};

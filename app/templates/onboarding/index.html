@@ -1,0 +1,89 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}Onboarding{% endblock %}
+{% block heading %}Onboarding{% endblock %}
+{% block subheading %}Offers to candidates who passed the interview, and new starters on their way in.{% endblock %}
+{% block actions %}
+{% if can_edit %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.templates') }}">{{ icon('file') }} Letter and contract templates</a>{% endif %}
+{% endblock %}
+{% block content %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Offers to make</h3><span class="results-count">{{ to_make|length }} passed the interview</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Candidate</th><th>Position</th><th>Marked successful</th><th></th></tr>
+    {% for a in to_make %}
+    <tr>
+      <td><strong>{{ a.candidate.full_name }}</strong><span class="sub">{{ a.candidate.email }} · {{ a.reference }}</span></td>
+      <td>{{ a.job.title }}<span class="sub">{{ a.job.reference or '' }}</span></td>
+      <td class="small">{{ a.successful_at|dtt if a.successful_at }}{% if a.successful_by %}<span class="sub">by {{ a.successful_by.full_name }}</span>{% endif %}</td>
+      <td style="text-align:right">
+        {% if can_edit %}
+        <form method="post" action="{{ url_for('onboarding.new_offer', app_id=a.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="admin-btn-sm admin-btn-primary">{{ icon('plus') }} Prepare offer</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="empty-row">Nobody is waiting for an offer. Candidates appear here once HR marks them successful on the interview panel.</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Offers in progress</h3><span class="results-count">{{ open_offers|length }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Offer</th><th>Candidate</th><th>Position</th><th>Start date</th><th>Answer by</th><th>Status</th></tr>
+    {% for o in open_offers %}
+    <tr>
+      <td><a href="{{ url_for('onboarding.offer', offer_id=o.id) }}"><strong>{{ o.reference }}</strong></a></td>
+      <td>{{ o.candidate.full_name }}</td>
+      <td>{{ o.job.title }}</td>
+      <td>{{ o.start_date|dt }}</td>
+      <td>{{ o.expires_on|dt }}</td>
+      <td>{{ status(o.status) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty-row">No offers in progress.</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>New starters</h3><span class="results-count">{{ cases|length }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Case</th><th>New starter</th><th>Employee number</th><th>Position</th><th>Start date</th><th>Contract</th><th>Status</th></tr>
+    {% for c in cases %}
+    {% set days = (c.start_date - today).days %}
+    <tr>
+      <td><a href="{{ url_for('onboarding.case', case_id=c.id) }}"><strong>{{ c.reference }}</strong></a></td>
+      <td>{{ c.employee.full_name }}</td>
+      <td>{{ c.employee.employee_number }}</td>
+      <td>{{ c.employee.position_title }}</td>
+      <td>{{ c.start_date|dt }}<span class="sub">{% if days > 1 %}in {{ days }} days{% elif days == 1 %}tomorrow{% elif days == 0 %}today{% else %}started{% endif %}</span></td>
+      <td>{{ status(c.contract_status) }}</td>
+      <td>{{ status(c.status) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="empty-row">No new starters yet. A case opens when a candidate accepts their offer.</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+{% if closed_offers %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Recent answered and closed offers</h3></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Offer</th><th>Candidate</th><th>Position</th><th>Status</th><th>Answered</th></tr>
+    {% for o in closed_offers %}
+    <tr>
+      <td><a href="{{ url_for('onboarding.offer', offer_id=o.id) }}">{{ o.reference }}</a></td>
+      <td>{{ o.candidate.full_name }}</td><td>{{ o.job.title }}</td><td>{{ status(o.status) }}</td>
+      <td class="small">{{ o.responded_at|dtt if o.responded_at else '—' }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% endif %}
+{% endblock %}

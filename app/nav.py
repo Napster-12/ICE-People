@@ -1,5 +1,6 @@
 """Left-rail navigation for the staff area, filtered by the signed-in user's roles."""
-from app.models.user import COMPLIANCE, FINANCE, GCOO, HOD, HR_ADMIN, HR_MANAGER, HR_ROLES, IT, LINE_MANAGER
+from app.models.user import (COMPLIANCE, FINANCE, GCOO, GROUP_HR, HOD, HR_ADMIN, HR_MANAGER, HR_ROLES, IT, LINE_MANAGER,
+                              RECRUITMENT_ROLES)
 from app.services.interviews import PANEL_ROLES
 from app.services.positions import REQUEST_ROLES, VIEW_ROLES as POSITION_VIEW_ROLES
 from app.services.requisitions import CREATE_ROLES, SEE_ALL_ROLES
@@ -23,21 +24,21 @@ MENUS = [
          "Vacancies by business unit, branch and more"),
         ("Ad-hoc Positions", "positions.adhoc_list", "plus", POSITION_VIEW_ROLES | REQUEST_ROLES, ("positions.adhoc",),
          "Request a position that isn't on the register"),
-        ("Job Adverts", "adverts.index", "external", HR_ROLES,
+        ("Job Adverts", "adverts.index", "external", RECRUITMENT_ROLES,
          ("adverts.index", "adverts.new", "adverts.edit", "adverts.detail", "adverts.submit", "adverts.close",
           "adverts.readvertise"), "Advertise approved requisitions"),
-        ("JD Library", "adverts.library", "file", HR_ROLES, ("adverts.library", "adverts.template"),
+        ("JD Library", "adverts.library", "file", RECRUITMENT_ROLES, ("adverts.library", "adverts.template"),
          "Standard job descriptions adverts start from"),
         ("Shortlist Reviews", "recruitment.shortlists", "users", {HOD}, ("recruitment.shortlist",),
          "Pick who goes to interview from HR's shortlists"),
         ("Interviews to Score", "recruitment.interviews_to_score", "star", set(PANEL_ROLES),
          ("recruitment.interviews", "recruitment.scorecard", "recruitment.interview_"),
          "Score the candidates on your interview panels"),
-        ("Recruitment", "recruitment.dashboard", "trending", HR_ROLES, ("recruitment.dashboard",),
+        ("Recruitment", "recruitment.dashboard", "trending", RECRUITMENT_ROLES, ("recruitment.dashboard",),
          "Hiring pipeline and latest applications"),
-        ("Job Openings", "recruitment.jobs", "briefcase", HR_ROLES, ("recruitment.job",),
+        ("Job Openings", "recruitment.jobs", "briefcase", RECRUITMENT_ROLES, ("recruitment.job",),
          "Vacancies and ranked applicants"),
-        ("CV Database", "recruitment.candidates", "database", HR_ROLES, ("recruitment.candidate",),
+        ("CV Database", "recruitment.candidates", "database", RECRUITMENT_ROLES, ("recruitment.candidate",),
          "Every CV, searchable and rankable"),
     ]),
     ("Budget", [
@@ -47,6 +48,8 @@ MENUS = [
          "Budget and demand per department"),
     ]),
     ("People", [
+        ("Onboarding", "onboarding.index", "user-plus", {HR_ADMIN, HR_MANAGER, GROUP_HR}, ("onboarding.",),
+         "Offers, new starters, employee numbers and contracts"),
         ("Employees", "admin.employees", "users", HR_ROLES, ("admin.employee",), "Employee records"),
         ("Departments", "admin.departments", "building", {HR_ADMIN}, ("admin.department",),
          "Departments, department managers and cost centres"),
@@ -82,8 +85,22 @@ def _item(entry, endpoint):
             "active": any(endpoint.startswith(p) for p in prefixes)}
 
 
-def _visible(user, roles):
-    return roles is ANY or user.has_role(*roles)
+# Menus a role doesn't get, even where the items' roles include it (8 Nov 2026, at the user's request: HR Admin
+# runs onboarding, so the Talent and Budget groups are off its sidebar and home page). Someone who also holds another
+# role that sees them (e.g. HR Manager) still does. Access to the pages themselves is unchanged.
+HIDDEN_MENUS = {"Talent": {HR_ADMIN}, "Budget": {HR_ADMIN}}
+
+
+def _visible(user, roles, ignore=frozenset()):
+    if roles is ANY:
+        return True
+    return bool(set(roles) & (user.role_names - set(ignore)))
+
+
+def sees_menu(user, title):
+    """Whether the user's sidebar shows this menu group (dashboards use it to match the home page)."""
+    entries = dict(MENUS).get(title, [])
+    return any(_visible(user, e[3], HIDDEN_MENUS.get(title, ())) for e in entries)
 
 
 def nav_for(user, endpoint):
@@ -91,7 +108,7 @@ def nav_for(user, endpoint):
     links = [_item(e, endpoint) for e in LINKS if _visible(user, e[3])]
     menus = []
     for title, entries in MENUS:
-        items = [_item(e, endpoint) for e in entries if _visible(user, e[3])]
+        items = [_item(e, endpoint) for e in entries if _visible(user, e[3], HIDDEN_MENUS.get(title, ()))]
         if items:
             menus.append({"title": title, "items": items, "active": any(i["active"] for i in items)})
     user_menu = [{"label": l, "endpoint": ep, "icon": i, "active": any(endpoint.startswith(p) for p in pre)}

@@ -4,8 +4,9 @@ from datetime import date, timedelta
 from app.extensions import db
 from app.models import JobGrade, PublicHoliday, Role, RoutingRule
 from app.models.user import ALL_ROLES, FINANCE, GROUP_HR, HR_MANAGER
-from app.models.workflow import DEPARTMENT_LINE_MANAGER, DEPARTMENT_MANAGER, GCOO_OR_EXCO
-from app.services import notifications, settings
+from app.models.workflow import (DEPARTMENT_LINE_MANAGER, DEPARTMENT_MANAGER, FINANCE_DEPARTMENT_MANAGER,
+                                 GCOO_OR_EXCO)
+from app.services import documents, notifications, settings
 from app.services.calendar import observed_holidays
 
 FIXED_HOLIDAYS = [
@@ -33,8 +34,9 @@ DEFAULT_RULES = {
         (2, "Finance (unbudgeted)", FINANCE, "", 3),
         (3, "GCOO / Exco", GCOO_OR_EXCO, "", 5),
     ],
+    # 8 Nov 2026, at the user's request: the Finance Department Manager approves the register (was the Finance role).
     "position_register": [
-        (1, "Finance", FINANCE, "", 5),
+        (1, "Finance Department Manager", FINANCE_DEPARTMENT_MANAGER, "", 5),
         (2, "Group HR Manager", GROUP_HR, "", 5),
     ],
     "position_change": [
@@ -44,10 +46,20 @@ DEFAULT_RULES = {
     "advert": [  # spec §4.4: the HR Manager approves every advert before it is published
         (1, "HR Manager", HR_MANAGER, "", 2),
     ],
+    "offer": [  # spec IN-009: an offer above the costed CTC goes to Finance before it is released
+        (1, "Finance", FINANCE, "", 2),
+    ],
 }
 
-# Job grades by rank (decided 31 Oct 2026; they replace grades 1–12 and carry no salary).
-GRADES = [(1, "Intern"), (2, "Junior"), (3, "Senior"), (4, "Manager"), (5, "Exco")]
+# Job grades by rank: the occupational levels (5 Nov 2026, at the user's request; they replace Intern, Junior,
+# Senior, Manager and Exco rank for rank). They carry no salary.
+GRADES = [
+    (1, "Support / Unskilled Staff"),
+    (2, "Skilled Staff / Technical / Junior Management / Supervisor"),
+    (3, "Professional / Experienced / Specialists / Mid-Management"),
+    (4, "Senior Management (HODs, Regional Managers)"),
+    (5, "Top Management (CEOs, EXCO, Directors, Founders)"),
+]
 
 
 def sa_public_holidays(year):
@@ -90,6 +102,7 @@ def seed_reference_data():
     seed_roles()
     settings.ensure_defaults()
     notifications.ensure_templates()
+    documents.ensure_documents()
     seed_holidays()
     seed_grades()
     seed_rules()

@@ -60,7 +60,25 @@ class Config:
     BABEL_DEFAULT_LOCALE = "en"
     BABEL_DEFAULT_TIMEZONE = TIMEZONE
 
+    # Email (6 Nov 2026): MAIL_PROVIDER=smtp sends real email with IGSP's SMTP settings (Gmail, STARTTLS on 587);
+    # anything else keeps the mock, which only prints. Every real email is also BCC'd to EMAIL_COPY_TO
+    # (comma-separated) so it can be reviewed.
+    MAIL_PROVIDER = os.environ.get("MAIL_PROVIDER", "mock").strip().lower()
+    SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+    SMTP_USER = os.environ.get("SMTP_USER", "")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_FROM = os.environ.get("SMTP_FROM") or SMTP_USER
+    SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "ICE People Administration System")
+    EMAIL_COPY_TO = os.environ.get("EMAIL_COPY_TO", "")
+    # Live email goes out in the background so pages don't wait for the mail server (8 Nov 2026).
+    EMAIL_ASYNC = os.environ.get("EMAIL_ASYNC", "1").strip().lower() not in ("0", "false", "no")
+    # The system's address, for the buttons in emails.
+    PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://127.0.0.1:5000")
+
     INTEGRATIONS = dict(MOCK_INTEGRATIONS)
+    if MAIL_PROVIDER == "smtp":
+        INTEGRATIONS["email"] = "app.integrations.email_calendar:SmtpEmailCalendar"
     INTEGRATION_RETRIES = int(os.environ.get("INTEGRATION_RETRIES", 2))
 
     LEGACY_DB = os.environ.get("LEGACY_DB") or os.path.join(BASE_DIR, "portal.db")
@@ -86,6 +104,11 @@ class TestingConfig(Config):
     RATELIMIT_ENABLED = False
     SESSION_COOKIE_SECURE = False
     INTEGRATION_RETRIES = 2
+    # Tests never send real email, whatever .env says.
+    MAIL_PROVIDER = "mock"
+    INTEGRATIONS = dict(MOCK_INTEGRATIONS)
+    EMAIL_COPY_TO = ""
+    EMAIL_ASYNC = False
 
 
 CONFIGS = {

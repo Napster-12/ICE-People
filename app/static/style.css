@@ -164,9 +164,16 @@ code, code.key{ font-family:Consolas,Menlo,monospace; font-size:10.5px; backgrou
     background:var(--white);
     border-right:1px solid var(--border);
 }
-.ig-brand{ display:flex; flex-direction:column; gap:6px; padding:0 10px; text-decoration:none; }
-.ig-brand img{ width:140px; height:auto; }
-.ig-brand span{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-light); }
+/* Brand block: the handshake mark centred on top, "ICE People" ("People" orange) under it, then a quiet
+   "Administration System" line; a divider separates it from the menu. */
+.ig-brand{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:0 10px 16px;
+    border-bottom:1px solid var(--border); text-decoration:none; text-align:center; }
+.ig-brand img{ width:44px; height:44px; flex:none; }
+.ig-wordmark{ display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; }
+.ig-wordmark strong{ font-size:18px; font-weight:800; line-height:1.1; letter-spacing:-.4px; color:var(--brand-deep-orange);
+    white-space:nowrap; }
+.ig-wordmark b{ font-weight:800; color:var(--brand-black); }
+.ig-wordmark small{ font-size:11px; font-weight:500; letter-spacing:.01em; color:var(--text-light); white-space:nowrap; }
 .ig-sidebar-menu{ display:flex; flex-direction:column; gap:24px; flex:1; min-height:0; }
 .ig-nav{ display:flex; flex-direction:column; gap:2px; }
 .ig-nav-heading{ margin:14px 12px 4px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-light); }
@@ -190,21 +197,21 @@ code, code.key{ font-family:Consolas,Menlo,monospace; font-size:10.5px; backgrou
 }
 .ig-nav-count{ margin-left:auto; min-width:22px; padding:1px 7px; border-radius:999px; background:var(--primary);
     color:#fff; font-size:11px; font-weight:700; text-align:center; }
-.ig-account{ margin-top:auto; display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 10px 0; border-top:1px solid var(--border); }
-.ig-avatar{ flex-shrink:0; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    background:var(--primary); color:#fff; font-weight:700; font-size:13px; }
-.ig-account-text{ min-width:0; flex:1; display:flex; flex-direction:column; line-height:1.3; }
-.ig-account-text strong{ font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ig-account-text span{ font-size:12px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ig-account-text .ig-account-role{ color:var(--primary); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; white-space:normal; }
-.ig-logout-form{ flex-basis:100%; }
-.ig-logout{
-    width:100%; display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    margin-top:4px; padding:9px 12px;
-    border:1px solid var(--border); border-radius:10px; background:var(--white);
-    color:var(--text); font-size:13px; font-weight:600; cursor:pointer;
-}
-.ig-logout:hover{ background:#fde8ea; color:var(--danger); }
+/* Account card: name and email, the roles as pills, then the Sign out button. */
+.ig-account{ margin-top:auto; padding-top:12px; }
+.ig-account-card{ display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border);
+    border-radius:12px; background:#FAF8F7; }
+.ig-account-text{ min-width:0; display:flex; flex-direction:column; gap:1px; line-height:1.3; }
+.ig-account-text strong{ font-size:13px; font-weight:700; line-height:1.25; overflow-wrap:anywhere; }
+.ig-account-text span{ font-size:11.5px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ig-logout-form{ margin:0; }
+.ig-logout{ width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:9px; background:var(--white);
+    color:var(--text); font-family:inherit; font-size:13px; font-weight:600; cursor:pointer;
+    transition:background .15s ease, color .15s ease, border-color .15s ease; }
+.ig-logout:hover{ background:#fde8ea; border-color:#f5c2c7; color:var(--danger); }
+.ig-account-roles{ display:flex; flex-wrap:wrap; gap:5px; }
+.ig-account-roles span{ padding:3px 9px; border-radius:999px; background:var(--primary-light); color:var(--primary-text);
+    font-size:11px; font-weight:600; line-height:1.3; }
 .ig-menu-toggle{
     display:none; align-items:center; gap:8px; padding:9px 14px;
     border:1px solid var(--border); border-radius:10px; background:var(--white);
@@ -308,26 +315,29 @@ code, code.key{ font-family:Consolas,Menlo,monospace; font-size:10.5px; backgrou
     border:1px solid var(--border);
     border-top:3px solid var(--primary);
     border-radius:var(--radius);
-    padding:16px 18px;
+    padding:14px 16px;
     display:flex;
     align-items:center;
-    gap:14px;
+    gap:12px;
     height:100%;
+    min-width:0;
     transition:border-color .15s ease, box-shadow .15s ease;
 }
 a.report-kpi-card:hover{ box-shadow:var(--shadow-sm); }
 .kpi-icon{
-    width:44px; height:44px; border-radius:10px;
+    width:38px; height:38px; border-radius:10px;
     display:flex; align-items:center; justify-content:center;
     flex-shrink:0; color:#fff; background:#F26522;
 }
-.kpi-icon svg, .kpi-icon svg.i{ width:22px; height:22px; }
+.kpi-icon svg, .kpi-icon svg.i{ width:19px; height:19px; }
 .kpi-icon.yellow{ background:#FDD56E; color:#231F20; }
 .kpi-icon.orange{ background:#F08422; }
 .kpi-icon.black{ background:#231F20; }
-.kpi-content{ display:flex; flex-direction:column; gap:5px; min-width:0; }
+.kpi-content{ display:flex; flex-direction:column; gap:3px; min-width:0; }
 .kpi-label{ font-size:12px; font-weight:600; color:var(--text-light); }
-.kpi-value{ font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; color:#231F20; line-height:1.2; word-break:break-word; }
+/* 8 Nov 2026: smaller, on one line (amounts like R 67 400 000.00 wrapped and read as zoomed in) */
+.kpi-value{ font-size:clamp(15px, 1.35vw, 20px); font-weight:700; font-variant-numeric:tabular-nums; color:#231F20;
+    line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /*==========================
     TABLES
@@ -1060,8 +1070,11 @@ a.title-pill:hover{ color:var(--primary-dark); }
     .ig-shell{ grid-template-columns:minmax(0, 1fr); grid-template-rows:auto 1fr; }
     .ig-sidebar{ position:sticky; top:0; z-index:20; height:auto; overflow:visible; flex-direction:row; align-items:center;
         justify-content:space-between; gap:12px; padding:10px 14px; border-right:none; border-bottom:1px solid var(--border); }
-    .ig-brand span{ display:none; }
-    .ig-brand img{ width:96px; }
+    .ig-brand{ flex-direction:row; gap:10px; padding:0; border-bottom:none; text-align:left; }
+    .ig-brand img{ width:32px; height:32px; }
+    .ig-wordmark{ align-items:flex-start; gap:0; }
+    .ig-wordmark strong{ font-size:16px; }
+    .ig-wordmark small{ font-size:10.5px; }
     .ig-menu-toggle{ display:inline-flex; }
     .ig-sidebar-menu{ display:none; position:absolute; top:100%; left:0; right:0; max-height:calc(100vh - 64px); overflow-y:auto;
         padding:10px 16px 16px; gap:12px; background:var(--white); border-bottom:1px solid var(--border);
@@ -1107,6 +1120,11 @@ a.title-pill:hover{ color:var(--primary-dark); }
 .st-In-recruitment{ color:#231F20; background:#FFF6DA; }
 .st-Planned, .st-Frozen, .st-Abolished{ color:#6E696A; background:#EFEDED; }
 .st-Not-selected, .st-Completed{ color:#6E696A; background:#EFEDED; }
+/* Offers and onboarding (8 Nov 2026) */
+.st-Sent, .st-Generated{ color:#B4560C; background:#FEF1E6; }
+.st-Accepted, .st-Signed{ color:#1e6b34; background:#e7f6ec; }
+.st-Declined{ color:#b42335; background:#fdecee; }
+.st-Expired, .st-Withdrawn, .st-Not-generated{ color:#6E696A; background:#EFEDED; }
 .reports-kpi-grid.plain{ margin-bottom:22px; }
 .reports-kpi-grid.plain .report-kpi-card{ border-left-color:var(--primary); }
 .admin-table .total-row td{ background:var(--primary-light); }
@@ -1117,6 +1135,7 @@ a.title-pill:hover{ color:var(--primary-dark); }
 .org-row.org-new{ border-bottom:0; padding-top:14px; }
 @media (max-width: 900px){ .org-grid{ grid-template-columns:1fr; } }
 .kv-grid[hidden]{ display:none; }
+[data-online][hidden], [data-offline][hidden]{ display:none !important; }   /* interview format fields (8 Nov 2026) */
 
 /* Portal homes (dashboard), after the IcePeople infographic home screens: figures, then one tile per module */
 .home-stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:14px; margin-bottom:20px; }
@@ -1131,8 +1150,9 @@ a.home-stat:hover{ border-color:var(--brand-orange); box-shadow:var(--shadow-sm)
 .home-tile{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:20px; min-height:170px;
     background:var(--white); border:1px solid var(--border); border-radius:12px; color:var(--text); transition:var(--transition); }
 a.home-tile:hover{ border-color:var(--brand-orange); box-shadow:var(--shadow-md); transform:translateY(-2px); }
-.home-tile-badge{ display:inline-grid; place-items:center; min-width:34px; height:30px; padding:0 8px; border-radius:7px;
-    background:var(--primary-light); color:var(--primary); font-size:13px; font-weight:800; letter-spacing:.3px; }
+.home-tile-badge{ display:inline-grid; place-items:center; width:38px; height:38px; border-radius:10px;
+    background:var(--primary-light); color:var(--primary); }
+.home-tile-badge .i{ width:20px; height:20px; }
 .home-tile h3{ font-size:17px; font-weight:700; margin:4px 0 0; color:inherit; }
 .home-tile p{ font-size:13.5px; line-height:1.55; color:var(--text-light); margin:0; flex:1; }
 .home-tile-link{ font-size:13.5px; font-weight:700; color:var(--primary-text); }
@@ -1172,3 +1192,41 @@ a.home-tile.featured:hover{ background:var(--primary); border-color:var(--primar
 @media(max-width:1200px){ .home-tiles{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
 @media(max-width:1060px){ .home-split{ grid-template-columns:1fr; } }
 @media(max-width:640px){ .home-tiles, .home-tiles.two{ grid-template-columns:1fr; } .home-tile{ min-height:0; } }
+
+/* The candidate's offer page (8 Nov 2026) */
+.offer-summary{ width:100%; border-collapse:collapse; margin:14px 0 4px 0; }
+.offer-summary th{ text-align:left; font-weight:600; color:var(--text-light); padding:8px 12px 8px 0; width:40%; border-bottom:1px solid var(--border); }
+.offer-summary td{ padding:8px 0; font-weight:600; border-bottom:1px solid var(--border); }
+.igsp-form button.offer-decline{ background:var(--white); color:#b42335; border:1px solid #b42335; }
+.igsp-form button.offer-decline:hover{ background:#fdecee; }
+
+/* Interview questions and their scorecard (8 Nov 2026) */
+.question-rows{ display:flex; flex-direction:column; gap:8px; }
+.question-row{ display:flex; gap:10px; align-items:flex-start; }
+.question-row[hidden]{ display:none; }
+.question-row textarea{ flex:1; min-height:46px; resize:vertical; }
+.question-no{ flex:0 0 26px; height:26px; margin-top:8px; border-radius:50%; background:var(--brand-tint, #FEF1E6);
+    color:var(--primary); font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; }
+.question-card{ border:1px solid var(--border); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+.question-card h4{ margin:0; font-size:14px; font-weight:600; line-height:1.45; }
+.question-card textarea{ min-height:58px; }
+.answer-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.answer-list li{ border-top:1px solid var(--border); padding-top:10px; }
+.answer-list li:first-child{ border-top:0; padding-top:0; }
+
+/* Social media icons on the careers site (8 Nov 2026), IGSP's icons and links (_social.html) */
+.ig-social{ display:flex; align-items:center; gap:12px; list-style:none; margin:0; padding:0; }
+.ig-social li{ margin:0; }
+.ig-social a{ display:flex; align-items:center; justify-content:center; transition:color .2s, background .2s, transform .2s; }
+.ig-social svg{ width:17px; height:17px; fill:currentColor; }
+.ig-social svg[fill="none"]{ fill:none; }
+.site-nav .ig-social--header{ padding:0 4px 0 2px; gap:11px; }
+.site-nav .ig-social--header a{ color:var(--primary); }
+.site-nav .ig-social--header a:hover, .site-nav .ig-social--header a:focus-visible{ color:var(--brand-black, #231F20); }
+.site-footer .footer-follow{ margin:16px 0 10px; }
+.site-footer .ig-social--footer{ gap:10px; flex-wrap:wrap; }
+.site-footer .ig-social--footer a{ width:34px; height:34px; margin:0; border-radius:50%; background:rgba(240,132,34,.14);
+    color:#F08422; }
+.site-footer .ig-social--footer a:hover, .site-footer .ig-social--footer a:focus-visible{ background:#F08422; color:#231F20;
+    transform:translateY(-2px); }
+@media (max-width: 720px){ .site-nav .ig-social--header{ display:none; } }   /* phones: the footer has them */

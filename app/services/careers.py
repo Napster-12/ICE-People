@@ -1,4 +1,5 @@
 """Careers site and ATS logic, carried over from the original portal (app.py)."""
+import logging
 import os
 import secrets
 
@@ -10,6 +11,7 @@ from app.services import ats, files
 from app.services.dates import now, today
 from app.services.errors import DomainError
 
+log = logging.getLogger(__name__)
 CV_EXTENSIONS = {".pdf", ".docx"}
 
 
@@ -22,59 +24,24 @@ def open_jobs_query():
                             db.or_(Job.closing_date.is_(None), Job.closing_date >= today()))
 
 
-ELIGIBILITY_QUESTION_COUNT = 5
-
-
-def _question(text, reason):
-    return {"text": text, "reason": reason}
-
-
 def eligibility_questions(job):
-    """The yes/no questions asked before the application form (§15.4): the position's minimum requirements first
-    (one per line), then the advert's own minimums, then standard questions, always ELIGIBILITY_QUESTION_COUNT."""
-    questions = []
-    position = job.requisition.approved_position if job.requisition else None
-    if position and position.minimum_requirements:
-        for line in position.minimum_requirements.splitlines():
-            line = line.strip().lstrip("-•*").strip().rstrip(".")
-            if line:
-                questions.append(_question(f"Do you have {line}?", f"This role requires {line}."))
-    if job.min_education:
-        label = ats.EDUCATION_LABELS.get(job.min_education, "the required qualification")
-        questions.append(_question(f"Do you have at least a {label} qualification?",
-                                   f"This role requires at least a {label} qualification."))
-    if job.min_experience:
-        years = f"{job.min_experience} year{'s' if job.min_experience != 1 else ''}'"
-        questions.append(_question(f"Do you have at least {years} relevant work experience?",
-                                   f"This role requires at least {years} relevant work experience."))
-    if job.required_skills:
-        skills = ", ".join(s.strip() for s in job.required_skills.split(",") if s.strip())
-        questions.append(_question(f"Do you have working experience in {skills}?",
-                                   f"This role requires working experience in {skills}."))
-    place = job.location or "the job's location"
-    questions += [
-        _question("Do you have the right to work in South Africa?",
-                  "This role requires the right to work in South Africa."),
-        _question(f"Are you able to work in {place}?", f"This role is based in {place}."),
-        _question("Can you provide certified copies of your ID and qualifications if you are shortlisted?",
-                  "Shortlisted applicants must provide certified copies of their ID and qualifications."),
-        _question("Do you agree to background checks (criminal, credit and qualification) if you are shortlisted?",
-                  "Shortlisted applicants must agree to background checks."),
-        _question("Can you work the hours this role requires?", "This role requires you to work its set hours."),
-    ]
-    return questions[:ELIGIBILITY_QUESTION_COUNT]
+    """The yes/no questions asked before the application form (§15.4). The Talent Acquisition Specialist types them
+    on each advert (6 Nov 2026, at the user's request): [{"text", "answer"}], where answer ("yes" or "no") qualifies.
+    None typed (old imported jobs): no check."""
+    return [q for q in (job.eligibility_questions or []) if (q.get("text") or "").strip()]
 
 
 def eligibility_problems(job, answers):
-    """Check the applicant's answers (q0..q4 = "yes"/"no"). Returns (unanswered, reasons): unanswered is True when a
-    question was skipped; reasons lists why each "no" makes the applicant ineligible. Nothing is stored."""
+    """Check the applicant's answers (q0, q1, ... = "yes"/"no"). Returns (unanswered, reasons): unanswered is True
+    when a question was skipped; reasons lists each question answered the wrong way. Nothing is stored."""
     reasons, unanswered = [], False
     for i, question in enumerate(eligibility_questions(job)):
         answer = answers.get(f"q{i}")
         if answer not in ("yes", "no"):
             unanswered = True
-        elif answer == "no":
-            reasons.append(question["reason"])
+        elif answer != question.get("answer", "yes"):
+            reasons.append(f"{question['text']} This role needs the answer "
+                           f"\u201c{question.get('answer', 'yes').capitalize()}\u201d.")
     return unanswered, reasons
 
 
@@ -162,6 +129,28 @@ def upsert_application(candidate, job, cover_note="", source="Applied", status=N
                                cover_note=cover_note, score=score, breakdown=breakdown,
                                status=status or "New", source=source))
     return ref
+
+
+def send_application_received(application):
+    """Email the applicant that their application arrived (spec IN-010 acknowledgement; 8 Nov 2026, at the user's
+    request). A failed email never loses the application: it's logged in the Integration Log."""
+    from app.integrations import IntegrationError, get_adapter
+    from app.services.dates import format_datetime
+    from app.services.emails import designed
+    from app.services.notifications import render
+    candidate = application.candidate
+    if not candidate or not candidate.email:
+        return False
+    key = "candidate_application_received"
+    title = application.job.title if application.job else ""
+    subject, body = render(key, {"name": candidate.full_name, "title": title, "ref": application.reference,
+                                 "date": format_datetime(application.created_at or now())})
+    try:
+        get_adapter("email").send_email(candidate.email, subject, body, html=designed(key, subject, body))
+    except IntegrationError as exc:
+        log.error("Application received email to %s failed: %s", candidate.email, exc)
+        return False
+    return True
 
 
 def rescore_job(job):

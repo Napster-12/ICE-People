@@ -1,0 +1,142 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv, approval_chain, act_form with context %}
+{% block title %}{{ offer.reference }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('onboarding.index') }}">← Onboarding</a>{% endblock %}
+{% block heading %}{{ offer.reference }} · {{ offer.candidate.full_name }}{% endblock %}
+{% block subheading %}Offer for {{ offer.job.title }}{% if offer.requisition %} · {{ offer.requisition.reference }}{% endif %} · prepared by {{ offer.created_by.full_name if offer.created_by else 'HR Admin' }} on {{ offer.created_at|dt }}{% endblock %}
+{% block actions %}
+{{ status(offer.status) }}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.offer_letter', offer_id=offer.id) }}" target="_blank" rel="noopener">{{ icon('file') }} Preview letter</a>
+{% if case %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('onboarding.case', case_id=case.id) }}">{{ icon('users') }} Onboarding case</a>{% endif %}
+{% endblock %}
+{% block content %}
+{% if offer.status == 'In Approval' %}
+<div class="alert alert-info">The offer is above the requisition's costed CTC, so it's with Finance. Send it once it's approved.</div>
+{% elif offer.status == 'Approved' %}
+<div class="alert alert-info">Finance approved the offer. It hasn't been sent yet.</div>
+{% elif offer.status == 'Returned' %}
+<div class="alert alert-warning">Finance returned the offer. Change it and send it again.</div>
+{% elif offer.status == 'Sent' %}
+<div class="alert alert-info">Emailed to {{ offer.candidate.email }} on {{ offer.sent_at|dtt }}. The candidate has until {{ offer.expires_on|dt }} to accept or decline.</div>
+{% elif offer.status == 'Accepted' %}
+<div class="alert alert-success">Accepted on {{ offer.responded_at|dtt }}. The position is filled and the onboarding case is open.</div>
+{% elif offer.status == 'Declined' %}
+<div class="alert alert-warning">Declined on {{ offer.responded_at|dtt }}{% if offer.decline_reason %}: {{ offer.decline_reason }}{% endif %}. Mark the next-ranked candidate successful on the interview panel, or re-advertise.</div>
+{% elif offer.status in ('Expired', 'Withdrawn', 'Rejected') %}
+<div class="alert alert-warning">This offer is {{ offer.status|lower }}.</div>
+{% endif %}
+
+{% if my_step %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Your decision · Level {{ my_step.level }} {{ my_step.name }}</h3>
+    <span class="results-count">Due {{ my_step.due_at|dtt }}</span></div>
+  <p class="small muted" style="margin-bottom:10px">Offer {{ offer.ctc|money }} a year against a costed CTC of {{ costed|money if costed is not none else 'none (unbudgeted position)' }}.</p>
+  {{ act_form(my_step, url_for('onboarding.offer', offer_id=offer.id)) }}
+</section>
+{% endif %}
+
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    {% if editable %}
+    <form method="post" class="admin-panel admin-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-panel-head" style="margin:0"><h3>Offer details</h3></div>
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label for="salutation">Salutation</label>
+          <select id="salutation" name="salutation"><option value="">None</option>
+            {% for t in salutations %}<option {{ 'selected' if (form.get('salutation') or offer.salutation) == t }}>{{ t }}</option>{% endfor %}
+          </select><span class="hint">The letter opens "Dear Mr {{ offer.candidate.full_name }}".</span></div>
+        <div class="admin-form-row"><label for="work_location">Based at</label>
+          <input id="work_location" name="work_location" value="{{ form.get('work_location', offer.work_location or '') }}" placeholder="e.g. 215 Peter Mokaba Road, Morningside"></div>
+      </div>
+      <div class="admin-form-row"><label for="candidate_address">Candidate's postal address</label>
+        <textarea id="candidate_address" name="candidate_address" style="min-height:90px" placeholder="56 Jorrisen St&#10;Braamfontein&#10;Johannesburg&#10;2001">{{ form.get('candidate_address', offer.candidate_address or '') }}</textarea>
+        <span class="hint">One line each, as it goes on the letter.</span></div>
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label for="ctc">Annual cost to company (R) *</label>
+          <input id="ctc" name="ctc" inputmode="decimal" value="{{ form.get('ctc') or ('%.2f'|format(offer.ctc|float)) }}" required>
+          <span class="hint">Costed on the requisition: {{ costed|money if costed is not none else 'none (unbudgeted position)' }}. Above that, Finance approves first.</span></div>
+        <div class="admin-form-row"><label for="employment_type">Employment type *</label>
+          <select id="employment_type" name="employment_type">
+            {% for t in types %}<option {{ 'selected' if (form.get('employment_type') or offer.employment_type) == t }}>{{ t }}</option>{% endfor %}
+          </select></div>
+        <div class="admin-form-row"><label for="start_date">Start date *</label>
+          <input id="start_date" type="date" name="start_date" value="{{ form.get('start_date') or offer.start_date.isoformat() }}" required></div>
+        <div class="admin-form-row"><label for="contract_end_date">Contract end date</label>
+          <input id="contract_end_date" type="date" name="contract_end_date" value="{{ form.get('contract_end_date') or (offer.contract_end_date.isoformat() if offer.contract_end_date else '') }}">
+          <span class="hint">Needed for a Contract offer only.</span></div>
+        <div class="admin-form-row"><label for="expires_on">Candidate must answer by *</label>
+          <input id="expires_on" type="date" name="expires_on" value="{{ form.get('expires_on') or offer.expires_on.isoformat() }}" required></div>
+        <div class="admin-form-row"><label for="probation_months">Probation (months)</label>
+          <input id="probation_months" type="number" min="0" max="12" name="probation_months" value="{{ form.get('probation_months', offer.probation_months or '') }}">
+          <span class="hint">Blank or 0: no probation clause.</span></div>
+      </div>
+      <div class="admin-form-row"><label for="conditions">Extra conditions (optional)</label>
+        <textarea id="conditions" name="conditions" style="min-height:90px" placeholder="One per line, e.g. A valid driver's licence.">{{ form.get('conditions', offer.conditions or '') }}</textarea>
+        <span class="hint">Listed in the letter after the standard conditions (references, qualifications, identity).</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="admin-btn-sm admin-btn-secondary" name="action" value="save">{{ icon('check') }} Save</button>
+        <button class="filter-btn" name="action" value="send" data-confirm-title="Send the offer?" data-confirm-ok="Send"
+                data-confirm="{{ offer.candidate.full_name }} gets the offer letter by email with a link to accept or decline. An offer above the costed CTC goes to Finance first.">{{ icon('mail') }} Send offer</button>
+      </div>
+    </form>
+    {% else %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Offer details</h3></div>
+      <div class="kv-grid">
+        {{ kv('Dear', ((offer.salutation ~ ' ') if offer.salutation else '') ~ offer.candidate.full_name) }}
+        {{ kv('Postal address', offer.candidate_address) }}
+        {{ kv('Based at', offer.work_location) }}
+        {{ kv('Probation', (offer.probation_months ~ ' months') if offer.probation_months) }}
+        {{ kv('Annual cost to company', offer.ctc|money) }}
+        {{ kv('Costed on the requisition', costed|money if costed is not none else 'None (unbudgeted)') }}
+        {{ kv('Employment type', offer.employment_type) }}
+        {{ kv('Start date', offer.start_date|dt) }}
+        {{ kv('Contract end date', offer.contract_end_date|dt if offer.contract_end_date) }}
+        {{ kv('Answer by', offer.expires_on|dt) }}
+        {{ kv('Extra conditions', offer.conditions) }}
+        {{ kv('Letter as sent', '') if not offer.letter_file }}
+      </div>
+      {% if offer.letter_file %}<p style="margin-top:12px"><a href="{{ url_for('portal.download', file_id=offer.letter_file.id) }}" target="_blank" rel="noopener">{{ icon('file') }} The letter as sent ({{ offer.sent_at|dtt }})</a></p>{% endif %}
+      {% if offer.accepted_file %}<p><a href="{{ url_for('portal.download', file_id=offer.accepted_file.id) }}" target="_blank" rel="noopener">{{ icon('check') }} The letter as accepted ({{ offer.responded_at|dtt }})</a></p>{% endif %}
+      {% if can_edit and offer.status == 'Approved' %}
+      <form method="post" style="margin-top:14px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="filter-btn" name="action" value="send">{{ icon('mail') }} Send offer</button>
+      </form>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if can_edit and offer.status in ('Draft', 'Returned', 'In Approval', 'Approved', 'Sent') %}
+    <form method="post" class="admin-panel admin-form" data-confirm-title="Withdraw the offer?" data-confirm-ok="Withdraw"
+          data-confirm="The candidate's link stops working. You can then mark another candidate successful.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-panel-head" style="margin:0"><h3>Withdraw</h3></div>
+      <div class="admin-form-row"><label for="reason">Reason (optional)</label><input id="reason" name="reason"></div>
+      <div><button class="admin-btn-sm admin-btn-danger" name="action" value="withdraw">Withdraw the offer</button></div>
+    </form>
+    {% endif %}
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Candidate</h3></div>
+      <div class="kv-grid">
+        {{ kv('Name', offer.candidate.full_name) }}
+        {{ kv('Email', offer.candidate.email) }}
+        {{ kv('Phone', offer.candidate.phone) }}
+        {{ kv('Application', offer.application.reference) }}
+        {{ kv('Passed the interview', (offer.application.successful_at|dtt) if offer.application.successful_at) }}
+        {{ kv('Decision comment', offer.application.decision_comment) }}
+      </div>
+    </section>
+    {% if instance %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Finance approval</h3>{{ status(instance.status) }}</div>
+      {{ approval_chain(instance) }}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

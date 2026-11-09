@@ -118,6 +118,20 @@ def missing_packages():
     return missing
 
 
+def clean_text(text):
+    """Tidy text taken out of a PDF or Word file (8 Nov 2026): ligatures (ﬁ → fi), words hyphenated across a line
+    break ("trouble-\nshooting"), letter-spaced headings ("S K I L L S" → "SKILLS") and odd bullets/spaces."""
+    import unicodedata
+    text = unicodedata.normalize("NFKC", text or "")
+    text = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", text)                  # hyphenated line breaks
+    text = re.sub(r"(?<![\w])((?:[A-Z]{1,2} ){3,}[A-Z]{1,2})(?![\w])",       # ...in capitals: "E D U C AT I O N"
+                  lambda m: m.group(1).replace(" ", ""), text)
+    text = re.sub(r"(?<![\w])((?:[A-Za-z] ){3,}[A-Za-z])(?![\w])",          # letter-spaced words
+                  lambda m: m.group(1).replace(" ", ""), text)
+    text = re.sub(r"[■●▪•◦►▶✓✔]", " ", text)
+    return text
+
+
 def extract_text(filename, data):
     """Return plain text from a PDF, DOCX or TXT file's bytes.
 
@@ -130,7 +144,7 @@ def extract_text(filename, data):
             reader = PdfReader(io.BytesIO(data))
             if reader.is_encrypted:
                 reader.decrypt("")  # many "protected" CVs only restrict editing, not opening
-            return "\n".join((page.extract_text() or "") for page in reader.pages)
+            return clean_text("\n".join((page.extract_text() or "") for page in reader.pages))
         except Exception as exc:
             log.warning("Could not read PDF %s: %s", filename, exc)
             return ""
@@ -142,16 +156,95 @@ def extract_text(filename, data):
             for table in document.tables:
                 for row in table.rows:
                     parts.append(" | ".join(cell.text for cell in row.cells))
-            return "\n".join(parts)
+            return clean_text("\n".join(parts))
         except Exception as exc:
             log.warning("Could not read DOCX %s: %s", filename, exc)
             return ""
     if name.endswith(".txt"):
-        return data.decode("utf-8", errors="ignore")
+        return clean_text(data.decode("utf-8", errors="ignore"))
     return ""
 
 
 # ------------------------------------------------------------------ helpers
+
+# Requirements written as sentences (8 Nov 2026): "Proficiency in at least one major programming language, such as
+# C#/.NET, Java, Python or PHP." is one requirement, met by any of the listed languages, not seven "skills".
+_ANY_OF = re.compile(r"\bsuch as\b|\be\.?g\.?|\bat least one\b|\bany\b|\bor\b|\blike\b|\bincluding\b")
+_FILLER = set("""
+proficiency proficient in at least one major experience experienced with building consuming strong solid sound
+skills skill knowledge knowledgeable of understanding the a an good excellent ability to work modern relevant
+working familiarity familiar exposure hands-on hands on practical basic advanced background demonstrated proven
+version control awareness practices methodologies methodology tools tool platforms platform frameworks framework
+certifications certification such as e.g eg like including etc use using other similar equivalent related
+written verbal and or is are be will should must have has
+""".split())
+_KEEP_SLASH = re.compile(r"^[a-z]{1,3}/[a-z]{1,3}$")       # ci/cd, tcp/ip, ui/ux stay one term
+
+
+def _is_sentences(value):
+    """True when a skills field holds sentences (copied from a JD) rather than a short comma list."""
+    parts = [p.strip() for p in re.split(r"[,;\n]", value or "") if p.strip()]
+    return bool(re.search(r"\bsuch as\b|\be\.g\.", value or "", re.I)) or any(len(p.split()) > 5 for p in parts)
+
+
+def requirement_items(value):
+    """The separate requirements in a skills field: a short comma list stays one skill per comma; sentences split
+    on full stops, line breaks and semicolons."""
+    if not value:
+        return []
+    if not _is_sentences(value):
+        return split_skills(value)
+    items, seen = [], set()
+    for part in re.split(r"\.\s*,\s*|\.\s*$|\.\s+(?=[a-z])|\n|;", value.strip(), flags=re.I):
+        item = re.sub(r"^[\s\-•*\d.)]+", "", part).strip(" ,.")
+        if item and item.lower() not in seen:
+            seen.add(item.lower())
+            items.append(item)
+    return items
+
+
+def requirement_terms(item):
+    """The skills named in one requirement: "web development skills: HTML, CSS, JavaScript and a modern framework,
+    such as React, Angular or Vue" -> web development, html, css, javascript, react, angular, vue."""
+    text = _normalise(item).strip(" .")
+    tokens = []
+    for token in text.split():
+        if "/" in token and not _KEEP_SLASH.match(token.strip(",.:;()")):
+            tokens.append(token.replace("/", " , "))         # c#/.net -> c#, .net (two terms)
+        else:
+            tokens.append(token)
+    text = " ".join(tokens)
+    pieces = re.split(r"[,;:()]|\bsuch as\b|\be\.?g\.?|\bincluding\b|\blike\b|\bor\b|\band\b|\bwith\b|\bin\b", text)
+    terms = []
+    for piece in pieces:
+        words = [w for w in piece.split() if w.strip(".") and w.strip(".") not in _FILLER]
+        term = " ".join(words).strip(" .")
+        if term and len(term.split()) <= 4 and term not in terms and (len(term) >= 2 or term in ("c", "r")):
+            terms.append(term)
+    return terms
+
+
+def requirement_met(profile, item, plain=True):
+    """(met, found terms) for one requirement. plain: the field is a short comma list, so the item is one skill.
+    Otherwise a list offered as alternatives (such as / or / at least one) needs any one of the named skills, and
+    any other requirement at least half of them."""
+    if plain:
+        found = has_skill(profile, item)
+        return found, ([item] if found else [])
+    terms = requirement_terms(item)
+    if not terms:
+        return has_skill(profile, item), []
+    found = [t for t in terms if has_skill(profile, t)]
+    if _ANY_OF.search(_normalise(item)):
+        return bool(found), found
+    return len(found) * 2 >= len(terms), found
+
+
+def requirement_label(item, limit=60):
+    """A short name for a requirement chip."""
+    label = re.split(r",|\bsuch as\b|:", item, maxsplit=1, flags=re.I)[0].strip(" .")
+    return label if len(label) <= limit else label[:limit - 1].rstrip() + "…"
+
 
 def split_skills(value):
     """'Excel, SQL; Power BI' -> ['excel', 'sql', 'power bi']"""
@@ -167,8 +260,9 @@ def split_skills(value):
 
 
 def _normalise(text):
-    text = (text or "").lower().replace("’", "").replace("'", "")
-    return re.sub(r"\s+", " ", text)
+    text = (text or "").lower().replace("’", "").replace("'", "").replace("&", " and ")
+    text = re.sub(r"[ \t\r\f\v]+", " ", text)
+    return re.sub(r" ?\n[\n ]*", "\n", text)          # keep line breaks: _near looks within one line or sentence
 
 
 def has_term(text, term):
@@ -180,21 +274,111 @@ def has_term(text, term):
     return re.search(pattern, text) is not None
 
 
+# Skills that mean the same thing in a CV (8 Nov 2026: the ATS missed "Microsoft 365" for "office 365", "first-line
+# support" for "service desk" and so on). Each group is matched as one skill. Lower case; add groups as needed.
+SYNONYMS = [
+    {"office 365", "microsoft 365", "m365", "o365", "ms 365"},
+    {"service desk", "help desk", "helpdesk", "it support", "first line support", "first-line support",
+     "end user support", "end-user support", "technical support", "desktop support", "it helpdesk"},
+    {"ticketing", "ticketing system", "ticket", "tickets", "incident management", "servicenow", "service now",
+     "jira service management", "freshdesk", "zendesk", "sysaid", "manageengine"},
+    {"active directory", "azure ad", "azure active directory", "entra id", "microsoft entra", "ad ds"},
+    {"power bi", "powerbi"},
+    {"sql server", "mssql", "ms sql", "microsoft sql server", "t-sql", "tsql"},
+    {"postgresql", "postgres"},
+    {"javascript", "js", "ecmascript"},
+    {"typescript", "ts"},
+    {"c#", "c sharp", "csharp"},
+    {"git", "github", "gitlab", "bitbucket"},
+    {"rest api", "rest apis", "restful", "restful api", "restful apis", "web api", "web apis"},
+    {"machine learning", "ml"},
+    {"artificial intelligence", "ai"},
+    {"customer service", "client service", "customer care", "client care", "customer support", "client support"},
+    {"communication", "communication skills", "communicating"},
+    {"team", "teamwork", "team work", "team player", "work in a team", "collaboration"},
+    {"independently", "independent", "independent work", "self-motivated", "self motivated", "minimal supervision"},
+    {"problem solving", "problem-solving", "troubleshooting", "trouble shooting"},
+    {"networking", "network administration", "lan", "wan", "tcp/ip", "ip addressing", "ccna"},
+    {"drivers licence", "drivers license", "driving licence", "driving license", "code 8", "code 10", "code 14",
+     "code eb", "code c1", "code ec"},
+    {"microsoft office", "ms office", "office suite", "word, excel"},
+    {"excel", "spreadsheets"},
+    {"data visualisation", "data visualization", "visualisations", "visualizations", "dashboards"},
+    {"requirements gathering", "requirements elicitation", "gather requirements", "gathering requirements",
+     "requirements analysis"},
+    {"itil", "itil v3", "itil v4", "itil foundation"},
+    {"etl", "extract transform load", "data pipelines"},
+    {"bookkeeping", "book keeping"},
+    {"funeral arrangements", "funeral arranging", "funeral services"},
+]
+_SYNONYM_INDEX = {term: group for group in SYNONYMS for term in group}
+
+_STEM_SUFFIXES = ("isations", "izations", "isation", "ization", "ations", "ation", "ments", "ment", "ings", "ing", "ly",
+                  "ers", "er", "ies", "ied", "es", "ed", "s")
+
+
+def _stem(word):
+    """A rough stem so 'gathering', 'gathered' and 'gather' (or 'requirements' and 'requirement') compare equal;
+    analyse, analysed, analysis, analyst and analyze all become 'analys'."""
+    m = re.match(r"^(\w{2,}?)(ys|yz)(is|es|e|ed|er|ers|ing|t|ts)?$", word)
+    if m:
+        return m.group(1) + "ys"
+    for suffix in _STEM_SUFFIXES:
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            return word[:-len(suffix)]
+    return word
+
+
 def _variants(skill):
-    """Common spellings of a skill, e.g. 'ms excel' also matches 'excel'."""
-    skill = _normalise(skill)
+    """Ways a skill is written: 'ms excel' also matches 'excel', 'reactjs' matches 'react' and 'react.js', 'html5'
+    matches 'html', British and American spellings, and the skill's synonym group (SYNONYMS)."""
+    skill = _normalise(skill).strip()
     variants = {skill, re.sub(r"^(ms|microsoft)\s+", "", skill)}
+    variants |= _SYNONYM_INDEX.get(skill, set())
     for v in list(variants):
         if v.endswith("analysis"):
             variants.add(v[:-len("analysis")] + "analyst")
-        variants.add(v.replace("modelling", "modeling"))
-        variants.add(v.replace("licence", "license"))
-        variants.add(v.replace("license", "licence"))
-    return [v for v in variants if v]
+        base = re.sub(r"(?<=[a-z])\.?\s?js$", "", v)                       # reactjs, react.js, react js -> react
+        if base != v and len(base) >= 3:
+            variants |= {base, base + ".js", base + "js"}
+        variants.add(re.sub(r"(?<=[a-z]{2})\d(\.\d)?$", "", v))            # html5, css3, python3 -> html, css, python
+        for a, b in (("isation", "ization"), ("ise", "ize"), ("yse", "yze"), ("modelling", "modeling"),
+                     ("licence", "license"), ("programme", "program"), ("colour", "color"), ("centre", "center")):
+            if a in v:
+                variants.add(v.replace(a, b))
+            if b in v:
+                variants.add(v.replace(b, a))
+    for v in list(variants):
+        variants |= _SYNONYM_INDEX.get(v, set())
+    return [v for v in variants if v and len(v) >= 1]
+
+
+_WORD = re.compile(r"[a-z0-9][a-z0-9+#.]*")
+
+
+def _near(text, skill, window=6):
+    """A skill of 2–4 words also counts when all its words (in any order and form) appear within a few words of each
+    other in the same sentence: "Gather and document business requirements" shows "requirements gathering"."""
+    words = [_stem(w) for w in _WORD.findall(skill) if w not in _STOPWORDS or len(_WORD.findall(skill)) <= 2]
+    if not 2 <= len(words) <= 4:
+        return False
+    for sentence in re.split(r"[.;:!?\n|•]", text):
+        tokens = [_stem(t.strip(".")) for t in _WORD.findall(sentence)]
+        positions = [[i for i, t in enumerate(tokens) if t == w] for w in words]
+        if not all(positions):
+            continue
+        for start in positions[0]:
+            spots = [min(p, key=lambda i: abs(i - start)) for p in positions]
+            if max(spots) - min(spots) <= window:
+                return True
+    return False
 
 
 def has_skill(text, skill):
-    return any(has_term(text, v) for v in _variants(skill))
+    variants = _variants(skill)
+    if any(has_term(text, v) for v in variants):
+        return True
+    return any(_near(text, v) for v in variants if " " in v.strip())
 
 
 _MONTHS = {m: i for i, m in enumerate(
@@ -295,23 +479,22 @@ def score_candidate(job, candidate):
 
     components = {}
 
-    required = split_skills(job["required_skills"])
-    if required:
-        matched = [s for s in required if has_skill(profile, s)]
-        components["required"] = {
-            "score": 100 * len(matched) / len(required),
-            "matched": matched,
-            "missing": [s for s in required if s not in matched],
-        }
-
-    preferred = split_skills(job["preferred_skills"])
-    if preferred:
-        matched = [s for s in preferred if has_skill(profile, s)]
-        components["preferred"] = {
-            "score": 100 * len(matched) / len(preferred),
-            "matched": matched,
-            "missing": [s for s in preferred if s not in matched],
-        }
+    for key, field in (("required", "required_skills"), ("preferred", "preferred_skills")):
+        items = requirement_items(job[field])
+        if not items:
+            continue
+        matched, missing, found, details = [], [], {}, {}
+        plain = not _is_sentences(job[field])
+        for item in items:
+            met, terms = requirement_met(profile, item, plain)
+            label = item if plain else requirement_label(item)
+            if not plain:
+                details[label] = item
+            (matched if met else missing).append(label)
+            if terms and not plain:
+                found[label] = terms
+        components[key] = {"score": 100 * len(matched) / len(items), "matched": matched, "missing": missing,
+                           "found": found, "details": details}
 
     min_exp = job["min_experience"] or 0
     stated = candidate["years_experience"]

@@ -16,7 +16,7 @@ from app.services import adverts, budget, files, requisitions, workflow
 from app.services.dates import today
 from app.services.errors import DomainError
 from app.services.requisitions import CREATE_ROLES, SEE_ALL_ROLES, ValidationFailed
-from app.models.user import HOD, LINE_MANAGER
+from app.models.user import HOD, LINE_MANAGER, RECRUITER
 from app.web import flash_errors, paginate
 
 bp = Blueprint("requisitions", __name__, url_prefix="/requisitions")
@@ -140,7 +140,7 @@ def edit(req_id):
 
 
 @bp.route("/<int:req_id>")
-@roles_required(*VIEW_ROLES)
+@roles_required(*VIEW_ROLES, RECRUITER)       # the Talent Acquisition Specialist reads approved ones only
 def detail(req_id):
     req = _get_visible(req_id)
     instances = workflow.history("requisition", req.id)

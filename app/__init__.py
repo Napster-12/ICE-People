@@ -56,6 +56,7 @@ def _register_blueprints(app):
     from app.auth.routes import bp as auth_bp
     from app.budget.routes import bp as budget_bp
     from app.dashboards.routes import bp as dashboards_bp
+    from app.onboarding.routes import bp as onboarding_bp
     from app.portal.routes import bp as portal_bp
     from app.positions.routes import bp as positions_bp
     from app.recruitment.careers import bp as careers_bp
@@ -63,7 +64,7 @@ def _register_blueprints(app):
     from app.requisitions.routes import bp as requisitions_bp
 
     for bp in (careers_bp, auth_bp, dashboards_bp, portal_bp, requisitions_bp, positions_bp, approvals_bp, budget_bp,
-               adverts_bp, recruitment_bp, admin_bp):
+               adverts_bp, recruitment_bp, onboarding_bp, admin_bp):
         app.register_blueprint(bp)
 
 
@@ -101,9 +102,11 @@ def _register_template_helpers(app):
             "sa_places": SA_PLACES,
         }
         if current_user.is_authenticated:
+            from app.auth.portals import PORTAL_LABELS, current_portal
             from app.services.notifications import unread_count
             from app.services.workflow import pending_count
             ctx["nav"] = nav_for(current_user, request.endpoint)
+            ctx["portal"], ctx["portal_labels"] = current_portal(), PORTAL_LABELS
             ctx["unread_notifications"] = unread_count(current_user)
             ctx["pending_approvals"] = pending_count(current_user)
         return ctx
@@ -166,7 +169,7 @@ def _register_file_access():
         return req is not None and requisitions.can_view(user, req)
 
     def candidate_rule(user, _entity_id):
-        return user.is_hr
+        return user.can_recruit
 
     def asset_rule(user, _entity_id):
         return user.has_role(IT)
@@ -174,3 +177,16 @@ def _register_file_access():
     files.register_access("requisition", requisition_rule)
     files.register_access("candidate", candidate_rule)
     files.register_access("asset_allocation", asset_rule)
+
+    def onboarding_rule(user, _entity_id):           # offer letters and signed contracts (8 Nov 2026)
+        from app.services.onboarding import VIEW_ROLES
+        return user.has_role(*VIEW_ROLES)
+
+    files.register_access("offer_letter", onboarding_rule)
+    files.register_access("employment_contract", onboarding_rule)
+
+    def signature_rule(user, _entity_id):            # the signature on letters: HR Admin only
+        from app.models.user import HR_ADMIN
+        return user.has_role(HR_ADMIN)
+
+    files.register_access("document_signature", signature_rule)

@@ -1,11 +1,11 @@
 {% extends "admin/base.html" %}
-{% from "_ui.html" import status with context %}
+{% from "_ui.html" import status, question_rows with context %}
 {% from "admin/_macros.html" import score_badge %}
 {% block title %}Shortlist · {{ review.job.title }}{% endblock %}
-{% block crumb %}<a class="admin-crumb" href="{{ url_for('recruitment.shortlists') if not current_user.is_hr else url_for('recruitment.job_detail', job_id=review.job_id) }}">← {{ 'Shortlist reviews' if not current_user.is_hr else review.job.title }}</a>{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('recruitment.shortlists') if not current_user.can_recruit else url_for('recruitment.job_detail', job_id=review.job_id) }}">← {{ 'Shortlist reviews' if not current_user.can_recruit else review.job.title }}</a>{% endblock %}
 {% block heading %}{{ review.job.title }}{% endblock %}
 {% block subheading %}Shortlist from {{ review.sent_by.full_name }}, {{ review.created_at|dtt }}.
-{% if can_review %}Tick who goes to interview; the rest won't be invited.{% endif %}{% endblock %}
+{% if can_review %}Tick who goes to interview and type the interview questions; the rest won't be invited.{% endif %}{% endblock %}
 {% block actions %}{{ status(review.status) }}{% endblock %}
 {% block content %}
 <form method="post">
@@ -18,7 +18,7 @@
       {% for a in review.applications %}
       {% set c = a.candidate %}
       <tr>
-        <td>{% if can_review %}<input type="checkbox" name="app_ids" value="{{ a.id }}" aria-label="Interview {{ c.full_name }}">
+        <td>{% if can_review %}<input type="checkbox" name="app_ids" value="{{ a.id }}" aria-label="Interview {{ c.full_name }}" {{ 'checked' if a.id|string in form.getlist('app_ids') }}>
             {% else %}{{ 'Yes' if a.id in (review.selected_ids or []) else '—' }}{% endif %}</td>
         <td><strong>{{ c.full_name }}</strong><span class="sub">{{ c.current_title or '' }}{{ ' · ' ~ c.location if c.location }}</span>
           {% if a.cover_note %}<details><summary>Cover note</summary><div class="small">{{ a.cover_note }}</div></details>{% endif %}</td>
@@ -33,13 +33,29 @@
   </section>
 
   {% if can_review %}
-  <section class="admin-panel admin-form">
+  <section class="admin-panel admin-form" style="margin-top:20px">
+    <div class="admin-panel-head" style="margin:0"><h3>Interview questions *</h3>
+      <span class="results-count">Up to {{ max_questions }}</span></div>
+    <p class="hint" style="margin:0">The questions the panel asks every candidate. Each panellist scores each question from 1 (poor)
+      to 5 (outstanding) and can add a comment. HR's Talent Acquisition Specialist can still edit them before the interviews.</p>
+    {{ question_rows(questions, max_questions) }}
+  </section>
+  <section class="admin-panel admin-form" style="margin-top:20px">
     <div class="admin-form-row"><label for="comment">Comment for HR (optional)</label>
-      <textarea id="comment" name="comment" style="min-height:80px" placeholder="e.g. Please schedule the interviews for next week."></textarea></div>
+      <textarea id="comment" name="comment" style="min-height:80px" placeholder="e.g. Please schedule the interviews for next week.">{{ form.get('comment', '') }}</textarea></div>
     <div><button class="filter-btn">{{ icon('check') }} Send my selection to HR</button></div>
   </section>
-  {% elif review.comment %}
-  <section class="admin-panel"><div class="admin-panel-head"><h3>Comment</h3></div><div class="review-comment">{{ review.comment }}</div></section>
+  {% else %}
+  {% if questions %}
+  <section class="admin-panel" style="margin-top:20px"><div class="admin-panel-head"><h3>Interview questions</h3>
+    <span class="results-count">{{ questions|length }}</span></div>
+    <ol style="margin:0;padding-left:20px;line-height:1.7">{% for q in questions %}<li>{{ q }}</li>{% endfor %}</ol>
+    {% if current_user.can_recruit %}<p class="hint" style="margin-top:8px"><a href="{{ url_for('recruitment.panel', job_id=review.job_id) }}#questions">Edit them on the interview panel</a></p>{% endif %}
+  </section>
+  {% endif %}
+  {% if review.comment %}
+  <section class="admin-panel" style="margin-top:20px"><div class="admin-panel-head"><h3>Comment</h3></div><div class="review-comment">{{ review.comment }}</div></section>
+  {% endif %}
   {% endif %}
 </form>
 {% endblock %}

@@ -15,7 +15,7 @@
 </form>
 <section class="admin-panel">
   <div class="table-responsive"><table class="admin-table">
-    <tr><th>Position</th><th>Department</th><th>Grade</th><th>Requested by</th><th>Requested</th><th>Status</th></tr>
+    <tr><th>Position</th><th>Department</th><th>Occupational level</th><th>Requested by</th><th>Requested</th><th>Status</th></tr>
     {% for p in rows %}
     <tr><td><a href="{{ url_for('positions.detail', position_id=p.id) }}"><strong>{{ p.title }}</strong></a><span class="sub">{{ p.position_number }}</span></td>
       <td>{{ p.department.name }}</td><td>{{ p.job_grade.name if p.job_grade else '—' }}</td>

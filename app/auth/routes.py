@@ -10,6 +10,7 @@ from wtforms import PasswordField, StringField
 from wtforms.validators import DataRequired, EqualTo, Length
 
 from app.auth.decorators import roles_required
+from app.auth.portals import current_portal
 from app.extensions import db, limiter
 from app.models import User
 from app.services import audit
@@ -86,7 +87,7 @@ def login_form(audience):
         if user is None or not user.active or not user.check_password(form.password.data):
             _register_failure(user, entered)
             flash(_("Incorrect username, email or password."), "error")
-        elif user.landing != audience:
+        elif audience not in user.portals:                 # everyone may use the staff page; others by role
             audit.record("login.wrong_page", "user", user.id, user=user, detail=f"page={audience}")
             db.session.commit()
             flash(_("Please sign in on %(page)s.", page=LANDINGS[user.landing][0]), "info")
@@ -94,6 +95,7 @@ def login_form(audience):
         else:
             session.clear()
             login_user(user)
+            session["portal"] = audience                    # the home page follows the portal signed in on
             user.last_login_at = now()
             audit.record("login.success", "user", user.id, user=user)
             db.session.commit()
@@ -106,7 +108,7 @@ def login_form(audience):
 def logout():
     audience = "admin"
     if current_user.is_authenticated:
-        audience = current_user.landing
+        audience = current_portal()
         audit.record("logout", "user", current_user.id)
         db.session.commit()
     logout_user()

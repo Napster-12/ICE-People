@@ -8,10 +8,11 @@
 <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('budget.edit') }}">{{ icon('plus') }} Add Line</a>{% endif %}{% endblock %}
 {% block content %}
 <div class="reports-kpi-grid">
-  {{ kpi('Budget', totals.amount|money, 'building') }}
-  {{ kpi('Committed', totals.committed|money, 'clock', 'yellow') }}
-  {{ kpi('Consumed', totals.consumed|money, 'users', 'black') }}
-  {{ kpi('Available', totals.available|money, 'trending', 'orange') }}
+  {#- Whole rands in the cards so the figures fit on one line; the table below has the cents. -#}
+  {{ kpi('Budget', (totals.amount|money)[:-3], 'building') }}
+  {{ kpi('Committed', (totals.committed|money)[:-3], 'clock', 'yellow') }}
+  {{ kpi('Consumed', (totals.consumed|money)[:-3], 'users', 'black') }}
+  {{ kpi('Available', (totals.available|money)[:-3], 'trending', 'orange') }}
 </div>
 <form class="filter-section" method="get">
   <div class="filter-grid">

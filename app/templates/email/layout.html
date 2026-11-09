@@ -1,0 +1,146 @@
+{#- The email layout (emails.html_for). Redesigned 8 Nov 2026, at the user's request (replacing the IGSP copy):
+    a warm grey page, one white card with the brand header and a three-colour stripe, a small label above the text,
+    a details table, a flat orange button and a quiet footer under the card.
+    Applicants see the Icebolethu Group logo; staff see the ICE People Administration System brand (the sidebar's
+    mark and wordmark). Tables, bgcolor and inline styles so Outlook, Gmail and phone mail apps show the same layout. -#}
+{%- set font = "Montserrat, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" -%}
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+    <meta name="color-scheme" content="light">
+    <meta name="supported-color-schemes" content="light">
+    <title>{{ subject }}</title>
+    <!--[if mso]>
+    <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+    <style>table, td, p, a, span, div, li { font-family: Arial, sans-serif !important; }</style>
+    <![endif]-->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        table { border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; }
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+        @media screen and (max-width: 620px) {
+            .outer { padding: 12px 0 !important; }
+            .card { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+            .pad { padding-left: 22px !important; padding-right: 22px !important; }
+            .btn, .btn a { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box; }
+            .label-cell { display: block !important; width: auto !important; padding-bottom: 0 !important; }
+            .value-cell { display: block !important; padding-top: 2px !important; }
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0; width:100%; background-color:#F4F2EF; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
+<div style="display:none; max-height:0; overflow:hidden; opacity:0; color:#F4F2EF;">{{ preheader }}&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F2EF" style="width:100%; background-color:#F4F2EF;">
+<tr><td class="outer" align="center" style="padding:32px 12px;">
+    <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center"><tr><td><![endif]-->
+    <table role="presentation" class="card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF"
+           style="width:100%; max-width:600px; margin:0 auto; background-color:#FFFFFF; border:1px solid #E9E5E0; border-radius:16px;">
+
+        {#- Brand header -#}
+        <tr><td class="pad" style="padding:26px 40px 22px 40px;">
+            {%- if candidate %}
+            <img src="{{ images.logo }}" alt="Icebolethu Group" width="132" height="51" style="display:block; width:132px; height:51px; border:0; outline:none; text-decoration:none;">
+            {%- else %}
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td valign="middle" style="padding-right:12px;"><img src="{{ images.mark }}" alt="" width="44" height="44" style="display:block; width:44px; height:44px; border:0;"></td>
+                <td valign="middle" style="font-family:{{ font }};">
+                    <div style="font-size:20px; line-height:22px; font-weight:800; letter-spacing:-.4px; color:#F26522; white-space:nowrap;"><span style="color:#231F20;">ICE</span> People</div>
+                    <div style="font-size:11px; line-height:16px; font-weight:500; color:#8A8580; white-space:nowrap;">Administration System</div>
+                </td>
+            </tr></table>
+            {%- endif %}
+        </td></tr>
+
+        {#- Three-colour stripe from the logo -#}
+        <tr><td style="padding:0 40px;" class="pad">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td width="55%" height="3" bgcolor="#F26522" style="height:3px; line-height:3px; font-size:3px; background-color:#F26522;">&nbsp;</td>
+                <td width="30%" height="3" bgcolor="#F08422" style="height:3px; line-height:3px; font-size:3px; background-color:#F08422;">&nbsp;</td>
+                <td width="15%" height="3" bgcolor="#FDD56E" style="height:3px; line-height:3px; font-size:3px; background-color:#FDD56E;">&nbsp;</td>
+            </tr></table>
+        </td></tr>
+
+        {#- Label (and status) above the text -#}
+        <tr><td class="pad" style="padding:28px 40px 0 40px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td valign="middle" style="font-family:{{ font }}; font-size:11px; line-height:16px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:#F26522;">{{ label }}</td>
+                {%- if pill %}
+                <td valign="middle" align="right">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                        <td bgcolor="{{ pill.bg }}" style="padding:4px 12px; background-color:{{ pill.bg }}; border-radius:999px; font-family:{{ font }}; font-size:12px; line-height:16px; font-weight:700; color:{{ pill.fg }}; white-space:nowrap;"><span style="font-size:10px;">&#9679;</span>&nbsp;{{ pill.text }}</td>
+                    </tr></table>
+                </td>
+                {%- endif %}
+            </tr></table>
+        </td></tr>
+
+        {#- The template's text -#}
+        <tr><td class="pad" style="padding:14px 40px 36px 40px; font-family:{{ font }}; font-size:15px; line-height:25px; color:#231F20; mso-line-height-rule:exactly; word-break:break-word;">
+            {%- for kind, data in blocks %}
+            {%- if kind == "p" %}
+            {%- if loop.first and data.startswith("Dear ") %}
+            <p style="margin:0 0 14px 0; font-size:17px; line-height:26px; font-weight:700;">{{ linkify(data) }}</p>
+            {%- else %}
+            <p style="margin:0 0 14px 0;">{{ linkify(data) }}</p>
+            {%- endif %}
+            {%- elif kind == "details" %}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FAF8F6"
+                   style="width:100%; margin:6px 0 20px 0; background-color:#FAF8F6; border:1px solid #EEE9E3; border-radius:12px;">
+                {%- for label_, value in data %}
+                <tr>
+                    <td class="label-cell" valign="top" width="130" style="padding:12px 12px 12px 20px; {% if not loop.last %}border-bottom:1px solid #EEE9E3; {% endif %}font-family:{{ font }}; font-size:12px; line-height:20px; font-weight:600; color:#8A8580;">{{ label_ }}</td>
+                    <td class="value-cell" valign="top" style="padding:12px 20px 12px 0; {% if not loop.last %}border-bottom:1px solid #EEE9E3; {% endif %}font-family:{{ font }}; font-size:15px; line-height:20px; font-weight:600; color:#231F20; word-break:break-word;">{{ linkify(value) }}</td>
+                </tr>
+                {%- endfor %}
+            </table>
+            {%- elif kind == "list" %}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;">
+                {%- for item in data %}
+                <tr>
+                    <td valign="top" width="18" style="padding:10px 0 0 2px;"><div style="width:6px; height:6px; background-color:#F26522; border-radius:2px; font-size:0; line-height:0;">&nbsp;</div></td>
+                    <td valign="top" style="padding:2px 0; font-family:{{ font }}; font-size:15px; line-height:25px; color:#231F20;">{{ linkify(item) }}</td>
+                </tr>
+                {%- endfor %}
+            </table>
+            {%- elif kind == "sign" %}
+            <p style="margin:24px 0 0 0; color:#6B6560;">{{ data[0] }}<br><span style="font-weight:700; color:#231F20;">{{ data[1:]|join(", ") }}</span></p>
+            {%- endif %}
+            {%- endfor %}
+
+            {%- if button %}
+            <table role="presentation" class="btn" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0 0;"><tr>
+                <td align="center" bgcolor="#F26522" style="background-color:#F26522; border-radius:10px;">
+                    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ link }}" style="height:48px; v-text-anchor:middle; width:280px;" arcsize="20%" stroke="f" fillcolor="#F26522"><w:anchorlock/><center style="color:#ffffff; font-family:Arial, sans-serif; font-size:15px; font-weight:bold;">{{ button }}</center></v:roundrect><![endif]-->
+                    <!--[if !mso]><!-->
+                    <a href="{{ link }}" target="_blank" style="display:inline-block; padding:14px 28px; font-family:{{ font }}; font-size:15px; line-height:20px; font-weight:700; color:#FFFFFF; text-decoration:none; border-radius:10px;">{{ button }}&nbsp;&nbsp;&#8594;</a>
+                    <!--<![endif]-->
+                </td>
+            </tr></table>
+            {%- endif %}
+        </td></tr>
+
+        {#- Footer (8 Nov 2026, at the user's request): the banner, the FSP line and the social media icons -#}
+        <tr><td class="pad" style="padding:0 40px;"><div style="height:1px; line-height:1px; font-size:1px; background-color:#EEE9E3;">&nbsp;</div></td></tr>
+        <tr><td class="pad" align="center" style="padding:26px 40px 30px 40px;">
+            <a href="{{ website }}" target="_blank" style="text-decoration:none;"><img src="{{ images.banner }}" alt="Icebolethu: we do life with you" width="320" height="127" style="display:block; margin:0 auto; width:320px; max-width:100%; height:auto; border:0;"></a>
+            <p style="margin:16px 0 0 0; font-family:{{ font }}; font-size:13px; line-height:20px; color:#231F20;">Icebolethu is a registered <strong>Financial Services Provider {{ fsp }}</strong></p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:16px auto 0 auto;"><tr>
+                {%- for name, url, cid in social %}
+                <td style="padding:0 5px;"><a href="{{ url }}" target="_blank" title="{{ name }}" style="text-decoration:none;"><img src="{{ images[cid] }}" alt="{{ name }}" width="30" height="30" style="display:block; width:30px; height:30px; border:0;"></a></td>
+                {%- endfor %}
+            </tr></table>
+        </td></tr>
+    </table>
+
+    <!--[if mso]></td></tr></table><![endif]-->
+</td></tr>
+</table>
+</body>
+</html>

@@ -10,7 +10,10 @@
     <div class="admin-form-row"><label for="subject">Subject</label><input id="subject" name="subject" value="{{ tpl.subject }}" required></div>
     <div class="admin-form-row"><label for="body">Body</label><textarea id="body" name="body" style="min-height:220px" required>{{ tpl.body }}</textarea>
       <span class="hint">Keep the placeholders from the original wording; unknown ones render empty.</span></div>
-    <div><button class="filter-btn">Save template</button></div>
+    <div class="row-actions"><button class="filter-btn">Save template</button>
+      <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.template_preview', template_id=tpl.id) }}" target="_blank" rel="noopener">{{ icon('external') }} Preview the email</a></div>
+    <p class="hint">The preview shows the saved wording in the email design, with example values. Blank lines start a new paragraph,
+      lines like "Date: …" become a details box and lines starting with "- " become bullets.</p>
   </form>
 </section>
 {% endblock %}

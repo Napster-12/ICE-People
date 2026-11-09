@@ -35,7 +35,7 @@
         {{ kv('Branch / area', p.branch|string if p.branch) }}
         {{ kv('Region', p.region|string if p.region) }}
         {{ kv('Cost centre', p.cost_centre|string if p.cost_centre) }}
-        {{ kv('Grade', p.job_grade|string if p.job_grade) }}
+        {{ kv('Occupational level', p.job_grade|string if p.job_grade) }}
         {{ kv('Job family', p.job_family|string if p.job_family) }}
         {{ kv('Budgeted CTC', p.budgeted_ctc|money if p.budgeted_ctc is not none) }}
         {{ kv('Reports to', (p.reports_to.position_number ~ ' · ' ~ p.reports_to.title) if p.reports_to) }}
@@ -79,7 +79,7 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="admin-form-row"><label for="kind">Change</label>
           <select id="kind" name="kind" required>{% for k in change_kinds %}<option>{{ k }}</option>{% endfor %}</select></div>
-        <div class="admin-form-row" id="grade-row"><label for="new_job_grade_id">New grade</label>
+        <div class="admin-form-row" id="grade-row"><label for="new_job_grade_id">New occupational level</label>
           <select id="new_job_grade_id" name="new_job_grade_id">{% for g in grades if g.id != p.job_grade_id %}<option value="{{ g.id }}">{{ g }}</option>{% endfor %}</select></div>
         <div class="admin-form-row"><label for="reason">Reason *</label><textarea id="reason" name="reason" required style="min-height:90px"></textarea></div>
         <div><button class="admin-btn-sm admin-btn-primary">Send for approval</button></div>

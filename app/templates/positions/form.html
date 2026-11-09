@@ -32,7 +32,7 @@
           {% for c in ref.cost_centres %}<option value="{{ c.id }}" data-dept="{{ c.department_id }}" {{ sel('cost_centre_id', c.id) }}>{{ c }}</option>{% endfor %}</select></div>
     </div>
     <div class="admin-form-grid">
-      <div class="admin-form-row"><label for="job_grade_id">Job grade *</label>
+      <div class="admin-form-row"><label for="job_grade_id">Occupational level *</label>
         <select id="job_grade_id" name="job_grade_id"><option value="0">Choose…</option>
           {% for g in ref.grades %}<option value="{{ g.id }}" {{ sel('job_grade_id', g.id) }}>{{ g }}</option>{% endfor %}</select></div>
       <div class="admin-form-row"><label for="budgeted_ctc">Budgeted CTC (R)</label>
@@ -59,7 +59,7 @@
       {% endif %}</div>
     <div class="admin-form-row"><label for="minimum_requirements">Minimum requirements</label>
       <textarea id="minimum_requirements" name="minimum_requirements" style="min-height:120px" placeholder="One per line, e.g. Matric&#10;2 years' sales experience">{{ val('minimum_requirements') }}</textarea>
-      <span class="hint">One per line. They drive the eligibility check on the careers page.</span></div>
+      <span class="hint">One per line. They are added to the position's adverts under "Minimum requirements".</span></div>
     {% if ad_hoc %}
     <div class="admin-form-row"><label for="justification">Justification *</label>
       <textarea id="justification" name="justification" style="min-height:140px" placeholder="Why is this position needed, and why now?">{{ val('justification') }}</textarea>

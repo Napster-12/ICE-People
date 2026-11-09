@@ -18,8 +18,17 @@ DEFAULTS = {
                             "line with our Employment Equity plan.",
                             "Advert EE and equal opportunity statement",
                             "Added to every new advert (JA-004). Recruiters can adjust it per advert."),
+    "letter_signatory_name": ("", "Offer letter: who signs",
+                              "The name under the signature on offer letters and contracts, e.g. Mr. A. Mdala "
+                              "(8 Nov 2026). HR Admin sets it under Onboarding → Letter and contract templates."),
+    "letter_signatory_title": ("Group Human Resources Manager", "Offer letter: signatory's title",
+                               "The job title under the signatory's name."),
+    "sage_self_service_url": ("https://online.sage.co.za/U36476/#/signin", "Sage 300 self-service link",
+                              "The staff portal's \"Leave and payslips\" tile opens this page (1 Nov 2026)."),
 }
-TEXT_KEYS = {"advert_ee_statement"}   # every other setting is a number
+TEXT_KEYS = {"advert_ee_statement", "sage_self_service_url", "letter_signatory_name", "letter_signatory_title"}   # every other setting is a number
+URL_KEYS = {"sage_self_service_url"}
+LETTER_KEYS = {"letter_signatory_name", "letter_signatory_title"}   # HR Admin's, on the Onboarding templates page                           # must be an https:// address
 
 
 def get(key, cast=str):

@@ -6,9 +6,9 @@
 {% block subheading %}{{ req.department.name if req.department else 'No department yet' }} · raised by {{ req.originator.full_name }} on {{ req.created_at|dt }}{% endblock %}
 {% block actions %}
 {{ status(req.status) }}
-{% if advert and current_user.is_hr %}
+{% if advert and current_user.can_recruit %}
   <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('adverts.detail', job_id=advert.id) }}">{{ icon('external') }} Advert {{ advert.reference }}</a>
-{% elif req.status == 'Approved' and current_user.is_hr %}
+{% elif req.status == 'Approved' and current_user.can_recruit %}
   <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('adverts.new', req_id=req.id) }}">{{ icon('plus') }} Create advert</a>
 {% endif %}
 {% if can_edit %}
@@ -20,7 +20,7 @@
 {% endif %}
 {% endblock %}
 {% block content %}
-{% if req.status == 'Approved' and not advert %}<div class="alert alert-info">Fully approved.{% if current_user.is_hr %} Create the advert to publish this vacancy on the careers site.{% else %} HR will advertise it next.{% endif %}</div>{% endif %}
+{% if req.status == 'Approved' and not advert %}<div class="alert alert-info">Fully approved.{% if current_user.can_recruit %} Create the advert to publish this vacancy on the careers site.{% else %} HR will advertise it next.{% endif %}</div>{% endif %}
 {% if req.status == 'Returned' %}<div class="alert alert-info">This requisition was returned for revision. Edit it and resubmit: approval restarts at level 1.</div>{% endif %}
 {% if req.is_over_budget %}<div class="alert alert-warning"><strong>Over budget</strong> by {{ req.budget_shortfall|money }}.</div>{% endif %}
 
@@ -41,7 +41,7 @@
         {{ kv('Position title', req.title) }}
         {{ kv('Department', req.department.name if req.department) }}
         {{ kv('Cost centre', req.cost_centre|string if req.cost_centre) }}
-        {{ kv('Job grade', req.job_grade|string if req.job_grade) }}
+        {{ kv('Occupational level', req.job_grade|string if req.job_grade) }}
         {{ kv('Employment type', req.employment_type) }}
         {{ kv('Headcount', req.headcount_type) }}
         {% if req.headcount_type == 'Replacement' %}{{ kv('Replacing', req.replaced_employee|string if req.replaced_employee) }}{% endif %}

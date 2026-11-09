@@ -16,7 +16,7 @@
 <section class="admin-panel">
   <div class="admin-panel-head"><h3>Employees</h3><span class="results-count">{{ pager.total }}</span></div>
   <div class="table-responsive"><table class="admin-table">
-    <tr><th>Employee</th><th>Position</th><th>Department</th><th>Grade</th><th>Manager</th><th>Start</th><th>Status</th></tr>
+    <tr><th>Employee</th><th>Position</th><th>Department</th><th>Occupational level</th><th>Manager</th><th>Start</th><th>Status</th></tr>
     {% for e in rows %}
     <tr><td><strong><a href="{{ url_for('admin.employee_form', emp_id=e.id) }}">{{ e.full_name }}</a></strong><span class="sub">{{ e.employee_number }}</span></td>
       <td>{{ e.position_title or '—' }}{% if e.critical_role %} <span class="tag warn">Critical</span>{% endif %}</td>

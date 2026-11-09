@@ -14,7 +14,7 @@ from app.models import (ApprovedPosition, Asset, AuditLog, Branch, BusinessUnit,
 from app.models.org import ASSET_STATUSES, EMPLOYEE_STATUSES, EMPLOYMENT_TYPES
 from app.models.user import COMPLIANCE, GROUP_HR, HR_ADMIN, HR_MANAGER, HR_ROLES, HRBP, IT
 from app.models.workflow import SPECIAL_APPROVERS
-from app.services import audit, files, positions, settings
+from app.services import audit, files, onboarding, positions, settings
 from app.services.conditions import ConditionError, validate
 from app.services.errors import DomainError
 from app.services.dates import today
@@ -229,6 +229,7 @@ def employee_form(emp_id=None):
             return redirect(url_for("admin.employees"))
     return render_template(
         "admin/employee_form.html", emp=emp, can_edit=can_edit, sensitive=sensitive,
+        suggested_number=None if emp else onboarding.next_employee_number(),
         departments=Department.query.order_by(Department.name).all(),
         cost_centres=CostCentre.query.order_by(CostCentre.code).all(),
         grades=JobGrade.query.order_by(JobGrade.grade).all(),
@@ -394,7 +395,7 @@ def rule_form(rule_id=None):
 @roles_required(IT)
 def settings_page():
     settings.ensure_defaults()
-    rows = Setting.query.order_by(Setting.key).all()
+    rows = [r for r in Setting.query.order_by(Setting.key).all() if r.key not in settings.LETTER_KEYS]
     if request.method == "POST":
         errors = []
         for row in rows:
@@ -402,6 +403,8 @@ def settings_page():
             if row.key in settings.TEXT_KEYS:
                 if not value:
                     errors.append(f"{row.label}: can't be empty.")
+                elif row.key in settings.URL_KEYS and not value.startswith("https://"):
+                    errors.append(f"{row.label}: enter a full https:// address.")
                 elif value != row.value:
                     audit.record("config.setting", "setting", row.key, before={"value": row.value},
                                  after={"value": value})
@@ -490,6 +493,16 @@ def template_form(template_id):
                 flash("Template saved.", "success")
                 return redirect(url_for("admin.settings_page") + "#templates")
     return render_template("admin/template_form.html", tpl=tpl)
+
+
+@bp.route("/templates/<int:template_id>/preview")
+@roles_required(IT)
+def template_preview(template_id):
+    """The designed email for this template, filled in with example values (6 Nov 2026)."""
+    from app.services import emails
+    tpl = db.session.get(NotificationTemplate, template_id) or abort(404)
+    subject, body, link, context = emails.sample(tpl.key, tpl.subject, tpl.body)
+    return emails.html_for(tpl.key, subject, body, link, context, web=True)
 
 
 # ---------------------------------------------------------------- assets

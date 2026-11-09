@@ -25,9 +25,16 @@
     <section class="card apply-card" id="apply">
       <div class="apply-head">
         {% include "public/_apply_steps.html" with context %}
+        {%- if questions %}
         <h2>Check that you meet the minimum requirements</h2>
-        <p>Answer all {{ questions|length }} questions · your answers are not stored</p>
+        <p>Answer all {{ questions|length }} question{{ 's' if questions|length != 1 }} · your answers are not stored</p>
+        {%- else %}
+        <h2>Apply for this position</h2>
+        {%- endif %}
       </div>
+      {% if not questions %}
+      <div class="apply-body"><div class="apply-actions"><a class="pill-btn orange" href="{{ url_for('careers.apply', job_id=job.id) }}">Continue to application {{ icon('arrow') }}</a></div></div>
+      {% else %}
       <form class="igsp-form apply-body" method="post" action="{{ url_for('careers.job_detail', job_id=job.id) }}#apply">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <ol class="eligibility-list">
@@ -43,6 +50,7 @@
         </ol>
         <div class="apply-actions"><button type="submit">Continue to application {{ icon('arrow') }}</button></div>
       </form>
+      {% endif %}
     </section>
   </div>
 

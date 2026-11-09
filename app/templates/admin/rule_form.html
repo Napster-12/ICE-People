@@ -18,7 +18,7 @@
       {% for r in roles %}<option {{ 'selected' if rule and rule.approver == r.name }}>{{ r.name }}</option>{% endfor %}</select></div>
     <div class="admin-form-row"><label for="condition">Condition</label>
       <input id="condition" name="condition" value="{{ rule.condition if rule }}" placeholder='all'>
-      <span class="hint">Leave blank for every item. Examples: <code>headcount_type == "New" or is_over_budget</code>, <code>grade >= 8</code>, <code>is_executive</code></span></div>
+      <span class="hint">Leave blank for every item. Examples: <code>headcount_type == "New" or is_over_budget</code>, <code>grade >= 4</code> (Senior Management and above), <code>is_executive</code></span></div>
     <label class="consent"><input type="checkbox" name="active" value="1" {{ 'checked' if not rule or rule.active }}> <span>Active</span></label>
     <div><button class="filter-btn">Save rule</button></div>
   </section>

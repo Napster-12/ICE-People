@@ -5,8 +5,7 @@
 {#- Search-first layout (1 Nov 2026): the vacancy search sits in the hero, then a 3-column grid of flat cards. -#}
 {% block hero %}
 {% call page_hero("Careers at Icebolethu Group", kicker="We're hiring", id='home') %}
-  <p class="poster-lead">Join a team that serves families and communities with dignity and care.
-    {{ total_open }} position{{ ' is' if total_open == 1 else 's are' }} open right now.</p>
+  <p class="poster-lead">Join The Brand That Cares - Where Your Career Makes a Real Community Impact!</p>
   <form class="search-pill hero-search" method="get" action="{{ url_for('careers.index') }}#vacancies" role="search">
     <label>{{ icon('search') }}<input type="text" name="q" value="{{ q }}" placeholder="Job title or keyword" aria-label="Job title or keyword"></label>
     <label>{{ icon('pin') }}<input type="text" name="location" value="{{ location }}" placeholder="Location" list="loc-list" aria-label="Location"></label>
@@ -25,8 +24,8 @@
   {% set total = pager.total if pager is defined else jobs|length %}
   <div class="section-title section-title-row">
     <div>
-      <h2>Current vacancies <span class="count-pill">{{ total }}</span></h2>
-      <p>{{ total }} position{{ '' if total == 1 else 's' }}{{ ' matching your search' if filtered else ' open for applications' }}</p>
+      <h2>Current vacancies</h2>
+      {% if filtered %}<p>{{ total }} position{{ '' if total == 1 else 's' }} match{{ 'es' if total == 1 }} your search</p>{% endif %}
     </div>
     {% if filtered %}<a class="clear-search" href="{{ url_for('careers.index') }}#vacancies">✕ Clear search</a>{% endif %}
   </div>

@@ -33,41 +33,41 @@ from app import create_app
 from app.extensions import db
 
 USERS = [
-    # username, first, last, roles, department, cost centre, position, grade name, manager username
-    ("gcoo", "Nomvula", "Mkhize", ["GCOO"], "OPS", "OPS-100", "Group Chief Operating Officer", "Exco", None),
-    ("grouphr", "Thandiwe", "Dlamini", ["Group HR Manager"], "HR", "HR-100", "Group HR Manager", "Manager", "gcoo"),
-    ("hrmanager", "Sipho", "Ndlovu", ["HR Manager"], "HR", "HR-100", "HR Manager", "Manager", "grouphr"),
-    ("hrbp", "Lerato", "Mokoena", ["HR Business Partner"], "HR", "HR-100", "HR Business Partner", "Senior", "hrmanager"),
-    ("recruiter", "Ayanda", "Zulu", ["Recruiter"], "HR", "HR-200", "Talent Acquisition Specialist", "Senior", "hrmanager"),
-    ("hrod", "Zanele", "Khumalo", ["HR OD"], "HR", "HR-200", "Organisational Development Specialist", "Senior", "hrmanager"),
-    ("hradmin", "Bongani", "Cele", ["HR Admin"], "HR", "HR-100", "HR Systems Administrator", "Senior", "hrmanager"),
-    ("hod", "Precious", "Naidoo", ["Department Manager"], "SAL", "SAL-100", "Head of Sales", "Manager", "gcoo"),
-    ("linemanager", "Mandla", "Shabalala", ["Line Manager"], "SAL", "SAL-100", "Sales Team Leader", "Manager", "hod"),
-    ("employee", "Nokuthula", "Buthelezi", [], "SAL", "SAL-100", "Funeral Policy Sales Consultant", "Junior", "linemanager"),
-    ("panel", "Zinhle", "Maseko", ["Panel Member"], "SAL", "SAL-200", "Senior Sales Consultant", "Senior", "linemanager"),
-    ("finance", "Kagiso", "Molefe", ["Finance"], "FIN", "FIN-100", "Finance Manager", "Manager", "gcoo"),
-    ("payroll", "Lindiwe", "Pillay", ["Payroll"], "FIN", "FIN-100", "Payroll Officer", "Senior", "finance"),
-    ("it", "Sibusiso", "Govender", ["IT"], "OPS", "OPS-200", "IT Support Lead", "Senior", "gcoo"),
-    ("assets", "Naledi", "Botha", ["Asset Controller"], "OPS", "OPS-100", "Asset Controller", "Senior", "gcoo"),
-    ("compliance", "Thabo", "Mahlangu", ["Compliance"], "OPS", "OPS-100", "Compliance Officer", "Senior", "gcoo"),
-    ("exco", "Sibongile", "Ntuli", ["Exco"], "OPS", "OPS-100", "Executive: Strategy", "Exco", None),
+    # username, first, last, roles, department, cost centre, position, grade rank (1-5, reference_data.GRADES), manager username
+    ("gcoo", "Nomvula", "Mkhize", ["GCOO"], "OPS", "OPS-100", "Group Chief Operating Officer", 5, None),
+    ("grouphr", "Thandiwe", "Dlamini", ["Group HR Manager"], "HR", "HR-100", "Group HR Manager", 4, "gcoo"),
+    ("hrmanager", "Sipho", "Ndlovu", ["HR Manager"], "HR", "HR-100", "HR Manager", 4, "grouphr"),
+    ("hrbp", "Lerato", "Mokoena", ["HR Business Partner"], "HR", "HR-100", "HR Business Partner", 3, "hrmanager"),
+    ("recruiter", "Ayanda", "Zulu", ["Talent Acquisition Specialist"], "HR", "HR-200", "Talent Acquisition Specialist", 3, "hrmanager"),
+    ("hrod", "Zanele", "Khumalo", ["HR OD"], "HR", "HR-200", "Organisational Development Specialist", 3, "hrmanager"),
+    ("hradmin", "Bongani", "Cele", ["HR Admin"], "HR", "HR-100", "HR Systems Administrator", 3, "hrmanager"),
+    ("hod", "Precious", "Naidoo", ["Department Manager"], "SAL", "SAL-100", "Head of Sales", 4, "gcoo"),
+    ("linemanager", "Mandla", "Shabalala", ["Line Manager"], "SAL", "SAL-100", "Sales Team Leader", 4, "hod"),
+    ("employee", "Nokuthula", "Buthelezi", [], "SAL", "SAL-100", "Funeral Policy Sales Consultant", 2, "linemanager"),
+    ("panel", "Zinhle", "Maseko", ["Panel Member"], "SAL", "SAL-200", "Senior Sales Consultant", 3, "linemanager"),
+    ("finance", "Kagiso", "Molefe", ["Finance"], "FIN", "FIN-100", "Finance Manager", 4, "gcoo"),
+    ("payroll", "Lindiwe", "Pillay", ["Payroll"], "FIN", "FIN-100", "Payroll Officer", 3, "finance"),
+    ("it", "Sibusiso", "Govender", ["IT"], "OPS", "OPS-200", "IT Support Lead", 3, "gcoo"),
+    ("assets", "Naledi", "Botha", ["Asset Controller"], "OPS", "OPS-100", "Asset Controller", 3, "gcoo"),
+    ("compliance", "Thabo", "Mahlangu", ["Compliance"], "OPS", "OPS-100", "Compliance Officer", 3, "gcoo"),
+    ("exco", "Sibongile", "Ntuli", ["Exco"], "OPS", "OPS-100", "Executive: Strategy", 5, None),
     # One line manager per department.
-    ("lm.catering", "Themba", "Mnguni", ["Line Manager"], "CAT", "CAT-100", "Catering Supervisor", "Manager", "gcoo"),
-    ("lm.burials", "Nonhlanhla", "Shezi", ["Line Manager"], "BUR", "BUR-100", "Funeral Services Supervisor", "Manager",
+    ("lm.catering", "Themba", "Mnguni", ["Line Manager"], "CAT", "CAT-100", "Catering Supervisor", 4, "gcoo"),
+    ("lm.burials", "Nonhlanhla", "Shezi", ["Line Manager"], "BUR", "BUR-100", "Funeral Services Supervisor", 4,
      "gcoo"),
-    ("lm.ict", "Kgomotso", "Sebola", ["Line Manager"], "ICT", "ICT-100", "ICT Team Leader", "Manager", "gcoo"),
-    ("lm.finance", "Rajesh", "Moodley", ["Line Manager"], "FIN", "FIN-100", "Accounts Team Leader", "Manager", "finance"),
-    ("lm.facilities", "Phumzile", "Gumede", ["Line Manager"], "FAC", "FAC-100", "Facilities Supervisor", "Manager", "gcoo"),
-    ("lm.fleet", "Vusi", "Mabuza", ["Line Manager"], "FLT", "FLT-100", "Fleet Supervisor", "Manager", "gcoo"),
-    ("lm.security", "Sandile", "Majola", ["Line Manager"], "SEC", "SEC-100", "Security Supervisor", "Manager", "gcoo"),
-    ("lm.marketing", "Palesa", "Radebe", ["Line Manager"], "MKT", "MKT-100", "Marketing Team Leader", "Manager", "gcoo"),
-    ("lm.foundations", "Ntokozo", "Biyela", ["Line Manager"], "FND", "FND-100", "Foundation Projects Team Leader", "Manager",
+    ("lm.ict", "Kgomotso", "Sebola", ["Line Manager"], "ICT", "ICT-100", "ICT Team Leader", 4, "gcoo"),
+    ("lm.finance", "Rajesh", "Moodley", ["Line Manager"], "FIN", "FIN-100", "Accounts Team Leader", 4, "finance"),
+    ("lm.facilities", "Phumzile", "Gumede", ["Line Manager"], "FAC", "FAC-100", "Facilities Supervisor", 4, "gcoo"),
+    ("lm.fleet", "Vusi", "Mabuza", ["Line Manager"], "FLT", "FLT-100", "Fleet Supervisor", 4, "gcoo"),
+    ("lm.security", "Sandile", "Majola", ["Line Manager"], "SEC", "SEC-100", "Security Supervisor", 4, "gcoo"),
+    ("lm.marketing", "Palesa", "Radebe", ["Line Manager"], "MKT", "MKT-100", "Marketing Team Leader", 4, "gcoo"),
+    ("lm.foundations", "Ntokozo", "Biyela", ["Line Manager"], "FND", "FND-100", "Foundation Projects Team Leader", 4,
      "gcoo"),
-    ("lm.hr", "Busisiwe", "Hlongwane", ["Line Manager"], "HR", "HR-100", "HR Operations Team Leader", "Manager",
+    ("lm.hr", "Busisiwe", "Hlongwane", ["Line Manager"], "HR", "HR-100", "HR Operations Team Leader", 4,
      "hrmanager"),
-    ("lm.cleaning", "Gugu", "Ndaba", ["Line Manager"], "CLN", "CLN-100", "Cleaning Supervisor", "Manager", "gcoo"),
-    ("lm.risk", "Tshepo", "Modise", ["Line Manager"], "RSK", "RSK-100", "Risk and Compliance Team Leader", "Manager", "gcoo"),
-    ("lm.itravel", "Lwazi", "Mthethwa", ["Line Manager"], "ITR", "ITR-100", "Travel Operations Team Leader", "Manager",
+    ("lm.cleaning", "Gugu", "Ndaba", ["Line Manager"], "CLN", "CLN-100", "Cleaning Supervisor", 4, "gcoo"),
+    ("lm.risk", "Tshepo", "Modise", ["Line Manager"], "RSK", "RSK-100", "Risk and Compliance Team Leader", 4, "gcoo"),
+    ("lm.itravel", "Lwazi", "Mthethwa", ["Line Manager"], "ITR", "ITR-100", "Travel Operations Team Leader", 4,
      "gcoo"),
 ]
 
@@ -109,27 +109,27 @@ JOB_FAMILIES = [("SALES", "Sales"), ("HRM", "Human resources"), ("FINC", "Financ
                 ("MGMT", "Management"), ("OPS", "Operations")]
 FAMILY_FOR_DEPT = {"SAL": "SALES", "HR": "HRM", "FIN": "FINC", "OPS": "OPS", "ICT": "ICT"}   # anything else: OPS
 
-# Demo budgeted CTC per position, by grade (grades themselves carry no salary).
-DEMO_CTC = {"Intern": Decimal("90000"), "Junior": Decimal("180000"), "Senior": Decimal("360000"),
-            "Manager": Decimal("720000"), "Exco": Decimal("1500000")}
+# Demo budgeted CTC per position, by grade rank (grades themselves carry no salary).
+DEMO_CTC = {1: Decimal("90000"), 2: Decimal("180000"), 3: Decimal("360000"),
+            4: Decimal("720000"), 5: Decimal("1500000")}
 
-# Vacant positions on the register: department, cost centre, title, grade name, seats, branch, family,
+# Vacant positions on the register: department, cost centre, title, grade rank, seats, branch, family,
 # reports to (username of the manager whose position it reports to), days vacant, minimum requirements.
 VACANT_POSITIONS = [
-    ("SAL", "SAL-100", "Funeral Policy Sales Consultant", "Junior", 4, "DBN", "SALES", "linemanager", 18,
+    ("SAL", "SAL-100", "Funeral Policy Sales Consultant", 2, 4, "DBN", "SALES", "linemanager", 18,
      "Matric\n1 year of sales experience\nValid driver's licence"),
-    ("SAL", "SAL-200", "Regional Sales Manager", "Manager", 1, "JHB", "MGMT", "hod", 74,
+    ("SAL", "SAL-200", "Regional Sales Manager", 4, 1, "JHB", "MGMT", "hod", 74,
      "Bachelor's degree or diploma in sales or marketing\n5 years' sales management experience"),
-    ("SAL", "SAL-100", "Head of Digital Sales", "Manager", 1, "HO", "MGMT", "hod", 41,
+    ("SAL", "SAL-100", "Head of Digital Sales", 4, 1, "HO", "MGMT", "hod", 41,
      "Bachelor's degree (NQF 7)\n8 years' experience, 3 in digital sales"),
-    ("SAL", "SAL-100", "Sales Data Analyst", "Senior", 1, "HO", "SALES", "linemanager", 38,
+    ("SAL", "SAL-100", "Sales Data Analyst", 3, 1, "HO", "SALES", "linemanager", 38,
      "Bachelor's degree (NQF 7) in Statistics, Mathematics or Information Systems\nSQL and Power BI"),
-    ("SAL", "SAL-100", "Branch Administrator", "Junior", 1, "PTN", "SALES", "linemanager", 52, "Matric\nMS Office"),
-    ("HR", "HR-200", "Talent Acquisition Specialist", "Senior", 1, "HO", "HRM", "hrmanager", 12,
+    ("SAL", "SAL-100", "Branch Administrator", 2, 1, "PTN", "SALES", "linemanager", 52, "Matric\nMS Office"),
+    ("HR", "HR-200", "Talent Acquisition Specialist", 3, 1, "HO", "HRM", "hrmanager", 12,
      "Diploma in HR\n3 years' recruitment experience"),
-    ("FIN", "FIN-100", "Payroll Officer", "Senior", 1, "HO", "FINC", "finance", 26,
+    ("FIN", "FIN-100", "Payroll Officer", 3, 1, "HO", "FINC", "finance", 26,
      "Diploma in payroll or finance\nSage 300 People experience"),
-    ("OPS", "OPS-200", "IT Support Technician", "Junior", 2, "HO", "ICT", "it", 96, "A+ / N+ certification\nDriver's licence"),
+    ("OPS", "OPS-200", "IT Support Technician", 2, 2, "HO", "ICT", "it", 96, "A+ / N+ certification\nDriver's licence"),
 ]
 
 
@@ -161,7 +161,7 @@ def main(accounts_only=False, department_accounts=False):
         db.session.flush()
         depts = {d.code: d for d in Department.query.all()}
         centres = {c.code: c for c in CostCentre.query.all()}
-        grades = {g.name: g for g in JobGrade.query.all()}
+        grades = {g.grade: g for g in JobGrade.query.all()}
 
         for cc_code, (amount, consumed) in ({} if accounts_only or department_accounts else BUDGETS).items():
             if not budget.get_line(centres[cc_code].id, fy):
@@ -236,13 +236,13 @@ def main(accounts_only=False, department_accounts=False):
 DEPARTMENT_SLUGS = {"HR": "hr", "FIN": "finance", "SAL": "sales", "OPS": "operations", "CAT": "catering",
                     "BUR": "burials", "ICT": "ict", "FAC": "facilities", "FLT": "fleet", "SEC": "security",
                     "MKT": "marketing", "FND": "foundations", "CLN": "cleaning", "RSK": "risk", "ITR": "itravel"}
-# username, full name, roles, department, grade name
+# username, full name, roles, department, grade rank
 ADMIN_ACCOUNTS = [
-    ("exco", "Group Exco", ["GCOO", "Exco"], "OPS", "Exco"),
-    ("hradmin", "HR Admin", ["HR Admin"], "HR", "Manager"),
-    ("grouphr", "Group HR Manager", ["Group HR Manager"], "HR", "Manager"),
-    ("finance", "Finance", ["Finance"], "FIN", "Manager"),
-    ("it", "IT Administrator", ["IT"], "ICT", "Senior"),
+    ("exco", "Group Exco", ["GCOO", "Exco"], "OPS", 5),
+    ("hradmin", "HR Admin", ["HR Admin"], "HR", 4),
+    ("grouphr", "Group HR Manager", ["Group HR Manager"], "HR", 4),
+    ("finance", "Finance", ["Finance"], "FIN", 4),
+    ("it", "IT Administrator", ["IT"], "ICT", 3),
 ]
 
 
@@ -279,11 +279,11 @@ def seed_department_accounts(depts, centres, grades, roles, password):
         exco = exco or user
     for code, _name, _centres, _hod in DEPARTMENTS:
         dept, slug = depts[code], DEPARTMENT_SLUGS[code]
-        lm = account(f"lm.{slug}", f"{dept.name} Line Manager", ["Line Manager"], dept, "Manager",
+        lm = account(f"lm.{slug}", f"{dept.name} Line Manager", ["Line Manager"], dept, 4,
                      f"{dept.name} Line Manager", manager=exco)
         # The HR Department Manager is also the HR Manager (approves job adverts), at the user's request (1 Nov 2026).
         dm_roles = ["Department Manager"] + (["HR Manager"] if code == "HR" else [])
-        dm = account(f"dm.{slug}", f"{dept.name} Department Manager", dm_roles, dept, "Manager",
+        dm = account(f"dm.{slug}", f"{dept.name} Department Manager", dm_roles, dept, 4,
                      f"{dept.name} Department Manager", manager=lm)
         dept.hod_employee_id = dm.employee_id
     return created
@@ -338,7 +338,7 @@ def seed_positions(users, depts, centres, grades, fy):
             held[username] = emp.approved_position
             continue
         branch = "DBN" if d_code == "SAL" and username in ("linemanager", "employee", "panel") else "HO"
-        family = "MGMT" if grade in ("Manager", "Exco") else FAMILY_FOR_DEPT.get(d_code, "OPS")
+        family = "MGMT" if grade >= 4 else FAMILY_FOR_DEPT.get(d_code, "OPS")
         held[username] = add(d_code, cc_code, title, grade, branch, family, held.get(manager), status="Filled",
                              filled_on=date(2024, 1, 15))
         emp.approved_position_id = held[username].id
@@ -469,7 +469,13 @@ def seed_adverts(users):
 
     job = adverts.draft_from_requisition(req, users["recruiter"])
     adverts.save(job, {"channels": ["Internal", "Intranet", "PNet", "LinkedIn"],
-                       "location": job.location or "Durban, KwaZulu-Natal"}, users["recruiter"])
+                       "location": job.location or "Durban, KwaZulu-Natal",
+                       "eligibility_questions": [
+                           {"text": "Do you have Matric?", "answer": "yes"},
+                           {"text": "Do you have the RE5 qualification, or will you complete it within the regulatory "
+                                    "period?", "answer": "yes"},
+                           {"text": "Can you work in Durban?", "answer": "yes"},
+                           {"text": "Have you been dismissed for dishonesty?", "answer": "no"}]}, users["recruiter"])
     inst = adverts.submit(job, users["recruiter"])
     workflow.act(inst.current_step, inst.current_step.assignee, "approve", "Good to publish.")
     db.session.flush()

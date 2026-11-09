@@ -35,9 +35,8 @@ def index():
         return db.session.query(col, func.count()).filter(col.isnot(None), col != "") \
             .group_by(col).order_by(col).all()
 
-    total_open = careers.open_jobs_query().count()
     return render_template("public/index.html", jobs=jobs, q=q, location=location, dept=dept,
-                           job_type=job_type, total_open=total_open, departments=counts("department"),
+                           job_type=job_type, departments=counts("department"),
                            types=counts("job_type"), locations=counts("location"),
                            filtered=any([q, location, dept, job_type]), pager=pager)
 
@@ -56,6 +55,8 @@ def job_detail(job_id):
     if not job:
         return redirect(url_for("careers.index"))
     questions = careers.eligibility_questions(job)
+    if not questions:                                       # nothing to check: straight to the application form
+        session["eligible_jobs"] = sorted(set(session.get("eligible_jobs", [])) | {job.id})
     if request.method == "GET":
         # Links on job portals carry ?src=LinkedIn etc.; remember it for the application's source (JA-006).
         channel = adverts.channel_for(request.args.get("src"))
@@ -63,7 +64,7 @@ def job_detail(job_id):
             session["job_src"] = {**session.get("job_src", {}), str(job.id): channel}
         adverts.record(job, channel, "views")
         db.session.commit()
-    if request.method == "POST":
+    if request.method == "POST" and questions:
         unanswered, reasons = careers.eligibility_problems(job, request.form)
         if unanswered:
             flash("Please answer every question with Yes or No.", "error")
@@ -97,6 +98,8 @@ def apply(job_id):
             audit.record("application.submitted", "candidate", candidate.id, after={"job_id": job.id, "ref": ref},
                          detail="POPIA consent given")
             db.session.commit()
+            careers.send_application_received(Application.query.filter_by(reference=ref).one())
+            db.session.commit()                                 # the integration log of the email
             session["eligible_jobs"] = [j for j in session.get("eligible_jobs", []) if j != job.id]
             return redirect(url_for("careers.application_done", ref=ref))
         db.session.rollback()
@@ -113,6 +116,8 @@ def talent_pool():
             audit.record("application.submitted", "candidate", candidate.id, after={"ref": ref},
                          detail="Talent pool; POPIA consent given")
             db.session.commit()
+            careers.send_application_received(Application.query.filter_by(reference=ref).one())
+            db.session.commit()                                 # the integration log of the email
             return redirect(url_for("careers.application_done", ref=ref))
         db.session.rollback()
     # Shown once when the applicant was sent here from a failed eligibility check.
@@ -144,3 +149,59 @@ def check_status():
         else:
             flash("We couldn't find an application with that reference and email.", "error")
     return render_template("public/status.html", result=result)
+
+
+# ------------------------------------------------------------------ the candidate's offer (8 Nov 2026)
+
+def _offer_or_404(token):
+    from app.services import onboarding
+    offer = onboarding.by_token(token)
+    if offer is None:
+        abort(404)
+    return offer
+
+
+@bp.route("/offer/<token>", methods=["GET", "POST"])
+def offer(token):
+    """The secure link in the offer email: read the letter, then accept or decline (spec IN-009)."""
+    from app.services import onboarding
+    from app.services.errors import DomainError
+    offer = _offer_or_404(token)
+    if onboarding.expire_if_due(offer):
+        db.session.commit()
+    if request.method == "POST" and offer.status == "Sent":
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+        try:
+            if request.form.get("answer") == "accept":
+                if not request.form.get("confirm"):
+                    raise DomainError("Tick the box to confirm you accept the offer.")
+                onboarding.accept(offer, ip)
+                outcome = "accepted"
+            elif request.form.get("answer") == "decline":
+                onboarding.decline(offer, request.form.get("reason", ""), ip)
+                outcome = "declined"
+            else:
+                abort(400)
+            db.session.commit()
+            return render_template("public/offer_done.html", offer=offer, outcome=outcome)
+        except DomainError as exc:
+            db.session.rollback()
+            flash(str(exc), "error")
+            offer = _offer_or_404(token)
+    return render_template("public/offer.html", offer=offer, token=token)
+
+
+@bp.route("/offer/<token>/letter.pdf")
+def offer_letter(token):
+    from flask import Response
+    offer = _offer_or_404(token)
+    data = files_read(offer)
+    return Response(data, mimetype="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{offer.reference} offer letter.pdf"',
+                             "X-Content-Type-Options": "nosniff"})
+
+
+def files_read(offer):
+    """The letter exactly as it was sent."""
+    from app.services import files, onboarding
+    return files.read(offer.letter_file) if offer.letter_file else onboarding.letter_pdf(offer)

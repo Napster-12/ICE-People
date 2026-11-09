@@ -55,7 +55,7 @@
 <section class="admin-panel">
   <div class="admin-panel-head"><h3>Positions</h3><span class="results-count">{{ pager.total }} position{{ '' if pager.total == 1 else 's' }}</span></div>
   <div class="table-responsive"><table class="admin-table">
-    <tr><th>Position</th><th>Department</th><th>Branch / area</th><th>Grade</th><th>Budgeted CTC</th><th>Holder</th><th>Status</th></tr>
+    <tr><th>Position</th><th>Department</th><th>Branch / area</th><th>Occupational level</th><th>Budgeted CTC</th><th>Holder</th><th>Status</th></tr>
     {% for p in rows %}
     <tr><td><a href="{{ url_for('positions.detail', position_id=p.id) }}"><strong>{{ p.title }}</strong></a>
         <span class="sub">{{ p.position_number }}{% if p.is_ad_hoc %} · ad hoc{% endif %}</span></td>

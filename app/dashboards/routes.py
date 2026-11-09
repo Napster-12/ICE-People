@@ -3,15 +3,17 @@ and staff each get a greeting, figures and one tile per module. (Full dashboards
 from datetime import timedelta
 from decimal import Decimal
 
-from flask import Blueprint, render_template, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, session, url_for
 from flask_login import current_user
 from sqlalchemy import func
 
 from app.auth.decorators import roles_required
-from app.models import Application, ApprovedPosition, BudgetLine, Employee, Requisition, WorkflowStep
+from app.auth.portals import PORTAL_LABELS, current_portal
+from app.models import (Application, ApprovedPosition, BudgetLine, Employee, InterviewSlot, Job, Requisition,
+                        ShortlistReview, WorkflowStep)
 from app.models.user import FINANCE, GCOO, HR_ADMIN, HR_MANAGER, HR_ROLES, IT
-from app.services import budget, interviews, positions, requisitions, shortlisting, workflow
-from app.services.dates import now, today
+from app.services import budget, interviews, positions, requisitions, settings, shortlisting, workflow
+from app.services.dates import format_datetime, now, today
 
 bp = Blueprint("dashboards", __name__)
 
@@ -25,9 +27,10 @@ def _greeting():
     return "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
 
 
-def _tile(badge, title, text, link=None, link_label=None, tone="", later=None):
-    """One module tile. `later` (a "Coming soon" line) marks a module that isn't built yet."""
-    return {"badge": badge, "title": title, "text": text, "link": link, "link_label": link_label,
+def _tile(icon, title, text, link=None, link_label=None, tone="", later=None):
+    """One module tile, with an icon from _icons.html. `later` (a "Coming soon" line) marks a module that isn't
+    built yet."""
+    return {"icon": icon, "title": title, "text": text, "link": link, "link_label": link_label,
             "tone": "later" if later else tone, "later": later}
 
 
@@ -68,6 +71,8 @@ def _position_counts(user):
 
 
 def _admin_home(user, steps):
+    from app.nav import sees_menu
+    talent, money = sees_menu(user, "Talent"), sees_menu(user, "Budget")   # HR Admin sees neither (8 Nov 2026)
     reqs = requisitions.visible_query(user)
     awaiting = reqs.filter(Requisition.status.in_(IN_APPROVAL)).count()
     at_finance = (reqs.filter(Requisition.status.in_(IN_APPROVAL), Requisition.is_over_budget.is_(True)).count())
@@ -76,16 +81,31 @@ def _admin_home(user, steps):
     to_screen = Application.query.filter(Application.job_id.isnot(None), Application.status == "New").count() if hr else 0
     overdue = (workflow.pending_steps_query().filter(WorkflowStep.due_at < now()).count()
                if user.has_role(IT) else 0)
-    stats = [
-        _stat(awaiting, "Requisitions awaiting approval", url_for("requisitions.index")),
-        _stat(pos.get("In recruitment", 0), "Vacancies in recruitment", url_for("positions.dashboard") if pos else None),
-        _stat(pos.get("Vacant", 0), "Vacant positions", url_for("positions.dashboard") if pos else None),
-        _stat(len(steps), "Waiting for you", url_for("approvals.inbox")),
-        _stat(overdue, "Items overdue", url_for("approvals.dashboard"), alert=True) if user.has_role(IT)
-        else _stat(at_finance, "Over budget in approval", url_for("requisitions.index"), alert=True),
-    ]
-    if hr:
+    stats = []
+    if talent:
+        stats += [
+            _stat(awaiting, "Requisitions awaiting approval", url_for("requisitions.index")),
+            _stat(pos.get("In recruitment", 0), "Vacancies in recruitment",
+                  url_for("positions.dashboard") if pos else None),
+            _stat(pos.get("Vacant", 0), "Vacant positions", url_for("positions.dashboard") if pos else None),
+        ]
+    stats.append(_stat(len(steps), "Waiting for you", url_for("approvals.inbox")))
+    if user.has_role(IT):
+        stats.append(_stat(overdue, "Items overdue", url_for("approvals.dashboard"), alert=True))
+    elif talent or money:
+        stats.append(_stat(at_finance, "Over budget in approval", url_for("requisitions.index"), alert=True))
+    if hr and talent:
         stats.append(_stat(to_screen, "Applications to screen", url_for("recruitment.dashboard")))
+    from app.services import onboarding
+    if user.has_role(*onboarding.VIEW_ROLES) and not talent:          # HR Admin: onboarding figures instead
+        from app.models import Offer, OnboardingCase
+        stats += [
+            _stat(len(onboarding.offers_to_make()), "Offers to make", url_for("onboarding.index")),
+            _stat(Offer.query.filter_by(status="Sent").count(), "Offers waiting for an answer",
+                  url_for("onboarding.index")),
+            _stat(OnboardingCase.query.filter_by(status="Pre-boarding").count(), "New starters",
+                  url_for("onboarding.index")),
+        ]
 
     ta_text = f"{awaiting} requisition{'s' if awaiting != 1 else ''} awaiting approval"
     if pos:
@@ -93,45 +113,95 @@ def _admin_home(user, steps):
     if hr:
         from app.services import adverts
         ta_text += f" · {adverts.ready_query().count()} ready to advertise · {to_screen} applications to screen"
-    tiles = [_tile("TA", "Talent acquisition", ta_text,
-                   url_for("recruitment.dashboard" if hr else "requisitions.index"), "Open talent acquisition",
-                   tone="featured")]
-    if pos:
+    tiles = []
+    if talent:
+        tiles.append(_tile("briefcase", "Talent acquisition", ta_text,
+                           url_for("recruitment.dashboard" if hr else "requisitions.index"),
+                           "Open talent acquisition", tone="featured"))
+    if pos and talent:
         adhoc = positions.visible_query(user).filter(ApprovedPosition.is_ad_hoc.is_(True),
                                                      ApprovedPosition.status == "Pending approval").count()
-        tiles.append(_tile("AP", "Approved positions",
+        tiles.append(_tile("briefcase", "Approved positions",
                            f"{pos.get('Filled', 0)} filled · {pos.get('Vacant', 0)} vacant · "
                            f"{pos.get('Frozen', 0)} frozen · {adhoc} ad-hoc requests pending",
                            url_for("positions.dashboard"), "Open vacancy dashboard"))
-    if user.has_role(*BUDGET_ROLES):
+    if user.has_role(*BUDGET_ROLES) and money:
         b = _budget_summary()
-        tiles.append(_tile("BU", "Headcount budget",
+        tiles.append(_tile("building", "Headcount budget",
                            f"{b['fy']} · {b['pct']}% committed or consumed · {b['hot']} cost centres above 75%",
                            url_for("budget.index"), "Open budget lines"))
+    if user.has_role(*onboarding.VIEW_ROLES):
+        from app.models import Offer, OnboardingCase
+        to_make = len(onboarding.offers_to_make())
+        out = Offer.query.filter_by(status="Sent").count()
+        starters = OnboardingCase.query.filter_by(status="Pre-boarding").count()
+        tiles.append(_tile("user-plus", "Onboarding", f"{to_make} offers to make · {out} offers out · "
+                           f"{starters} new starters", url_for("onboarding.index"), "Open onboarding",
+                           tone="featured" if to_make else ""))
+    else:
+        tiles.append(_tile("user-plus", "Onboarding", "New starters, documents to verify and IT access requests",
+                           later=COMING_SOON))
     tiles += [
-        _tile("ON", "Onboarding", "New starters, documents to verify and IT access requests", later=COMING_SOON),
-        _tile("OF", "Off-boarding", "Exits in progress, final pay holds and exit tasks", later=COMING_SOON),
-        _tile("PM", "Performance management", "FY2027/28 cycle: scorecard templates and deadlines",
+        _tile("logout", "Off-boarding", "Exits in progress, final pay holds and exit tasks", later=COMING_SOON),
+        _tile("target", "Performance management", "FY2027/28 cycle: scorecard templates and deadlines",
               later=COMING_SOON),
-        _tile("S3", "Post to Sage 300", "Approved records ready to post to Sage 300 People", later=COMING_SOON),
+        _tile("upload", "Post to Sage 300", "Approved records ready to post to Sage 300 People", later=COMING_SOON),
     ]
     if user.has_role(IT):
-        tiles.append(_tile("RD", "Reports & dashboards", "Approvals ageing, budget impact and vacancies",
+        tiles.append(_tile("dashboard", "Reports & dashboards", "Approvals ageing, budget impact and vacancies",
                            url_for("approvals.dashboard"), "Open reports"))
-    elif user.has_role(*BUDGET_ROLES):
-        tiles.append(_tile("RD", "Reports & dashboards", "Budget and demand per department",
+    elif user.has_role(*BUDGET_ROLES) and money:
+        tiles.append(_tile("dashboard", "Reports & dashboards", "Budget and demand per department",
                            url_for("budget.report"), "Open reports"))
     if hr:
         employees = Employee.query.filter(Employee.end_date.is_(None)).count()
-        tiles.append(_tile("OR", "Org & reporting tree", f"{employees} employees on record",
+        tiles.append(_tile("users", "Org & reporting tree", f"{employees} employees on record",
                            url_for("admin.employees"), "Open employees"))
-    tiles.append(_tile("SA", "Skills audit: qualifications", "Qualifications captured and certificates to verify",
+    tiles.append(_tile("award", "Skills audit: qualifications", "Qualifications captured and certificates to verify",
                        later=COMING_SOON))
     if user.has_role(IT):
-        tiles.append(_tile("ST", "Settings", "Workflows, approval routing, templates, roles and notifications",
+        tiles.append(_tile("sparkles", "Settings", "Workflows, approval routing, templates, roles and notifications",
                            url_for("admin.settings_page"), "Open settings"))
     return {"intro": "Everything managers have started and staff have responded to, in one place",
             "stats": stats, "tiles": tiles}
+
+
+def _recruitment_home(user, steps):
+    """The Talent Acquisition Specialist's home: recruitment figures and tiles only (5 Nov 2026)."""
+    from app.services import adverts
+    ready = adverts.ready_query().count()
+    open_adverts = Job.query.filter(Job.reference.isnot(None), Job.status == "Open").count()
+    in_approval = Job.query.filter(Job.reference.isnot(None), Job.status == "In Approval").count()
+    to_screen = Application.query.filter(Application.job_id.isnot(None), Application.status == "New").count()
+    with_managers = ShortlistReview.query.filter_by(status="Pending").count()
+    week = InterviewSlot.query.filter(InterviewSlot.starts_at >= now(),
+                                      InterviewSlot.starts_at < now() + timedelta(days=7)).count()
+    stats = [
+        _stat(ready, "Ready to advertise", url_for("adverts.index")),
+        _stat(open_adverts, "Open adverts", url_for("adverts.index")),
+        _stat(to_screen, "Applications to screen", url_for("recruitment.dashboard")),
+        _stat(with_managers, "Shortlists with Department Managers", url_for("recruitment.jobs")),
+        _stat(week, "Interviews in the next 7 days", url_for("recruitment.jobs")),
+    ]
+    tiles = [
+        _tile("external", "Job adverts",
+              f"{ready} approved requisition{'s' if ready != 1 else ''} ready to advertise · {in_approval} with the "
+              f"HR Manager · {open_adverts} open", url_for("adverts.index"), "Open job adverts", tone="featured"),
+        _tile("briefcase", "Job openings", "Ranked applicants, shortlists, interview panels and candidate messages",
+              url_for("recruitment.jobs"), "Open job openings"),
+        _tile("trending", "Recruitment dashboard", f"Hiring pipeline and latest applications · {to_screen} to screen",
+              url_for("recruitment.dashboard"), "Open dashboard"),
+        _tile("database", "CV database", "Every CV, searchable and rankable", url_for("recruitment.candidates"),
+              "Search CVs"),
+        _tile("file", "JD library", "Standard job descriptions and ATS weights adverts start from",
+              url_for("adverts.library"), "Open JD library"),
+        _tile("star", "Interviews to score", "You sit on every interview panel: score each candidate's questions "
+              "1 to 5", url_for("recruitment.interviews_to_score"),
+              f"{sum(1 for r in interviews.to_score(user) if not r['scored'])} to score"),
+        _tile("check", "My approvals", "Anything waiting for your decision", url_for("approvals.inbox"),
+              f"{len(steps)} waiting"),
+    ]
+    return {"intro": "Adverts, applicants, shortlists and interviews, in one place", "stats": stats, "tiles": tiles}
 
 
 def _manager_home(user, steps):
@@ -143,8 +213,10 @@ def _manager_home(user, steps):
                       "link": info["link"]})
     to_score = [r for r in interviews.to_score(user) if not r["scored"]]
     for r in to_score:                                                    # interviews on the user's panels
-        tasks.append({"label": "Interview", "tone": "info",
-                      "text": f"Score {r['application'].candidate.full_name} for {r['job'].title}",
+        name, title = r["application"].candidate.full_name, r["job"].title
+        text = (f"Score the interview: {name} for {title}" if r["open"]
+                else f"Interview {name} for {title}, {format_datetime(r['slot'].starts_at)}")
+        tasks.append({"label": "Interview", "tone": "urgent" if r["open"] else "info", "text": text,
                       "link": url_for("recruitment.scorecard", app_id=r["application"].id)})
     for review in shortlisting.reviews_for(user, pending_only=True):     # shortlists HR sent the Department Manager
         tasks.append({"label": "Shortlist", "tone": "urgent",
@@ -170,31 +242,31 @@ def _manager_home(user, steps):
               (pos.get("In recruitment", 0), "vacancies in recruitment"), (open_mine, "open requisitions you raised")]
     if user.has_role(*requisitions.CREATE_ROLES):         # Department Managers raise requisitions
         requisition_tiles = [
-            _tile("+", "Raise a requisition",
+            _tile("plus", "Raise a requisition",
                   "Pick an approved vacant position, or request an ad-hoc position first. "
                   "Approval: line manager, Finance, HR, GCOO.", url_for("requisitions.new"), "Start", tone="featured"),
-            _tile("AP", "Approvals", "Requests waiting for your decision", url_for("approvals.inbox"),
+            _tile("check", "Approvals", "Requests waiting for your decision", url_for("approvals.inbox"),
                   f"{len(steps)} waiting"),
-            _tile("RQ", "My requisitions", "Track the requests you've raised through approval",
+            _tile("file", "My requisitions", "Track the requests you've raised through approval",
                   url_for("requisitions.index"), f"{open_mine} open"),
         ]
     else:                                                    # Line Managers approve their Department Managers' requests
         requisition_tiles = [
-            _tile("AP", "Approvals", "Requisitions and requests waiting for your decision", url_for("approvals.inbox"),
+            _tile("check", "Approvals", "Requisitions and requests waiting for your decision", url_for("approvals.inbox"),
                   f"{len(steps)} waiting", tone="featured"),
-            _tile("RQ", "Team requisitions", "Follow the requisitions your Department Managers have raised",
+            _tile("file", "Team requisitions", "Follow the requisitions your Department Managers have raised",
                   url_for("requisitions.index"), "View requisitions"),
         ]
     tiles = requisition_tiles + [
-        _tile("VD", "Vacancy dashboard", "Your area's approved positions: filled, vacant and in recruitment",
+        _tile("trending", "Vacancy dashboard", "Your area's approved positions: filled, vacant and in recruitment",
               url_for("positions.dashboard"), "Open dashboard"),
-        _tile("IN", "Interviews", "Score candidates and recommend an appointment",
+        _tile("star", "Interviews", "Score candidates and recommend an appointment",
               url_for("recruitment.interviews_to_score"), f"{len(to_score)} to score"),
-        _tile("ON", "Onboarding", "Induction checklists, buddy, 30/60/90-day check-ins, probation reviews",
+        _tile("user-plus", "Onboarding", "Induction checklists, buddy, 30/60/90-day check-ins, probation reviews",
               later=COMING_SOON),
-        _tile("EX", "Start an exit", "Resignation, end of contract or other exit; handover and asset return",
+        _tile("logout", "Start an exit", "Resignation, end of contract or other exit; handover and asset return",
               later=COMING_SOON),
-        _tile("PM", "Performance", "Create agreements and run appraisals for your team", later=COMING_SOON),
+        _tile("target", "Performance", "Create agreements and run appraisals for your team", later=COMING_SOON),
     ]
     return {"intro": "Start HR processes for your team and track them here",
             "tasks": tasks, "glance": glance, "tiles": tiles}
@@ -207,21 +279,33 @@ def _staff_home(user, steps, unread):
                   "text": "Review and respond in your approvals inbox.", "link": url_for("approvals.inbox"),
                   "link_label": "Review now"}
     tiles = [
-        _tile("MP", "My profile", "Your details, position and reporting line", url_for("portal.me"),
+        _tile("users", "My profile", "Your details, position and reporting line", url_for("portal.me"),
               "Open my profile", tone="featured"),
-        _tile("NT", "Notifications", "Updates on requests and tasks that involve you",
+        _tile("mail", "Notifications", "Updates on requests and tasks that involve you",
               url_for("portal.notifications"), f"{unread} unread"),
-        _tile("PA", "My performance agreement", "Agree and sign your balanced-scorecard agreement",
+        _tile("edit", "My performance agreement", "Agree and sign your balanced-scorecard agreement",
               later=COMING_SOON),
-        _tile("AP", "My appraisals", "Mid-year and year-end self-ratings against your signed agreement",
+        _tile("target", "My appraisals", "Mid-year and year-end self-ratings against your signed agreement",
               later=COMING_SOON),
-        _tile("QL", "My qualifications", "Add or update your qualifications and upload certificates for HR to verify",
+        _tile("award", "My qualifications", "Add or update your qualifications and upload certificates for HR to verify",
               later=COMING_SOON),
-        _tile("S3", "Leave and payslips", "Apply for leave, check balances and download payslips in Sage 300 "
-                                          "self-service", tone="dark", link_label="In Sage 300 self-service"),
+        _tile("calendar", "Leave and payslips", "Apply for leave, check balances and download payslips in Sage 300 "
+                                          "self-service", settings.get("sage_self_service_url"), tone="dark",
+              link_label="Open Sage 300 self-service"),
     ]
     return {"intro": "Your ICE People tasks. Leave, payslips and other self-service stay in Sage 300.",
             "banner": banner, "tiles": tiles}
+
+
+@bp.route("/portal/<any(admin, manager, staff):name>")
+@roles_required()
+def switch_portal(name):
+    """Move between the portals the user has (everyone has staff self-service)."""
+    if name not in current_user.portals:
+        abort(403)
+    session["portal"] = name
+    flash(f"You're in the {PORTAL_LABELS[name]}.", "info")
+    return redirect(url_for("dashboards.home"))
 
 
 @bp.route("/dashboard")
@@ -229,9 +313,9 @@ def _staff_home(user, steps, unread):
 def home():
     user = current_user
     steps = workflow.pending_for(user)
-    portal = user.landing
+    portal = current_portal(user)
     if portal == "admin":
-        page = _admin_home(user, steps)
+        page = _recruitment_home(user, steps) if user.recruitment_only else _admin_home(user, steps)
     elif portal == "manager":
         page = _manager_home(user, steps)
     else:

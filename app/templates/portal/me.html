@@ -12,7 +12,7 @@
     <div class="kv-grid">
       {{ kv('Employee number', emp.employee_number) }}{{ kv('Position', emp.position_title) }}
       {{ kv('Department', emp.department.name if emp.department) }}{{ kv('Cost centre', emp.cost_centre|string if emp.cost_centre) }}
-      {{ kv('Grade', emp.job_grade|string if emp.job_grade) }}{{ kv('Manager', emp.manager.full_name if emp.manager) }}
+      {{ kv('Occupational level', emp.job_grade|string if emp.job_grade) }}{{ kv('Manager', emp.manager.full_name if emp.manager) }}
       {{ kv('Start date', emp.start_date|dt) }}{{ kv('Employment type', emp.employment_type) }}
       {{ kv('Email', emp.email) }}{{ kv('Phone', emp.phone) }}
     </div>

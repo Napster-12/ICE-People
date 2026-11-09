@@ -1,0 +1,82 @@
+{#- Offer letters and contracts as PDF (documents.pdf, xhtml2pdf), after Icebolethu's current offer letter
+    (8 Nov 2026): logo and rule on page 1, STRICTLY CONFIDENTIAL, the text, and on every page the page number, the
+    contact line and the patterned band. xhtml2pdf understands simple CSS only (no flexbox), so it's tables. -#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+  @page {
+    size: a4 portrait;
+    margin: 1.6cm 2cm 4.3cm 2.2cm;
+    @frame footer { -pdf-frame-content: footer; bottom: 0.6cm; margin-left: 1.2cm; margin-right: 1.2cm; height: 3.3cm; }
+  }
+  body { font-family: Helvetica; font-size: 10.5pt; line-height: 1.45; color: #231F20; }
+  p { margin: 0 0 9px 0; }
+  .confidential { text-align: center; font-weight: bold; text-decoration: underline; margin: 22px 0 18px 0; }
+  .subject { font-weight: bold; text-decoration: underline; margin: 14px 0 12px 0; }
+  .heading { font-weight: bold; margin: 14px 0 3px 0; }
+  table.facts { margin: 2px 0 10px 0; }
+  table.facts td { padding: 1px 12px 1px 0; vertical-align: top; }
+  table.facts td.label { font-weight: bold; width: 32%; }
+  ul { margin: 0 0 10px 0; }
+  li { margin: 0 0 2px 0; }
+  .signature { margin: 4px 0 2px 0; }
+  .pageno { text-align: right; font-size: 10pt; color: #231F20; }
+  .contact td { font-size: 8pt; color: #6E696A; vertical-align: middle; line-height: 1.35; }
+</style>
+</head>
+<body>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr><td><img src="{{ logo }}" width="170" height="66"></td></tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px">
+  <tr>
+    <td width="40%" style="background-color:#F26522;height:2px;font-size:1px">&nbsp;</td>
+    <td width="60%" style="background-color:#C9CDD2;height:1px;font-size:1px">&nbsp;</td>
+  </tr>
+</table>
+
+<p class="confidential">STRICTLY CONFIDENTIAL</p>
+
+{% for kind, data in blocks %}
+  {% if kind == "pagebreak" %}<pdf:nextpage />
+  {% elif kind == "title" %}<p class="subject">{{ data }}</p>
+  {% elif kind == "heading" %}<p class="heading">{{ rich(data) }}</p>
+  {% elif kind == "p" %}<p>{% for line in data %}{{ rich(line) }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+  {% elif kind == "table" %}
+  <table class="facts" width="100%" cellpadding="0" cellspacing="0">
+    {% for label, value in data %}<tr><td class="label">{{ label }}:</td><td>{{ rich(value) }}</td></tr>{% endfor %}
+  </table>
+  {% elif kind == "list" %}<ul>{% for item in data %}<li>{{ rich(item) }}</li>{% endfor %}</ul>
+  {% elif kind == "signature" %}
+    {% if signature %}<p class="signature"><img src="{{ signature }}" height="52"></p>
+    {% else %}<p class="signature" style="color:#C9CDD2">______________________________</p>{% endif %}
+  {% endif %}
+{% endfor %}
+
+<div id="footer">
+  <p class="pageno"><pdf:pagenumber></p>
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td width="8%" style="font-size:1px">&nbsp;</td>
+      <td width="27%" style="background-color:#F26522;height:2px;font-size:1px">&nbsp;</td>
+      <td width="65%" style="background-color:#C9CDD2;height:1px;font-size:1px">&nbsp;</td>
+    </tr>
+  </table>
+  <table class="contact" width="100%" cellpadding="0" cellspacing="0" style="margin-top:9px">
+    <tr>
+      <td width="8%">&nbsp;</td>
+      <td width="5%"><img src="{{ images }}/icon-phone.png" width="20" height="20"></td>
+      <td width="18%">{{ letterhead.phones|join('<br>'|safe) }}</td>
+      <td width="5%"><img src="{{ images }}/icon-home.png" width="20" height="20"></td>
+      <td width="34%">{{ letterhead.addresses|join('<br>'|safe) }}</td>
+      <td width="5%"><img src="{{ images }}/icon-web.png" width="20" height="20"></td>
+      <td width="25%">{{ letterhead.web }}</td>
+    </tr>
+  </table>
+  <p style="margin-top:10px"><img src="{{ images }}/band.png" style="width:18.6cm;height:0.93cm"></p>
+</div>
+</body>
+</html>

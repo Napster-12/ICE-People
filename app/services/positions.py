@@ -508,7 +508,7 @@ def csv_template():
     fy = budget.fy_label(budget.financial_year_for(today()))[2:]
     cc = CostCentre.query.join(Department).order_by(Department.code, CostCentre.code).first()
     if cc is not None:
-        w.writerow([fy, cc.department.code, cc.code, "Sales Consultant", "Junior", "", "", "250000.00", "",
+        w.writerow([fy, cc.department.code, cc.code, "Sales Consultant", "2", "", "", "250000.00", "",
                     "Matric | 1 year of sales experience | Valid driver's licence"])
     return out.getvalue()
 
@@ -522,7 +522,7 @@ def import_csv(text, user):
         return 0, [f"Row 1: the header must be {', '.join(CSV_COLUMNS)}."]
     departments = {d.code.upper(): d for d in Department.query.all()}
     centres = {c.code.upper(): c for c in CostCentre.query.all()}
-    grades = {g.name.lower(): g for g in JobGrade.query.all()}            # Intern, Junior, Senior, Manager, Exco
+    grades = {key: g for g in JobGrade.query.all() for key in (g.name.lower(), str(g.grade))}   # name or rank 1-5
     branches = {b.code.upper(): b for b in Branch.query.all()}
     families = {f.code.upper(): f for f in JobFamily.query.all()}
     numbers = {p.position_number.upper(): p for p in ApprovedPosition.query.all()}
@@ -549,7 +549,7 @@ def import_csv(text, user):
             problems.append("title is required")
         grade = grades.get(row["grade"].lower())
         if grade is None:
-            problems.append(f"unknown grade '{row['grade']}' (use Intern, Junior, Senior, Manager or Exco)")
+            problems.append(f"unknown grade '{row['grade']}' (use the occupational level's number, 1-5, or its full name)")
         branch = branches.get(row["branch_code"].upper()) if row["branch_code"] else None
         if row["branch_code"] and branch is None:
             problems.append(f"unknown branch '{row['branch_code']}'")
@@ -595,7 +595,7 @@ GROUPS = {
     "branch": ("Branch / area", lambda p: p.branch),
     "region": ("Region", lambda p: p.region),
     "cost_centre": ("Cost centre", lambda p: p.cost_centre),
-    "grade": ("Grade", lambda p: p.job_grade),
+    "grade": ("Occupational level", lambda p: p.job_grade),
     "job_family": ("Job family", lambda p: p.job_family),
 }
 
@@ -676,7 +676,7 @@ def dashboard_workbook(data, financial_year):
 
     detail = wb.create_sheet("Positions")
     detail.append(["Position", "Title", "Business unit", "Department", "Branch / area", "Region", "Cost centre",
-                   "Grade", "Job family", "Status", "Ad hoc", "Vacant since", "Days vacant", "Holder"])
+                   "Occupational level", "Job family", "Status", "Ad hoc", "Vacant since", "Days vacant", "Holder"])
     for cell in detail[1]:
         cell.font = Font(bold=True)
     for p in sorted(data["positions"], key=lambda p: p.position_number):

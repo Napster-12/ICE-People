@@ -51,6 +51,9 @@ class Job(MappingMixin, db.Model):
     min_experience = db.Column(db.Integer, default=0)
     min_education = db.Column(db.Integer, default=0)
     ats_weights = db.Column(db.JSON)          # copied from the JD when the advert is drafted; None = standard
+    # Typed by the Talent Acquisition Specialist for each advertising cycle (6 Nov 2026): [{"text": ..., "answer":
+    # "yes"|"no"}], the answer that qualifies. Empty: no eligibility check.
+    eligibility_questions = db.Column(db.JSON)
     closing_date = db.Column(db.Date, index=True)
     status = db.Column(db.String(20), nullable=False, default="Open", index=True)
     is_demo = db.Column(db.Boolean, default=False, nullable=False)
@@ -155,8 +158,13 @@ class Application(MappingMixin, TimestampMixin, db.Model):
     status = db.Column(db.String(20), nullable=False, default="New", index=True)
     notes = db.Column(db.Text)
     source = db.Column(db.String(40), nullable=False, default="Applied")
+    # The interview decision (8 Nov 2026): HR marks a candidate the panel passed as successful (status → Offer).
+    successful_at = db.Column(db.DateTime)
+    successful_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    decision_comment = db.Column(db.Text)
 
     candidate = db.relationship(Candidate, back_populates="applications")
+    successful_by = db.relationship("User", foreign_keys=[successful_by_id])
     job = db.relationship(Job, back_populates="applications")
     messages = db.relationship("CandidateMessage", back_populates="application", cascade="all, delete-orphan",
                                order_by="CandidateMessage.sent_at.desc()")
@@ -187,11 +195,12 @@ class ShortlistReview(TimestampMixin, db.Model):
 
 class InterviewPanel(TimestampMixin, db.Model):
     """One interview panel per advert (1 Nov 2026): the Department Manager plus managers HR invites. Every member
-    scores every candidate on the advert's criteria."""
+    scores every candidate on the panel's interview questions (8 Nov 2026: typed by the Department Manager when they
+    return the shortlist, editable by the Talent Acquisition Specialist; each scored 1–5)."""
     __tablename__ = "interview_panels"
     id = db.Column(db.Integer, primary_key=True)
     job_id = db.Column(db.Integer, db.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, unique=True)
-    criteria = db.Column(db.JSON, nullable=False)              # [{"name": ..., "weight": ...}], weights total 100
+    questions = db.Column(db.JSON, nullable=False, default=list)    # ["question text", ...], in order
     invited_at = db.Column(db.DateTime)
     invited_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
 
@@ -215,6 +224,9 @@ class PanelMember(db.Model):
     user = db.relationship("User")
 
 
+INTERVIEW_PLATFORMS = ("In person", "Microsoft Teams")
+
+
 class InterviewSlot(db.Model):
     """A candidate's interview: when and where, plus the calendar invite sent for it."""
     __tablename__ = "interview_slots"
@@ -223,22 +235,27 @@ class InterviewSlot(db.Model):
                                unique=True)
     starts_at = db.Column(db.DateTime, nullable=False, index=True)
     duration_minutes = db.Column(db.Integer, nullable=False, default=60)
-    venue = db.Column(db.String(255), nullable=False)
+    venue = db.Column(db.String(255), nullable=False)      # the address, or the joining link for an online interview
+    # 8 Nov 2026, at the user's request: the invitation email gives the platform and the meeting's joining details.
+    platform = db.Column(db.String(30), nullable=False, default="In person", server_default="In person")
+    meeting_id = db.Column(db.String(64))
+    passcode = db.Column(db.String(64))
     ics = db.Column(db.Text)
 
     application = db.relationship(Application, backref=db.backref("slot", uselist=False, cascade="all, delete-orphan"))
 
 
 class Scorecard(db.Model):
-    """One panellist's scores for one candidate (1–5 per criterion), with a comment and a recommendation."""
+    """One panellist's scorecard for one candidate: a 1–5 score and a comment per interview question, then a
+    recommendation and an overall comment."""
     __tablename__ = "scorecards"
     __table_args__ = (db.UniqueConstraint("application_id", "panellist_id"),)
     id = db.Column(db.Integer, primary_key=True)
     application_id = db.Column(db.Integer, db.ForeignKey("applications.id", ondelete="CASCADE"), nullable=False,
                                index=True)
     panellist_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    scores = db.Column(db.JSON, nullable=False)                 # {criterion name: 1..5}
-    total = db.Column(db.Float, nullable=False)                 # weighted, 0–100
+    answers = db.Column(db.JSON, nullable=False)                # [{"question", "score" (1–5), "comment"}], in order
+    total = db.Column(db.Float, nullable=False)                 # the average score as a percentage, 0–100
     comment = db.Column(db.Text)
     recommendation = db.Column(db.String(20), nullable=False)
     submitted_at = db.Column(db.DateTime, nullable=False)

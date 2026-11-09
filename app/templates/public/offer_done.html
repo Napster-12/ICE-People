@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero with context %}
+{% block title %}{{ 'Welcome' if outcome == 'accepted' else 'Thank you' }}{% endblock %}
+
+{% block hero %}
+{% if outcome == 'accepted' %}
+{% call page_hero("Welcome to Icebolethu Group!", compact=True, id='offer-done') %}
+  <p class="poster-lead">Thank you for accepting our offer for {{ offer.job.title }}, {{ offer.candidate.full_name.split()[0] }}.</p>
+{% endcall %}
+{% else %}
+{% call page_hero("Thank you for letting us know", compact=True, id='offer-done') %}
+  <p class="poster-lead">You declined our offer for {{ offer.job.title }}.</p>
+{% endcall %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card status-card">
+  {% if outcome == 'accepted' %}
+  <p>We've emailed you a confirmation. Our HR team will contact you shortly about your employment contract and the documents we need before your first day on <strong>{{ offer.start_date|dt }}</strong>.</p>
+  {% else %}
+  <p>We're sorry it didn't work out this time. Your CV stays in our talent pool, and we may contact you when a suitable position opens.</p>
+  <p><a href="{{ url_for('careers.index') }}">See current vacancies</a></p>
+  {% endif %}
+</div>
+{% endblock %}

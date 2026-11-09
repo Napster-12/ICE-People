@@ -7,7 +7,8 @@ from sqlalchemy import or_, select
 from app.extensions import db
 from app.models import (ApprovedPosition, CostCentre, Employee, Requisition, RequisitionVersion, WorkflowInstance,
                         WorkflowStep)
-from app.models.user import COMPLIANCE, EXCO, EXECUTIVE_ROLES, FINANCE, GCOO, HOD, HR_ADMIN, HR_ROLES, LINE_MANAGER
+from app.models.user import (COMPLIANCE, EXCO, EXECUTIVE_ROLES, FINANCE, GCOO, HOD, HR_ADMIN, HR_ROLES, LINE_MANAGER,
+                              RECRUITER)
 from app.services import audit, budget, positions, workflow
 from app.services.dates import now, today
 from app.services.errors import DomainError, StateMachine
@@ -31,6 +32,8 @@ CLOSABLE_UNFILLED = {"Approved", "Advertised", "Interviewing", "Offer"}
 
 CREATE_ROLES = {HOD} | HR_ROLES          # Department Managers and HR raise requisitions; Line Managers only approve
 SEE_ALL_ROLES = HR_ROLES | {FINANCE, GCOO, EXCO, COMPLIANCE}
+# The Talent Acquisition Specialist opens approved requisitions read-only, to advertise them (5 Nov 2026).
+RECRUITMENT_STAGES = ("Approved", "Advertised", "Interviewing", "Offer", "Filled")
 MIN_JUSTIFICATION = 50
 
 FIELDS = ["title", "department_id", "cost_centre_id", "job_grade_id", "employment_type", "headcount_type",
@@ -268,7 +271,8 @@ def visible_query(user):
     q = Requisition.query
     if user.has_role(*SEE_ALL_ROLES):
         return q
-    conditions = [Requisition.originator_id == user.id, Requisition.id.in_(_involved_ids(user))]
+    conditions = [Requisition.status.in_(RECRUITMENT_STAGES)] if user.has_role(RECRUITER) else []
+    conditions += [Requisition.originator_id == user.id, Requisition.id.in_(_involved_ids(user))]
     if user.has_role(HOD) and user.department_id:
         conditions.append(Requisition.department_id == user.department_id)
     if user.has_role(LINE_MANAGER) and user.employee:

@@ -16,7 +16,7 @@
 
 {% macro kpi(label, value, icon_name, tone='') -%}
 <div class="report-kpi-card {{ 'k-' ~ tone if tone }}"><div class="kpi-icon {{ tone }}">{{ icon(icon_name) }}</div>
-  <div class="kpi-content"><span class="kpi-label">{{ label }}</span><span class="kpi-value">{{ value }}</span></div></div>
+  <div class="kpi-content"><span class="kpi-label">{{ label }}</span><span class="kpi-value" title="{{ value }}">{{ value }}</span></div></div>
 {%- endmacro %}
 
 {% macro approval_chain(instance) -%}
@@ -67,4 +67,21 @@
     </div>
   </div>
 </form>
+{%- endmacro %}
+
+{#- Interview question inputs (8 Nov 2026): typed by the Department Manager on the shortlist review and edited by the
+    Talent Acquisition Specialist on the interview panel. The filled ones plus a few blank rows show; "Add another
+    question" (admin/base.html) reveals the rest, up to max_rows. -#}
+{% macro question_rows(questions, max_rows, disabled=False) -%}
+{% set filled = (questions or [])|select|list %}
+{% set shown = [filled|length + 2, 5]|max %}
+<div class="question-rows" data-rows>
+{% for q in filled + [''] * (max_rows - filled|length) %}
+<div class="question-row" {{ 'hidden' if loop.index > shown }}>
+  <span class="question-no">{{ loop.index }}</span>
+  <textarea name="question" rows="2" maxlength="300" placeholder="{{ 'e.g. Tell us about a time you handled a difficult client.' if loop.first else 'Question ' ~ loop.index }}" aria-label="Question {{ loop.index }}" {{ 'disabled' if disabled }}>{{ q }}</textarea>
+</div>
+{% endfor %}
+{% if not disabled and max_rows > shown %}<button type="button" class="admin-btn-sm admin-btn-secondary" data-add-row>{{ icon('plus') }} Add another question</button>{% endif %}
+</div>
 {%- endmacro %}

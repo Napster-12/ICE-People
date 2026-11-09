@@ -9,14 +9,14 @@ from app.auth.decorators import roles_required
 from app.extensions import db
 from app.models import AuditLog, Job, JobDescriptionTemplate, JobFamily, Requisition
 from app.models.recruitment import ADVERT_STATUSES, JOB_TYPES
-from app.models.user import HR_ROLES
+from app.models.user import RECRUITMENT_ROLES
 from app.services import adverts, ats, workflow
 from app.services.dates import today
 from app.services.errors import DomainError
 from app.web import paginate
 
 bp = Blueprint("adverts", __name__, url_prefix="/adverts")
-HR = tuple(HR_ROLES)
+HR = tuple(RECRUITMENT_ROLES)   # HR and the Talent Acquisition Specialist
 
 
 def _advert(job_id):
@@ -94,7 +94,13 @@ def _values(f):
         "closing_date": _date(f.get("closing_date", "").strip()),
         "ee_statement": f.get("ee_statement", "").strip(),
         "channels": [c for c in adverts.CHANNELS if c in f.getlist("channels")],
+        "eligibility_questions": adverts.parse_eligibility(_eligibility_rows(f))[0],
     }
+
+
+def _eligibility_rows(f):
+    """The question rows of the advert form: e_text_<n> with the qualifying answer e_answer_<n>."""
+    return [(f.get(f"e_text_{i}", ""), f.get(f"e_answer_{i}", "")) for i in range(adverts.MAX_ELIGIBILITY_QUESTIONS)]
 
 
 @bp.route("/<int:job_id>/edit", methods=["GET", "POST"])
@@ -105,10 +111,13 @@ def edit(job_id):
         flash("Only draft or returned adverts can be edited.", "error")
         return redirect(url_for("adverts.detail", job_id=job.id))
     if request.method == "POST":
+        _questions, question_errors = adverts.parse_eligibility(_eligibility_rows(request.form))
+        for message in question_errors:
+            flash(message, "error")
         # Edits are kept even when the advert isn't ready to send for approval yet.
         adverts.save(job, _values(request.form), current_user)
         db.session.commit()
-        if request.form.get("action") != "submit":
+        if request.form.get("action") != "submit" or question_errors:
             flash("Advert saved.", "success")
             return redirect(url_for("adverts.detail", job_id=job.id))
         try:
@@ -120,7 +129,8 @@ def edit(job_id):
             db.session.rollback()
             flash(str(exc), "error")
     return render_template("adverts/form.html", job=job, job_types=JOB_TYPES, channels=adverts.CHANNELS,
-                           education_levels=ats.EDUCATION_LEVELS, problems=adverts.problems(job))
+                           education_levels=ats.EDUCATION_LEVELS, problems=adverts.problems(job),
+                           max_questions=adverts.MAX_ELIGIBILITY_QUESTIONS)
 
 
 @bp.route("/<int:job_id>")

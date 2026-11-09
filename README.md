@@ -36,9 +36,13 @@ Icebolethu has **Line Managers** and **Department Managers** (the system has no 
 - **Requisitions** are raised by Department Managers (and HR). Line Managers don't raise them; they see
   them and approve them.
 - The finance role is called **Finance**.
-- **Job grades** are Intern, Junior, Senior, Manager and Exco. Grades carry no salary: a requisition is costed
+- **Job grades** are the five **occupational levels**, shown on screen as "Occupational level": 1 Support /
+  Unskilled Staff, 2 Skilled Staff / Technical / Junior Management / Supervisor, 3 Professional / Experienced /
+  Specialists / Mid-Management, 4 Senior Management (HODs, Regional Managers), 5 Top Management (CEOs, EXCO,
+  Directors, Founders). Grades carry no salary: a requisition is costed
   from its position's **budgeted CTC** on the register (pro-rated by months for a contract), so every position
-  needs a budgeted CTC before a requisition for it can be submitted. Positions CSV files give the grade by name.
+  needs a budgeted CTC before a requisition for it can be submitted. Positions CSV files give the level by number
+  (1–5) or full name.
 
 **Approval chains** (defaults; IT can change them under **ICT → Routing Rules**):
 
@@ -374,7 +378,8 @@ Run these with Windows Task Scheduler or cron, from the project folder with the 
 | `python seed.py` | The full demo data and test users. Safe to run again. |
 | `python seed.py --accounts-only` | The test users, departments and reference data only |
 | `python seed_ict_demo.py` | Dummy ICT recruitment data: 30 open ICT adverts (with positions and requisitions), 150 applicants, about 385 applications; the first 10 adverts have 3 shortlisted applicants each. Needs the department accounts. |
-| `python seed_ict_demo.py --remove` | Delete exactly the ICT dummy data |
+| `python seed_ict_demo.py --positions` | Dummy approved ICT establishment: the ICT Line Manager, Department Manager and IT Administrator posts (filled by those accounts), 19 vacant seats and 2 frozen ones, reporting to the Department Manager |
+| `python seed_ict_demo.py --remove` | Delete exactly the ICT dummy data (adverts, applicants and the establishment; seats with a real requisition are kept) |
 | `flask import-legacy [--path portal.db]` | Copy the original portal's data. Safe to run again. |
 | `flask set-password <username>` | Reset a user's password |
 | `flask reprocess-cvs` | Re-read every CV and re-score every application |

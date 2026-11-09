@@ -41,7 +41,8 @@
   <div class="table-responsive"><table class="admin-table">
     <tr><th>Template</th><th>Subject</th><th>Updated</th><th></th></tr>
     {% for t in templates %}<tr><td><strong>{{ t.name }}</strong><span class="sub">{{ t.key }}</span></td><td class="small">{{ t.subject }}</td>
-      <td>{{ t.updated_at|dt }}</td><td><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.template_form', template_id=t.id) }}">Edit</a></td></tr>{% endfor %}
+      <td>{{ t.updated_at|dt }}</td><td class="row-actions"><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.template_preview', template_id=t.id) }}" target="_blank" rel="noopener">Preview</a>
+        <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.template_form', template_id=t.id) }}">Edit</a></td></tr>{% endfor %}
   </table></div>
 </section>
 {% endblock %}

@@ -30,3 +30,8 @@ def back(default_endpoint, **kwargs):
 def flash_errors(errors):
     for e in errors:
         flash(e, "error")
+
+
+def questions_input(form):
+    """The interview question rows of a form (question_rows in _ui.html), in order (8 Nov 2026)."""
+    return list(form.getlist("question"))

@@ -1,0 +1,90 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv with context %}
+{% set emp = case.employee %}
+{% block title %}{{ case.reference }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('onboarding.index') }}">← Onboarding</a>{% endblock %}
+{% block heading %}{{ emp.full_name }}{% endblock %}
+{% block subheading %}{{ case.reference }} · {{ emp.position_title }} · starts {{ case.start_date|dt }}{% endblock %}
+{% block actions %}
+{{ status(case.status) }}
+{% if case.offer %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.offer', offer_id=case.offer.id) }}">{{ icon('file') }} Offer {{ case.offer.reference }}</a>{% endif %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.employee_form', emp_id=emp.id) }}">{{ icon('users') }} Employee record</a>
+{% endblock %}
+{% block content %}
+{% set days = (case.start_date - today).days %}
+<div class="alert alert-info">{% if days > 0 %}{{ days }} day{{ 's' if days != 1 }} to the start date.{% elif days == 0 %}Starts today.{% else %}Started {{ -days }} day{{ 's' if -days != 1 }} ago.{% endif %}
+  Documents, IT access and induction follow in the next onboarding release.</div>
+
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Employee number</h3></div>
+      {% if can_edit %}
+      <form method="post" class="admin-form" style="padding:0;border:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="admin-form-row"><label for="employee_number">Employee number *</label>
+          <input id="employee_number" name="employee_number" value="{{ request.form.get('employee_number') or emp.employee_number }}" maxlength="20" required>
+          <span class="hint">Given automatically as the next ICE number. Change it if it must match Sage 300; it has to be unique.</span></div>
+        <div><button class="admin-btn-sm admin-btn-secondary" name="action" value="employee_number">{{ icon('check') }} Save number</button></div>
+      </form>
+      {% else %}
+      <div class="kv-grid">{{ kv('Employee number', emp.employee_number) }}</div>
+      {% endif %}
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Employment contract</h3>{{ status(case.contract_status) }}</div>
+      <div class="kv-grid">
+        {{ kv('Template', contract_name) }}
+        {{ kv('Last generated', case.contract_generated_at|dtt if case.contract_generated_at) }}
+        {{ kv('Signed on', case.contract_signed_on|dt if case.contract_signed_on) }}
+      </div>
+      {% if can_edit %}
+      <p style="margin:14px 0 6px 0;display:flex;gap:10px;flex-wrap:wrap">
+        <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.contract', case_id=case.id) }}" target="_blank" rel="noopener">{{ icon('file') }} View contract</a>
+        <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('onboarding.contract', case_id=case.id, download=1) }}">{{ icon('download') }} Download to print</a>
+      </p>
+      <p class="hint">Filled in from the employee record and the accepted offer. Check the employee number first; it's printed on the contract.</p>
+      <form method="post" enctype="multipart/form-data" class="admin-form" style="padding:0;border:0;margin-top:16px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h4 style="margin:0">Upload the signed contract</h4>
+        <div class="admin-form-grid">
+          <div class="admin-form-row"><label for="contract">Signed copy (PDF or photo) *</label><input id="contract" type="file" name="contract" accept=".pdf,.jpg,.jpeg,.png" required></div>
+          <div class="admin-form-row"><label for="signed_on">Date signed *</label><input id="signed_on" type="date" name="signed_on" max="{{ today.isoformat() }}" value="{{ today.isoformat() }}" required></div>
+        </div>
+        <div><button class="admin-btn-sm admin-btn-primary" name="action" value="signed">{{ icon('upload') }} Upload signed copy</button></div>
+      </form>
+      {% endif %}
+      {% if copies %}
+      <h4 style="margin:18px 0 6px 0">Signed copies</h4>
+      <ul style="margin:0;padding-left:18px">
+        {% for f in copies %}
+        <li><a href="{{ url_for('portal.download', file_id=f.id) }}" target="_blank" rel="noopener">{{ f.original_name }}</a>
+          <span class="small muted">· {{ f.created_at|dtt }}{% if f.uploaded_by %} · {{ f.uploaded_by.full_name }}{% endif %}{% if loop.first %} · current{% endif %}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>New starter</h3></div>
+      <div class="kv-grid">
+        {{ kv('Name', emp.full_name) }}
+        {{ kv('Email', emp.email) }}
+        {{ kv('Phone', emp.phone) }}
+        {{ kv('Position', emp.position_title) }}
+        {{ kv('Department', emp.department.name if emp.department) }}
+        {{ kv('Reports to', emp.manager.full_name if emp.manager) }}
+        {{ kv('Occupational level', emp.job_grade.name if emp.job_grade) }}
+        {{ kv('Employment type', emp.employment_type) }}
+        {{ kv('Start date', case.start_date|dt) }}
+        {{ kv('End date', emp.end_date|dt if emp.end_date) }}
+        {{ kv('Cost to company', case.offer.ctc|money if case.offer) }}
+        <div class="kv"><span class="kv-label">Record status</span><span class="kv-value">{{ status(emp.status) }}</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

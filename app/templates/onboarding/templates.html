@@ -1,0 +1,59 @@
+{% extends "admin/base.html" %}
+{% block title %}Letter and contract templates{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('onboarding.index') }}">← Onboarding</a>{% endblock %}
+{% block heading %}Letter and contract templates{% endblock %}
+{% block subheading %}The wording of the offer letter and the employment contracts. Each is printed on the Icebolethu letterhead.{% endblock %}
+{% block content %}
+<div class="admin-split" style="margin-bottom:22px">
+  <form method="post" class="admin-panel admin-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="admin-panel-head" style="margin:0"><h3>Who signs</h3></div>
+    <div class="admin-form-row"><label for="signatory_name">Name</label>
+      <input id="signatory_name" name="signatory_name" value="{{ signatory.signatory_name }}" placeholder="e.g. Mr. Asanda Mdala"></div>
+    <div class="admin-form-row"><label for="signatory_title">Job title *</label>
+      <input id="signatory_title" name="signatory_title" value="{{ signatory.signatory_title }}" required></div>
+    <div><button class="admin-btn-sm admin-btn-secondary" name="action" value="signatory">{{ icon('check') }} Save</button></div>
+    <p class="hint">Printed under "Yours sincerely" on offer letters and contracts.</p>
+  </form>
+  <section class="admin-panel admin-form">
+    <div class="admin-panel-head" style="margin:0"><h3>Signature</h3></div>
+    {% if signature %}
+    <p><img src="{{ url_for('portal.download', file_id=signature.id) }}" alt="Signature" style="max-height:70px;max-width:260px;border:1px solid var(--border);border-radius:8px;padding:6px;background:#fff"></p>
+    <p class="small muted">Uploaded {{ signature.created_at|dtt }}{% if signature.uploaded_by %} by {{ signature.uploaded_by.full_name }}{% endif %}.</p>
+    {% else %}
+    <p class="small muted">No signature yet: letters show a blank line to sign by hand.</p>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-form-row"><label for="signature">{{ 'Replace the signature' if signature else 'Upload a signature' }} (PNG or JPG)</label>
+        <input id="signature" type="file" name="signature" accept=".png,.jpg,.jpeg" required></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="admin-btn-sm admin-btn-primary" name="action" value="signature">{{ icon('upload') }} Upload</button>
+      </div>
+    </form>
+    {% if signature %}
+    <form method="post" style="margin-top:10px" data-confirm-title="Remove the signature?" data-confirm-ok="Remove" data-confirm="Letters will show a blank line to sign by hand.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="admin-btn-sm admin-btn-danger" name="action" value="remove_signature">Remove the signature</button>
+    </form>
+    {% endif %}
+    <p class="hint">A scan of the signature on a white or transparent background works best.</p>
+  </section>
+</div>
+
+<section class="admin-panel">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Template</th><th>Title on the document</th><th>Last changed</th><th></th></tr>
+    {% for t in templates %}
+    <tr>
+      <td><a href="{{ url_for('onboarding.template', template_id=t.id) }}"><strong>{{ t.name }}</strong></a></td>
+      <td>{{ t.title }}</td>
+      <td class="small">{% if t.updated_by %}{{ t.updated_at|dtt }} by {{ t.updated_by.full_name }}{% else %}Default wording{% endif %}</td>
+      <td style="text-align:right"><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.template_preview', template_id=t.id) }}" target="_blank" rel="noopener">{{ icon('file') }} Preview</a></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  <p class="hint" style="margin-top:12px">The contract used for a new starter follows their employment type: Permanent, Contract (fixed-term) or Casual.
+    Have the wording checked by HR and legal before you use it.</p>
+</section>
+{% endblock %}

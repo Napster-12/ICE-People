@@ -12,7 +12,7 @@ EMPLOYEE = "Employee"
 LINE_MANAGER = "Line Manager"
 HOD = "Department Manager"   # head of a department (was "HOD"; renamed 31 Oct 2026)
 HRBP = "HR Business Partner"
-RECRUITER = "Recruiter"
+RECRUITER = "Talent Acquisition Specialist"   # was "Recruiter"; recruitment only (5 Nov 2026)
 HR_MANAGER = "HR Manager"
 GROUP_HR = "Group HR Manager"
 HR_OD = "HR OD"
@@ -28,13 +28,16 @@ EXCO = "Exco"
 
 ALL_ROLES = [EMPLOYEE, LINE_MANAGER, HOD, HRBP, RECRUITER, HR_MANAGER, GROUP_HR, HR_OD, FINANCE,
              PAYROLL, IT, ASSET_CONTROLLER, COMPLIANCE, GCOO, EXCO, HR_ADMIN, PANEL]
-HR_ROLES = {HRBP, RECRUITER, HR_MANAGER, GROUP_HR, HR_OD, HR_ADMIN}
+HR_ROLES = {HRBP, HR_MANAGER, GROUP_HR, HR_OD, HR_ADMIN}
+# Recruitment (adverts, JD library, ATS, shortlists, interview panels): HR plus the Talent Acquisition Specialist,
+# who sees nothing else but approved requisitions, read-only (5 Nov 2026, at the user's request).
+RECRUITMENT_ROLES = HR_ROLES | {RECRUITER}
 # Roles that may see the executive / strategic flag ("Department Manager and above").
 EXECUTIVE_ROLES = {HOD, HR_MANAGER, GROUP_HR, GCOO, EXCO, HR_ADMIN}
 # Roles allowed to see sensitive personal fields (ID number, bank, demographics, health).
 SENSITIVE_ROLES = {HR_MANAGER, GROUP_HR, HR_ADMIN, PAYROLL}
 # Which sign-in landing page a user belongs to; the highest one wins.
-ADMIN_PORTAL_ROLES = HR_ROLES | {FINANCE, PAYROLL, IT, ASSET_CONTROLLER, COMPLIANCE, GCOO, EXCO}
+ADMIN_PORTAL_ROLES = RECRUITMENT_ROLES | {FINANCE, PAYROLL, IT, ASSET_CONTROLLER, COMPLIANCE, GCOO, EXCO}
 MANAGER_ROLES = {LINE_MANAGER, HOD}
 
 _hasher = PasswordHasher()
@@ -90,8 +93,24 @@ class User(UserMixin, TimestampMixin, db.Model):
         return "manager" if self.role_names & MANAGER_ROLES else "staff"
 
     @property
+    def portals(self):
+        """Portals this user may use. Everyone is staff, so everyone has the staff self-service portal
+        (1 Nov 2026); managers and admin roles also have their own."""
+        return (["admin"] if self.role_names & ADMIN_PORTAL_ROLES else []) + \
+               (["manager"] if self.role_names & MANAGER_ROLES else []) + ["staff"]
+
+    @property
     def is_hr(self):
         return bool(self.role_names & HR_ROLES)
+
+    @property
+    def can_recruit(self):
+        return bool(self.role_names & RECRUITMENT_ROLES)
+
+    @property
+    def recruitment_only(self):
+        """A Talent Acquisition Specialist with no other admin role: gets the recruitment home."""
+        return self.role_names & ADMIN_PORTAL_ROLES == {RECRUITER}
 
     @property
     def can_see_sensitive(self):
