@@ -12,3 +12,4 @@ docs/
 htmlcov/
 .DS_Store
 *.db.before-*
+tests/
