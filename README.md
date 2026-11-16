@@ -1,372 +1,179 @@
 # ICE People Administration System
 
-Icebolethu Group's people administration system.
+Icebolethu Group's people administration system: recruitment, onboarding, the approved positions register,
+headcount budgets, approvals and travel requests, in one Flask application.
 
-One Flask application that combines the original recruitment portal (careers site, ATS and CV
-database) with the HR modules specified in [docs/SPEC.md](docs/SPEC.md). Every page uses one
-stylesheet, `app/static/style.css`. The staff pages follow the layout, design and colours of the IGSP
-(Icebolethu Group Supplier Portal) admin area: a white sidebar with the logo, the page title on a grey
-background, flat orange buttons, and the logo colours only. The careers site keeps its own layout, with
-sunburst accents.
+It combines the original recruitment portal (careers site, ATS and CV database) with the HR modules in the build
+specification (`docs/SPEC.md`, kept outside the repository). The staff pages follow the layout, design and colours
+of the IGSP (Icebolethu Group Supplier Portal) admin area, with a light and a dark mode. The public careers site
+keeps the Icebolethu Group name and its own layout.
 
-**Built so far: phases 1–5**
+## What's built
 
-- Platform: sign-in, roles, audit log, notifications, the
-  business-day calendar, the workflow engine and mock integrations.
-- Requisitions, budget checks (costed from the position's budgeted CTC), and the Finance budget screens.
-- The requisition approval chain, with delegation, SLA reminders and escalation, plus the approvals
-  inbox and dashboard.
-- The approved positions register: one record per position, yearly register approval, ad-hoc position
-  requests, freeze / abolish / regrade, and the vacancy dashboard. Every requisition is raised from a
-  vacant position.
-- Job adverts and the JD library: adverts drafted from approved requisitions, HR Manager approval,
-  publishing to the careers site and job-portal channels, and views and applications per channel.
-- Separate sign-in pages for staff, managers and the HR admin portal, and a home page for each.
-- The asset register (IT).
-- The original careers site, ATS and CV database, carried over unchanged in behaviour, with a
-  yes/no eligibility check before applying.
+**Platform**
+- Sign-in pages for staff, managers and the HR admin portal, each with its own home page. Everyone can also use
+  the staff portal and switch between portals from the sidebar.
+- Roles, the audit log, notifications (in the app and by email), the business-day calendar, the approval
+  workflow engine (delegation, SLA reminders and escalation), and the **My Approvals** inbox.
+- Designed emails for applicants and staff that work on phones. Live sending uses SMTP in the background.
+- Light and dark mode per account (**My Profile → Appearance**).
 
-The remaining phases are listed in the spec (§12.1).
+**Workforce planning**
+- **Approved positions register:** one record per position, yearly approval of the register, ad-hoc position
+  requests, freeze, abolish and regrade, and a vacancy dashboard with Excel export. Each department has its own
+  **HR Business Partner**, who maintains that department's positions.
+- **Headcount budget:** budget lines per cost centre (CSV import), costed from each position's budgeted CTC, with
+  commitments and an overspend alert.
+- **Requisitions** raised from a vacant position, with a budget check and the approval chain below.
+
+**Recruitment**
+- **Job adverts** drafted from approved requisitions and the **JD library**. The HR Manager approves them before
+  they're published to the careers site and job-portal channels, with views and applications counted per channel.
+- **Careers site:** typed yes/no eligibility questions per advert, then the application form. It asks for a full
+  profile (names, ID or passport, address, notice period, salary, driver's licence and voluntary employment-equity
+  details) plus the required documents and the CV, with key skills one per row.
+- **ATS scoring** of every application, with standard or per-JD weights.
+- **Shortlist review** by the Department Manager, then interview invitations and regret letters.
+- **Interview panels:** the Department Manager and the Talent Acquisition Specialist, plus invited managers. They
+  score typed interview questions 1–5, blind until each has submitted, and the candidates are ranked.
+
+**Hiring and onboarding**
+- **Background checks** before any offer. The candidate consents online (Icebolethu's POPIA consent form) and
+  uploads the signed MIE form. HR Admin or the department's HR BP records each result once, and it can't be edited
+  afterwards. The offer can only be sent when every check is clear.
+- **Offers:** an offer letter on the Icebolethu letterhead. Finance approves any offer above the costed CTC. The
+  candidate accepts online, which includes accepting the Code of Conduct and attaching the onboarding documents
+  (anything already sent with the application isn't asked for again).
+- **Acceptance** fills the position, consumes the budget, closes the advert, creates the employee record
+  (Pre-boarding, next ICE number) and opens an onboarding case.
+- **New starter pack:** a secure link where the new starter fills in the New Hire Take-On form online and uploads
+  the Business and Financial Disclosure and the Liberty nomination of beneficiary. HR Admin or the HR BP approves it
+  (it's also in My Approvals), which updates the employee record. The HR BP attaches the signed contract.
+- **Employee record:** every document from the application, checks, offer, onboarding and assets, opened in an
+  on-page viewer.
+
+**Other**
+- **Travel requests** (the i-Travel form): approved by the requester's manager, booked by i-Travel, paid by Finance.
+- **Asset register** (IT), with signed allocation forms.
+
+The remaining phases (references to referees, the new-starter portal, Performance Management, Sage 300 posting,
+off-boarding and more) are in the spec's release plan.
 
 ## Who does what
 
-Icebolethu has **Line Managers** and **Department Managers** (the system has no "HOD"):
+- **Line Managers and Department Managers** (there's no "HOD"): a Department Manager heads a department and reports
+  to a Line Manager, and Line Managers report to Exco. Department Managers and HR raise requisitions; Line Managers
+  see and approve them.
+- **HR Admin** runs onboarding: offers, cases, employee numbers, the offer letter wording, and the forms and
+  document lists.
+- **HR Business Partner:** one per department (HR Admin assigns them on the Departments page). They maintain the
+  department's positions, run its background checks, review new starter packs and attach signed contracts.
+- **Group HR Manager:** the head of the HR department. Every "Group HR Manager" approval goes to that person.
+- **HR Manager** approves job adverts.
+- **Talent Acquisition Specialist:** a recruitment-only role covering adverts, the JD library, candidates and
+  interview panels. They score on every panel.
+- **Finance** approves budgets, requisitions, unbudgeted positions, offers above the costed CTC and travel payments.
+- **i-Travel** books approved travel requests.
+- **IT** runs system administration (the sidebar's ICT menu): users and roles, routing rules, settings, templates,
+  assets, the audit log and the integration log.
+- **Occupational levels** (job grades): 1 Support / Unskilled Staff, 2 Skilled Staff / Technical / Junior
+  Management / Supervisor, 3 Professional / Experienced / Specialists / Mid-Management, 4 Senior Management,
+  5 Top Management. They carry no salary: requisitions are costed from the position's budgeted CTC.
 
-- A Department Manager reports to their department's Line Manager, and Line Managers report to Exco.
-- **Requisitions** are raised by Department Managers (and HR). Line Managers don't raise them; they see
-  them and approve them.
-- The finance role is called **Finance**.
-- **Job grades** are the five **occupational levels**, shown on screen as "Occupational level": 1 Support /
-  Unskilled Staff, 2 Skilled Staff / Technical / Junior Management / Supervisor, 3 Professional / Experienced /
-  Specialists / Mid-Management, 4 Senior Management (HODs, Regional Managers), 5 Top Management (CEOs, EXCO,
-  Directors, Founders). Grades carry no salary: a requisition is costed
-  from its position's **budgeted CTC** on the register (pro-rated by months for a contract), so every position
-  needs a budgeted CTC before a requisition for it can be submitted. Positions CSV files give the level by number
-  (1–5) or full name.
-
-**Approval chains** (defaults; IT can change them under **ICT → Routing Rules**):
+**Approval chains** (defaults; IT changes them under **ICT → Routing Rules**):
 
 | Request | Chain |
 |---|---|
-| Requisition | Department Manager of the position's department → the Line Manager above them → Finance → Group HR Manager → GCOO / Exco. A Department Manager raising it starts at their Line Manager. |
-| Ad-hoc position, raised by a manager | Finance (unbudgeted) → GCOO / Exco |
-| Ad-hoc position, raised by HR | Department Manager of the position's department → Finance (unbudgeted) → GCOO / Exco |
-| Positions register (yearly) | Finance → Group HR Manager |
-| Freeze / unfreeze / abolish / regrade | Finance → Group HR Manager |
+| Requisition | Department Manager (only when HR raised it) → the Department Manager's Line Manager → Finance → Group HR Manager → GCOO / Exco |
+| Ad-hoc position | Department Manager (only when HR raised it) → Finance (unbudgeted) → GCOO / Exco |
+| Positions register (yearly) | Finance Department Manager → Group HR Manager |
+| Freeze, unfreeze, abolish, regrade | Finance → Group HR Manager |
 | Job advert | HR Manager |
+| Offer above the costed CTC | Finance |
+| Travel request | The requester's manager; then i-Travel books it and Finance approves the payment |
+| Background check results, new starter pack | HR Admin or the department's HR Business Partner (not a workflow chain) |
 
-If nobody holds the role a step needs, the step goes to HR Admin (or, when HR Admin raised it, to their manager),
-and the approval page says so. Nobody approves their own request: that step goes to their manager.
+If nobody holds the role a step needs, the step goes to HR Admin (or, when HR Admin raised it, to their manager).
+Nobody approves their own request: that step goes to their manager.
 
-## Setup on Windows (VS Code terminal)
+## Hiring, step by step
+
+1. **Advertise:** HR or the Talent Acquisition Specialist creates an advert from an approved requisition under
+   **Job Adverts**, types its eligibility questions and sends it to the HR Manager. Approved, it goes live.
+2. **Apply:** the applicant answers the eligibility questions, then fills in the application form. A wrong answer
+   sends them to the talent pool page instead.
+3. **Shortlist:** HR shortlists the strongest applicants and sends them to the Department Manager, who picks who
+   goes to interview and types the interview questions. HR emails invitations and regrets.
+4. **Interview:** HR sets up the panel and the slots and sends the invitations. Each panellist scores the questions
+   after the interview, and HR marks the best candidate **successful**.
+5. **Background checks:** HR Admin or the HR BP starts them on the **Onboarding** page. The candidate consents
+   online, then the results are recorded as they come in from MIE.
+6. **Offer:** HR Admin prepares it (Finance approves it if it's above the costed CTC) and sends it once every check
+   is clear. The candidate accepts or declines online.
+7. **Onboarding:** acceptance opens the onboarding case and the employee record. The new starter completes their
+   pack, HR Admin or the HR BP approves it, and the HR BP attaches the signed contract.
+
+## Setup for development
+
+Python 3.11 or newer. On Windows (PowerShell):
 
 ```powershell
-py -3.11 -m venv .venv            # Python 3.11 or newer
+py -3.11 -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.example .env            # then fill in SECRET_KEY and FERNET_KEY (commands are in the file)
+copy .env.example .env            # then fill in SECRET_KEY and FERNET_KEY (the commands are in the file)
 $env:FLASK_APP = "run.py"
-flask db upgrade                  # creates instance\hr.db
-python seed.py --department-accounts   # departments, reference data and the department accounts (see below)
+flask db upgrade                  # creates instance\hr.db (SQLite)
+flask seed-reference-data         # roles, occupational levels, holidays, approval chains, settings, templates
+flask create-user it --email it@icebolethu.co.za --name "IT Administrator" --role IT
 python run.py                     # http://127.0.0.1:5000
 ```
 
-On macOS or Linux, use `python3 -m venv .venv`, then `source .venv/bin/activate`, then
-`cp .env.example .env` and `export FLASK_APP=run.py`.
+On macOS or Linux, use `python3 -m venv .venv`, `source .venv/bin/activate`, `cp .env.example .env` and
+`export FLASK_APP=run.py`.
 
-**Choosing what to seed** (run one of these on an empty database, after `flask db upgrade`):
+Then sign in as that IT user at `/login` and add the departments (HR Admin's **Departments** page), people and
+roles (**Users & Roles**). The demo and dummy-data scripts (`seed.py`, `seed_ict_demo.py`, `seed_jd_library.py`,
+`seed_staff_details.py`) are kept on the development machine only and aren't in this repository.
 
-| Command | What you get |
-|---|---|
-| `python seed.py --department-accounts` | No demo data. Departments, cost centres, the org structure, reference data and the [department accounts](#department-accounts). **The current dev database was built this way (31 Oct 2026).** |
-| `python seed.py` | The full demo: budgets, the positions register, sample requisitions, an ad-hoc request, the JD library, a live advert with applicants, and the [test users](#test-users-full-demo-only). Add `flask import-legacy` for the old portal's jobs, CVs and applications. |
-| `python seed.py --accounts-only` | Only the test users, departments and reference data, without the demo records. |
+`.env.example` lists every setting for development, including live email (`MAIL_PROVIDER=smtp`).
 
-## Current dev database
+## Production
 
-`instance/hr.db` was reset on 31 Oct 2026 and holds no demo data: no budgets, positions, requisitions,
-adverts, jobs, candidates or uploaded files. It has the departments, cost centres, org structure, reference data
-(roles, grades, public holidays, approval chains, notification templates, settings) and the 35 department
-accounts below. Before anyone can raise a requisition, Finance loads the **budget lines** and HR loads the
-**approved positions register** (both accept CSV imports).
+Production runs on **PostgreSQL** with files in a private **Amazon S3** bucket. Copy
+[`.env.production.example`](.env.production.example) to `.env` on the server and fill in every `CHANGE_ME`. It
+explains each setting. In short:
 
-The previous databases and uploads are kept in `instance/backup-before-reset-2026-10-31/`.
+```bash
+pip install -r requirements.txt     # includes psycopg (Postgres), boto3 (S3) and gunicorn
+flask db upgrade                    # creates the tables in Postgres
+flask seed-reference-data
+flask create-user ictadmin --email ict@icebolethu.co.za --name "ICT Administrator" --role IT
+gunicorn --workers 3 --bind 127.0.0.1:8000 run:app
+```
 
-## Links
-
-With the app running (`python run.py`), every page is at `http://127.0.0.1:5000`. If port 5000 is busy,
-`run.py` picks the next free port and prints it; use that port instead. "HR roles" means HR Admin, Group HR
-Manager, HR Manager, HR Business Partner, Recruiter and HR OD.
-
-**Sign-in (public)**
-
-| Page | Address | Who can open it |
-|---|---|---|
-| [Staff self-service landing](http://127.0.0.1:5000/login/staff) | `/login/staff` | Employees |
-| [Staff sign-in](http://127.0.0.1:5000/login/staff/sign-in) | `/login/staff/sign-in` | Employees |
-| [Manager self-service landing](http://127.0.0.1:5000/login/manager) | `/login/manager` | Line managers, Department Managers |
-| [Manager sign-in](http://127.0.0.1:5000/login/manager/sign-in) | `/login/manager/sign-in` | Line managers, Department Managers |
-| [HR admin portal landing](http://127.0.0.1:5000/login) | `/login` | HR, Finance, Payroll, IT, Assets, Compliance, GCOO, Exco |
-| [HR admin sign-in](http://127.0.0.1:5000/login/sign-in) | `/login/sign-in` | HR, Finance, Payroll, IT, Assets, Compliance, GCOO, Exco |
-
-**Careers site (public)**
-
-| Page | Address | Who can open it |
-|---|---|---|
-| [Open vacancies](http://127.0.0.1:5000/) | `/` | Anyone |
-| [Submit a CV to the talent pool](http://127.0.0.1:5000/talent-pool) | `/talent-pool` | Anyone |
-| [Track an application](http://127.0.0.1:5000/status) | `/status` | Anyone |
-
-**Everyone signed in**
-
-| Page | Address | Who can open it |
-|---|---|---|
-| [Dashboard](http://127.0.0.1:5000/dashboard) | `/dashboard` | All staff |
-| [My Approvals](http://127.0.0.1:5000/approvals/) | `/approvals/` | All staff |
-| [Delegation](http://127.0.0.1:5000/approvals/delegations) | `/approvals/delegations` | All staff |
-| [My profile](http://127.0.0.1:5000/me) | `/me` | All staff |
-| [Notifications](http://127.0.0.1:5000/notifications) | `/notifications` | All staff |
-| [Change password](http://127.0.0.1:5000/account) | `/account` | All staff |
-
-**Requisitions and approved positions**
-
-| Page | Address | Who can open it |
-|---|---|---|
-| [Requisitions](http://127.0.0.1:5000/requisitions/) | `/requisitions/` | Line Managers, Department Managers, HR, Finance, GCOO, Exco, Compliance |
-| [New requisition](http://127.0.0.1:5000/requisitions/new) | `/requisitions/new` | Department Managers, HR |
-| [Approved positions register](http://127.0.0.1:5000/positions/) | `/positions/` | Line Managers, Department Managers, HR, Finance, GCOO, Exco, Compliance |
-| [Add a position](http://127.0.0.1:5000/positions/new) | `/positions/new` | HR Admin, Group HR, HR Manager, HRBP |
-| [Import positions (CSV)](http://127.0.0.1:5000/positions/import) | `/positions/import` | HR Admin, Group HR, HR Manager, HRBP |
-| [Positions CSV template](http://127.0.0.1:5000/positions/import/template.csv) | `/positions/import/template.csv` | HR Admin, Group HR, HR Manager, HRBP |
-| [Vacancy dashboard](http://127.0.0.1:5000/positions/dashboard) | `/positions/dashboard` | Line Managers, Department Managers, HR, Finance, GCOO, Exco, Compliance |
-| [Vacancy dashboard (Excel export)](http://127.0.0.1:5000/positions/dashboard?format=xlsx) | `/positions/dashboard?format=xlsx` | Line Managers, Department Managers, HR, Finance, GCOO, Exco, Compliance |
-| [Ad-hoc position requests](http://127.0.0.1:5000/positions/ad-hoc) | `/positions/ad-hoc` | Line Managers, Department Managers, HR, Finance, GCOO, Exco, Compliance |
-| [Request an ad-hoc position](http://127.0.0.1:5000/positions/ad-hoc/new) | `/positions/ad-hoc/new` | Line managers, Department Managers, HR |
-
-**Budget**
-
-| Page | Address | Who can open it |
-|---|---|---|
-| [Budget lines](http://127.0.0.1:5000/budget/) | `/budget/` | Finance, HR Admin, HR Manager, GCOO |
-| [Add a budget line](http://127.0.0.1:5000/budget/new) | `/budget/new` | Finance, HR Admin |
-| [Import budget (CSV)](http://127.0.0.1:5000/budget/import) | `/budget/import` | Finance, HR Admin |
-| [Budget CSV template](http://127.0.0.1:5000/budget/import/template.csv) | `/budget/import/template.csv` | Finance, HR Admin |
-| [Budget impact report](http://127.0.0.1:5000/budget/report) | `/budget/report` | Finance, HR Admin, HR Manager, GCOO |
-
-**Recruitment (ATS)**
-
-| Page | Address | Who can open it |
-|---|---|---|
-| [Recruitment dashboard](http://127.0.0.1:5000/recruitment/) | `/recruitment/` | HR roles |
-| [Job adverts](http://127.0.0.1:5000/adverts/) | `/adverts/` | HR roles |
-| [JD library](http://127.0.0.1:5000/adverts/library) | `/adverts/library` | HR roles |
-| [Job openings](http://127.0.0.1:5000/recruitment/jobs) | `/recruitment/jobs` | HR roles |
-| [New job opening](http://127.0.0.1:5000/recruitment/jobs/new) | `/recruitment/jobs/new` | HR roles |
-| [CV database](http://127.0.0.1:5000/recruitment/candidates) | `/recruitment/candidates` | HR roles |
-| [Shortlist reviews](http://127.0.0.1:5000/recruitment/shortlists) | `/recruitment/shortlists` | Department Managers |
-| Interview invitations and regret letters | `/recruitment/jobs/<id>/messages` | HR roles |
-| Interview panel (members, slots, criteria, invitations, results) | `/recruitment/jobs/<id>/panel` | HR roles |
-| [Interviews to score](http://127.0.0.1:5000/recruitment/interviews) | `/recruitment/interviews` | Panel members (managers HR invites) |
-
-**People and organisation (HR)**
-
-| Page | Address | Who can open it |
-|---|---|---|
-| [Employees](http://127.0.0.1:5000/admin/employees) | `/admin/employees` | HR roles |
-| [New employee](http://127.0.0.1:5000/admin/employees/new) | `/admin/employees/new` | HR roles |
-| [Departments, Department Managers and cost centres](http://127.0.0.1:5000/admin/departments) | `/admin/departments` | HR Admin |
-| [Business units, regions, branches, job families](http://127.0.0.1:5000/admin/org-structure) | `/admin/org-structure` | HR Admin |
-
-**System administration (the sidebar's ICT menu, for the IT role)**
-
-| Page | Address | Who can open it |
-|---|---|---|
-| [Approvals dashboard](http://127.0.0.1:5000/approvals/dashboard) | `/approvals/dashboard` | IT |
-| [Users and roles](http://127.0.0.1:5000/admin/users) | `/admin/users` | IT |
-| [New user](http://127.0.0.1:5000/admin/users/new) | `/admin/users/new` | IT |
-| [Routing rules](http://127.0.0.1:5000/admin/rules) | `/admin/rules` | IT |
-| [New routing rule](http://127.0.0.1:5000/admin/rules/new) | `/admin/rules/new` | IT |
-| [Settings, holidays and notification templates](http://127.0.0.1:5000/admin/settings) | `/admin/settings` | IT |
-| [Assets](http://127.0.0.1:5000/admin/assets) | `/admin/assets` | IT |
-| [New asset](http://127.0.0.1:5000/admin/assets/new) | `/admin/assets/new` | IT |
-| [Audit log](http://127.0.0.1:5000/admin/audit) | `/admin/audit` | IT, Compliance |
-| [Integration log](http://127.0.0.1:5000/admin/integrations) | `/admin/integrations` | IT |
-
-**Pages for one record** (open them from the lists above; replace `<id>` with the record's number):
-
-| Address | Page |
-|---|---|
-| `/requisitions/<id>` and `/requisitions/<id>/edit` | A requisition, and editing a draft or returned one |
-| `/positions/<id>` and `/positions/<id>/edit` | A position, and editing it |
-| `/positions/ad-hoc/<id>/edit` | Changing a returned ad-hoc request |
-| `/budget/<id>/edit` | A budget line |
-| `/adverts/new/<requisition id>` | Create an advert from a fully approved requisition |
-| `/adverts/<id>` and `/adverts/<id>/edit` | An advert (approval, channels, views and applications per channel, versions), and editing a draft or returned one |
-| `/adverts/library/<id>/edit` | A job description in the JD library |
-| `/recruitment/jobs/<id>`, `/recruitment/jobs/<id>/export.csv` | A job opening's ranked applicants, and as CSV |
-| `/recruitment/jobs/<id>/edit` | Editing a job imported from the old portal (adverts are edited under `/adverts`) |
-| `/recruitment/candidates/<id>` and `/recruitment/candidates/<id>/cv` | A candidate and their CV |
-| `/admin/employees/<id>`, `/admin/users/<id>`, `/admin/rules/<id>`, `/admin/templates/<id>` | Employee, user, routing rule, notification template |
-| `/admin/assets/<id>` | An asset, with its signed allocation form |
-| `/jobs/<id>` | A vacancy on the public careers site, with step 1 of applying: five yes/no eligibility questions. A "No" sends the applicant to the talent pool page |
-| `/jobs/<id>/apply` | Step 2 of applying: the application form (opens only after the eligibility check is passed) |
-| `/files/<id>` | Download an attachment (permission checked) |
-
-`/admin/login` and `/admin/` are old portal addresses; they redirect to the HR admin sign-in and the dashboard.
-
-## Department accounts
-
-These are the accounts in the current dev database. `python seed.py --department-accounts` creates them on an
-empty database (after `flask db upgrade`). They all use the `SEED_PASSWORD` from `.env` (by default
-`Icebolethu@Test2026`), and each email is `<username>@icebolethu.co.za`.
-
-| Username | Role | Reports to | Signs in at |
-|---|---|---|---|
-| `exco` | GCOO and Exco | | [/login](http://127.0.0.1:5000/login) |
-| `hradmin` | HR Admin | `exco` | [/login](http://127.0.0.1:5000/login) |
-| `grouphr` | Group HR Manager | `exco` | [/login](http://127.0.0.1:5000/login) |
-| `finance` | Finance | `exco` | [/login](http://127.0.0.1:5000/login) |
-| `it` | IT (the ICT menu) | `exco` | [/login](http://127.0.0.1:5000/login) |
-| `lm.<dept>` | Line Manager | `exco` | [/login/manager](http://127.0.0.1:5000/login/manager) |
-| `dm.<dept>` | Department Manager: heads the department and raises its requisitions | the department's `lm.` account | [/login/manager](http://127.0.0.1:5000/login/manager) |
-| `dm.hr` | Department Manager of HR **and HR Manager** (approves job adverts) | `lm.hr` | [/login](http://127.0.0.1:5000/login) (HR admin portal) |
-
-`<dept>` is one of: `hr`, `finance`, `sales`, `operations`, `catering`, `burials`, `ict`, `facilities`, `fleet`,
-`security`, `marketing`, `foundations`, `cleaning`, `risk`, `itravel`. For example, `dm.catering` and
-`lm.catering`. Every account also has the Employee role.
-
-- **Placeholder names:** the accounts have names like "Catering Department Manager". IT can change names
-  and emails in Users & Roles once real people are known.
-- **Shared password:** every account shares one password. Change the passwords before real people use the
-  system, with `flask set-password <username>`, or let each person use **Change password**.
-- **Missing roles:** there are no Recruiter, Payroll or Compliance accounts
-  yet. IT creates them in Users & Roles when they're needed. Until then, approval steps for those roles go
-  to `hradmin`.
-
-**Signing in:** use your own sign-in page (see Links): staff, managers, or the HR admin portal for HR,
-Finance, IT and Exco. Signing in on another group's page sends you to your own. Type either the username or
-the email address, plus the password. The "Continue with Microsoft" button is a placeholder. The system will
-move to Microsoft single sign-on (Entra ID), which also provides two-step verification, so this system has no
-two-step sign-in of its own.
-
-## Test users (full demo only)
-
-These accounts exist only after the full demo seed (`python seed.py` or `python seed.py --accounts-only`).
-**They are not in the current dev database.** The automated tests create their own copies. **Development and
-testing only:** never create these accounts on a production server.
-
-**Password for every test user: `Icebolethu@Test2026`**
-
-This is the default `SEED_PASSWORD` in `.env.example`. If you change `SEED_PASSWORD` in `.env`
-before running `seed.py`, use your value instead.
-
-| Username | Email | Password | Role | Department |
-|---|---|---|---|---|
-| `employee` | `employee@icebolethu.test` | `Icebolethu@Test2026` | Employee | Sales |
-| `linemanager` | `linemanager@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Sales |
-| `hod` | `hod@icebolethu.test` | `Icebolethu@Test2026` | Department Manager | Sales |
-| `panel` | `panel@icebolethu.test` | `Icebolethu@Test2026` | Panel Member | Sales |
-| `hrbp` | `hrbp@icebolethu.test` | `Icebolethu@Test2026` | HR Business Partner | HR |
-| `recruiter` | `recruiter@icebolethu.test` | `Icebolethu@Test2026` | Recruiter | HR |
-| `hrod` | `hrod@icebolethu.test` | `Icebolethu@Test2026` | HR OD | HR |
-| `hrmanager` | `hrmanager@icebolethu.test` | `Icebolethu@Test2026` | HR Manager | HR |
-| `grouphr` | `grouphr@icebolethu.test` | `Icebolethu@Test2026` | Group HR Manager | HR |
-| `hradmin` | `hradmin@icebolethu.test` | `Icebolethu@Test2026` | HR Admin | HR |
-| `finance` | `finance@icebolethu.test` | `Icebolethu@Test2026` | Finance | Finance |
-| `payroll` | `payroll@icebolethu.test` | `Icebolethu@Test2026` | Payroll | Finance |
-| `it` | `it@icebolethu.test` | `Icebolethu@Test2026` | IT | Operations |
-| `assets` | `assets@icebolethu.test` | `Icebolethu@Test2026` | Asset Controller | Operations |
-| `compliance` | `compliance@icebolethu.test` | `Icebolethu@Test2026` | Compliance | Operations |
-| `gcoo` | `gcoo@icebolethu.test` | `Icebolethu@Test2026` | GCOO | Operations |
-| `exco` | `exco@icebolethu.test` | `Icebolethu@Test2026` | Exco | Operations |
-| `lm.catering` | `lm.catering@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Catering |
-| `lm.burials` | `lm.burials@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Burials |
-| `lm.ict` | `lm.ict@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | ICT |
-| `lm.finance` | `lm.finance@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Finance |
-| `lm.facilities` | `lm.facilities@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Facilities |
-| `lm.fleet` | `lm.fleet@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Fleet |
-| `lm.security` | `lm.security@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Security |
-| `lm.marketing` | `lm.marketing@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Marketing |
-| `lm.foundations` | `lm.foundations@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Foundations |
-| `lm.hr` | `lm.hr@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | HR |
-| `lm.cleaning` | `lm.cleaning@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Cleaning |
-| `lm.risk` | `lm.risk@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | Risk & Compliance |
-| `lm.itravel` | `lm.itravel@icebolethu.test` | `Icebolethu@Test2026` | Line Manager | iTravel |
-
-Every test user also has the Employee role.
-
-**Reporting lines in the demo** (these predate the Line Manager / Department Manager order and are kept for
-the demo data):
-- Sales: `employee` → `linemanager` → `hod` → `gcoo`
-- HR: `hrbp`, `recruiter`, `hrod` and `hradmin` → `hrmanager` → `grouphr` → `gcoo`
-- Finance: `payroll` → `finance` → `gcoo`
-- Operations: `it`, `assets` and `compliance` → `gcoo`
-- Department line managers: `lm.hr` → `hrmanager`, `lm.finance` → `finance`, the rest → `gcoo`. The newer
-  departments (Catering, Burials, ICT, Facilities, Fleet, Security, Marketing, Foundations, Cleaning,
-  Risk & Compliance, iTravel) have no Department Manager user yet, so `gcoo` is their Department Manager.
-
-**Old portal login:** `flask import-legacy` also brings across the old portal's `admin` login. It keeps its
-old password, which is upgraded to argon2 at first sign-in, and gets the HR Admin and Recruiter roles.
-
-## Walkthrough (current dev database)
-
-1. **Budget:** sign in as `finance` at [/login](http://127.0.0.1:5000/login) and open **Budget Lines**. Add a line
-   for each cost centre, or import them from CSV (the template is on the import page).
-2. **Positions:** sign in as `hradmin` and open **Approved Positions**. Add positions, or import the register
-   from CSV, and click **Send register for approval** (Finance → Group HR Manager, `grouphr`). Once it's approved,
-   its positions become vacant or filled.
-3. **Raise a requisition:** sign in as a Department Manager, for example `dm.sales` at
-   [/login/manager](http://127.0.0.1:5000/login/manager), and open **Requisitions → New Requisition**. Choose
-   a vacant position: the title, department, cost centre, grade and New / Replacement fill in from it. Choose
-   the employment type and a start date; the budget check shows the CTC (the position's budgeted CTC) and the
-   budget available. Click
-   **Submit for approval**. Line Managers can't raise requisitions; their home page shows
-   **Team requisitions** instead.
-4. **Approve it:** sign in as `lm.sales` (the Department Manager's Line Manager), then `finance`, `grouphr`
-   and `exco`, and open **My Approvals** each time. Approve,
-   return or reject. Approving needs no comment; returning or rejecting asks for a reason. Returning a requisition sends it back to the
-   originator, and resubmitting restarts the chain at level 1.
-5. When the final level approves, the CTC is committed against the cost centre (see **Budget Lines** as
-   `finance`) and the position moves to "In recruitment". Closing the requisition unfilled releases the
-   commitment and makes the position vacant again.
-6. **Ad-hoc positions:** a position that isn't on the register needs an **ad-hoc position request** first
-   (**Ad-hoc Positions → Request a position**). A request from `lm.catering` goes to `finance`, then `exco`. A request
-   from `hradmin` for a Catering position goes to `dm.catering` first, then `finance`, then `exco`.
-7. **Vacancy Dashboard** (as `hradmin`, `finance` or a manager) groups vacancies by business unit, branch,
-   region and more, and exports to Excel.
-8. **Approvals → Delegation** sends your approvals to someone else for a date range.
-   `flask run-sla-checks` sends reminders after 24 business hours and escalates any step past its
-   SLA to the approver's manager.
-9. **Advertising an approved requisition:** open **Job Adverts** as an HR user. Approved requisitions are
-   listed under "Ready to advertise". **Create advert** drafts it from the requisition, its position (title,
-   location, minimum requirements) and the matching JD library entry. Check it, choose channels and
-   **Save and send for approval**. The HR Manager (`dm.hr`) approves it from **My Approvals**: it goes live on
-   the careers site and the chosen channels, and the requisition moves to "Advertised". Links on job portals add
-   `?src=LinkedIn` (the channel's name) so views and applications are counted per channel. Create the advert as
-   `hradmin` (or another HR user), because no one can approve their own advert.
-10. **Shortlist and interviews:** as HR, open the advert under **Job Openings**, move the strongest applicants to
-    **Shortlisted** and click **Send shortlist to …** (the Department Manager of the advert's department, e.g.
-    `dm.ict`). The Department Manager sees it under **Shortlist Reviews** (and on their home page), opens the CVs,
-    ticks who goes to interview and sends the selection to HR. Picked applicants move to **Interview**, the rest
-    to **Not selected**, and HR is notified. HR then clicks **Interview invitations** (enter date, time and venue)
-    and **Regret letters** on the advert to email the applicants; regrets mark them **Rejected**, and every email
-    is kept on the application.
-11. **Interview panel and scoring:** on the advert, click **Interview panel**. The Department Manager is already on
-    it; invite more managers from the business (managers only), give each candidate a date, time and venue, adjust
-    the scoring criteria if needed (weights total 100), and click **Send invitations**. Panellists get a
-    notification, an email and a calendar invite, and the candidates get their interview invitation. Each panellist
-    opens **Interviews to score** (or the task on their home page), reads the CV and, after the interview, scores
-    every criterion 1–5 with a recommendation. They see the other scores only after submitting their own. The panel
-    page ranks the candidates by the panel's combined score.
+- **Database:** `DATABASE_URL=postgresql+psycopg://…?sslmode=require`. The migrations haven't been run on
+  Postgres yet, so run `flask db upgrade` on a staging database first.
+- **Files:** `FILE_STORAGE=s3` with `S3_BUCKET` (region `af-south-1` by default). Every upload and generated PDF is
+  stored there, encrypted at rest. Keep the bucket private: people download through the app, which checks their
+  permissions. Give the server an IAM role rather than access keys. `flask upload-files-to-s3` copies existing
+  files from a server's disk once.
+- **Behind a load balancer or nginx:** set `PROXY_FIX_HOPS` (usually 1) so the app sees real client IPs and HTTPS,
+  and `SESSION_COOKIE_SECURE=1`.
+- **Encryption key:** `FERNET_KEY` encrypts ID numbers, bank details and Take-On forms. Keep it in a secrets vault;
+  moving existing data needs the same key.
+- **Email:** use a company mailbox and leave `EMAIL_COPY_TO` empty (emails carry personal information).
+- Production always runs with the debugger off.
 
 ## Scheduled jobs
 
-Run these with Windows Task Scheduler or cron, from the project folder with the venv active:
+Run these with cron or Windows Task Scheduler, from the project folder with the virtual environment active:
 
 | Command | When |
 |---|---|
-| `flask run-sla-checks` | Hourly during business hours |
+| `flask run-sla-checks` | Hourly during business hours: approval reminders and escalations |
 | `flask close-expired-adverts` | Daily, just after midnight |
+| `flask expire-offers` | Daily: offers past their answer-by date lapse |
 | `flask remind-jd-reviews` | Daily |
 
 ## Commands
@@ -374,67 +181,98 @@ Run these with Windows Task Scheduler or cron, from the project folder with the 
 | Command | Purpose |
 |---|---|
 | `flask db upgrade` | Create or upgrade the database schema |
-| `python seed.py --department-accounts` | Departments, reference data and the department accounts, with no demo data (how the current dev database was built) |
-| `python seed.py` | The full demo data and test users. Safe to run again. |
-| `python seed.py --accounts-only` | The test users, departments and reference data only |
-| `python seed_ict_demo.py` | Dummy ICT recruitment data: 30 open ICT adverts (with positions and requisitions), 150 applicants, about 385 applications; the first 10 adverts have 3 shortlisted applicants each. Needs the department accounts. |
-| `python seed_ict_demo.py --positions` | Dummy approved ICT establishment: the ICT Line Manager, Department Manager and IT Administrator posts (filled by those accounts), 19 vacant seats and 2 frozen ones, reporting to the Department Manager |
-| `python seed_ict_demo.py --remove` | Delete exactly the ICT dummy data (adverts, applicants and the establishment; seats with a real requisition are kept) |
-| `flask import-legacy [--path portal.db]` | Copy the original portal's data. Safe to run again. |
+| `flask seed-reference-data` | First-time setup of a new database. Safe to run again: it only adds what's missing |
+| `flask create-user <username> --email … --name … --role …` | Create an account (repeat `--role` for several) |
 | `flask set-password <username>` | Reset a user's password |
-| `flask reprocess-cvs` | Re-read every CV and re-score every application |
-| `python -m pytest --cov=app/services` | Tests with coverage |
+| `flask upload-files-to-s3 [--from-folder …]` | Copy stored files from disk to the S3 bucket |
+| `flask reprocess-cvs` | Re-read every CV and re-score every application (after ATS changes) |
+| `flask send-test-email --to <address>` | Check the email settings |
+| `flask send-email-samples --to <address>` | Email one filled-in sample of every email template |
+| `flask import-legacy [--path portal.db]` | Copy the original recruitment portal's data, if you have its `portal.db` |
+| `python -m pytest --cov=app/services` | The tests, with coverage (the test files are kept on the development machine) |
+
+## Main pages
+
+With the app running locally, every page is at `http://127.0.0.1:5000` (if port 5000 is busy, `run.py` picks the
+next free one and prints it).
+
+| Area | Address | Who |
+|---|---|---|
+| Sign-in: staff, managers, HR admin portal | `/login/staff`, `/login/manager`, `/login` | Everyone, on their own page |
+| Careers site, talent pool, application status | `/`, `/talent-pool`, `/status` | Public |
+| Dashboard, My Approvals, delegation | `/dashboard`, `/approvals/`, `/approvals/delegations` | All staff |
+| My Profile (with Appearance), notifications, password | `/me`, `/notifications`, `/account` | All staff |
+| Requisitions | `/requisitions/` | Managers, HR, Finance, GCOO, Exco |
+| Approved positions, ad-hoc requests, vacancy dashboard | `/positions/`, `/positions/ad-hoc`, `/positions/dashboard` | Managers, HR, Finance, GCOO, Exco |
+| Budget lines and report | `/budget/`, `/budget/report` | Finance, HR |
+| Job adverts and JD library | `/adverts/`, `/adverts/library` | HR, Talent Acquisition |
+| Recruitment: openings, CV database, shortlists, interviews | `/recruitment/` | HR, Talent Acquisition; Department Managers for shortlists; panellists for scoring |
+| Onboarding: background checks, offers, new starters, letter and forms | `/onboarding` | HR Admin, HR Manager, Group HR; HR BPs for their departments |
+| Employees, departments, org structure | `/admin/employees`, `/admin/departments`, `/admin/org-structure` | HR |
+| Travel requests and the i-Travel dashboard | `/travel`, `/travel/dashboard` | All staff; i-Travel and Finance |
+| System administration (ICT menu) | `/admin/users`, `/admin/rules`, `/admin/settings`, `/admin/assets`, `/admin/audit` | IT (Compliance: audit log) |
+
+**Links candidates get by email** (secure, single-purpose; they stop working once used):
+
+| Link | Purpose |
+|---|---|
+| `/background-checks/<token>` | Give or refuse consent to the background checks and upload the MIE form |
+| `/offer/<token>` | Read the offer letter, accept (documents and Code of Conduct) or decline |
+| `/new-starter/<token>` | The new starter pack: the Take-On form and the forms to upload |
 
 ## Project layout
 
 ```
 app/
-  models/         one file per domain (org, user, system, workflow, budget, requisition, recruitment)
-  services/       business rules: workflow engine, budget, requisitions, audit, notifications, calendar,
-                  references, files, positions register, adverts, ATS scoring (ats.py), careers
-  integrations/   interface + Mock* adapter per external system (payroll, ERP, AD, LMS, job portals...)
-  auth/ admin/ portal/ dashboards/ requisitions/ positions/ approvals/ budget/ adverts/ recruitment/   one Blueprint each
-  templates/ static/   shared layout and the one stylesheet (IGSP admin look for staff pages)
-legacy/           the original single-file portal (app.py, ats.py, seed_dummy.py), kept unchanged for reference
-migrations/  tests/  seed.py  run.py
+  models/         one file per domain (org, user, system, workflow, budget, requisition, recruitment,
+                  onboarding, travel)
+  services/       business rules: workflow engine, budget, requisitions, positions, adverts, ATS scoring (ats.py),
+                  careers, interviews, shortlisting, screening (background checks), onboarding, starter pack,
+                  candidate forms, documents (letters), emails, files (local disk or S3), travel, audit...
+  integrations/   an interface and a mock adapter per external system (payroll, ERP, AD, LMS, job portals,
+                  screening...); email has a live SMTP adapter
+  auth/ admin/ portal/ dashboards/ requisitions/ positions/ approvals/ budget/ adverts/ recruitment/
+  onboarding/ travel/                                    one Flask blueprint each
+  templates/      pages, emails (email/) and letters (documents/)
+  static/         the one stylesheet (style.css), images, js/ (the document viewer) and forms/ (the blank
+                  forms candidates download; HR Admin can replace them)
+migrations/       Alembic migrations (flask db upgrade)
+run.py            development server and the WSGI app for gunicorn (run:app)
 ```
 
 ## How the ATS score works (`app/services/ats.py`)
 
-| Component | Weight | How it's measured |
+| Component | Standard weight | How it's measured |
 |---|---|---|
-| Required skills | 45% | Share of the job's required skills found in the CV and skills field |
-| Preferred skills | 15% | Share of preferred skills found |
-| Experience | 20% | Stated years (or years detected in the CV) ÷ job minimum |
-| Education | 10% | Highest qualification (form or detected in the CV) vs job minimum |
-| Job-description fit | 10% | Overlap with key terms in the job title and description |
+| Required skills | 45% | Share of the advert's required skills found in the CV, the skills and the job title |
+| Preferred skills | 15% | Share of the preferred skills found |
+| Experience | 20% | Stated years (or years found in the CV) against the minimum |
+| Education | 10% | Highest qualification (stated or found in the CV) against the minimum |
+| Job-description fit | 10% | Overlap with the key terms of the job title and description |
 
-These are the standard weights. Each job description in the **JD Library** can set its own (they must add up to
-100; 0 leaves a part out), and an advert drafted from it scores its applicants with those weights. Criteria left
-blank on a job are skipped, and the remaining weights are rescaled to 100%.
+Each JD in the library can set its own weights (they must add up to 100; 0 leaves a part out), and adverts drafted
+from it use them. Parts that don't apply to an advert are skipped and the rest are rescaled to 100%.
 
-## Security and data protection
+Skills match their common variants and synonyms (for example "Office 365" and "Microsoft 365"), and a skill of two
+to four words also counts when its words appear close together in one sentence or line. Requirements written as
+sentences (pasted from a JD) are split into separate requirements. Scanned CVs with no text can't be read (there's
+no OCR).
 
-- Sign-in will move to Microsoft SSO (Entra ID), which provides MFA and account protection, so this
-  system doesn't lock accounts itself. Until then, test passwords are hashed with argon2, every failed
-  sign-in is recorded in the audit log, and sign-in attempts are rate-limited.
-- Sessions time out after 30 minutes idle. Every form is protected against CSRF.
-- Secrets come only from `.env`, which is never committed.
-- ID numbers and bank details are encrypted at rest with `FERNET_KEY`. **Back up this
-  key:** without it, those fields can't be read.
-- Uploads are stored in `instance/uploads` under random names. Only PDF, DOCX, XLSX, JPG and PNG
-  files up to 10 MB are accepted, and permission is checked on every download.
-- The audit log is append-only. It records sign-ins, every change (with before and after values),
-  approvals, file access and configuration changes.
-- **Deployment:** serve over HTTPS (TLS 1.2 or newer) behind IIS, nginx or a load balancer, and set
-  `SESSION_COOKIE_SECURE=1` and `APP_ENV=production`. Run with a WSGI server such as `waitress` on
-  Windows or `gunicorn` on Linux.
-- **Data residency:** host the application, database and backups in South Africa (POPIA).
-- **Backups (RPO ≤ 1 h, RTO ≤ 4 h):**
-  - SQL Server or PostgreSQL: hourly log backups and a nightly full backup, copied off-site to a
-    South African region.
-  - Back up `instance/uploads` hourly as well, and keep `.env` (including `FERNET_KEY`) in a secrets
-    vault.
-  - Test a restore every quarter.
-- **Switching database:** set `DATABASE_URL` (examples are in `.env.example`), install the driver,
-  then run `flask db upgrade`.
+## Security and data protection (POPIA)
+
+- **Sign-in:** argon2-hashed passwords, rate-limited sign-in attempts, and every failed sign-in in the audit log.
+  Sign-in will move to Microsoft single sign-on (Entra ID), which also provides two-step verification.
+- **Sessions and forms:** sessions time out after 30 minutes idle, and every form is protected against CSRF.
+- **Encryption:** ID numbers, bank details and the Take-On form are encrypted at rest with `FERNET_KEY`. Without
+  that key they can't be read, so back it up.
+- **Files** are stored under random names on disk or in a private S3 bucket. Only PDF, DOCX, XLSX, JPG and PNG up
+  to 10 MB are accepted, and permission is checked on every download.
+- **Employment-equity details** asked of applicants are voluntary ("Prefer not to say"), never used in scoring and
+  not shown to shortlisting or the interview panel.
+- **Consent:** applicants consent to POPIA when applying, and candidates consent separately to background checks.
+- **Audit log:** append-only. It records sign-ins, every change (before and after), approvals, file access and
+  configuration changes.
+- **Secrets** come only from `.env`, which is never committed.
+- **Hosting:** keep the application, database, files and backups in South Africa (AWS `af-south-1`).
+- **Backups:** database snapshots with point-in-time recovery (RPO ≤ 1 hour, RTO ≤ 4 hours), S3 versioning on the
+  files bucket, and the `.env` secrets in a vault. Test a restore every quarter.
