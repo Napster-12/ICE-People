@@ -75,10 +75,10 @@ def upgrade():
     if not conn.execute(sa.text("SELECT 1 FROM roles WHERE name = 'i-Travel'")).first():
         conn.execute(sa.text("INSERT INTO roles (name) VALUES ('i-Travel')"))
     for workflow_type, level, name, approver in RULES:
-        if not conn.execute(sa.text("SELECT 1 FROM routing_rules WHERE workflow_type = :t AND active = 1"),
+        if not conn.execute(sa.text("SELECT 1 FROM routing_rules WHERE workflow_type = :t AND active = TRUE"),
                             {"t": workflow_type}).first():
             conn.execute(sa.text("INSERT INTO routing_rules (workflow_type, level, name, approver, condition, sla_days, "
-                                 "active) VALUES (:t, :l, :n, :a, '', 2, 1)"),
+                                 "active) VALUES (:t, :l, :n, :a, '', 2, TRUE)"),
                          {"t": workflow_type, "l": level, "n": name, "a": approver})
     if not conn.execute(sa.text("SELECT 1 FROM settings WHERE key = 'itravel_email'")).first():
         from app.services.settings import DEFAULTS

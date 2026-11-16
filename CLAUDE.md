@@ -451,9 +451,20 @@ Read it in full before any build work and follow its §0 process:
   i-Travel); Finance then marks it Paid. Staff home: "Travel request" tile (and "i-Travel dashboard" for that role);
   "My fleet" is still a Coming soon tile. Nobody holds the i-Travel role yet: IT assigns it. Tests:
   `tests/test_travel.py`.
-- **Tests:** run `python -m pytest --cov=app/services`. 357 tests pass, with 92% coverage on
+- **Tests:** run `python -m pytest --cov=app/services`. 373 tests pass, with 92% coverage on
   services. Interview test slots are in 2036 so they never count as started. Fixtures are in `tests/conftest.py` (`login(client, "finance")`, `make_position`, `make_requisition`; each test requisition gets its own
   vacant position).
+- **Production** (16 Nov 2026, at the user's request: PostgreSQL and S3): `.env.production.example` lists every
+  setting with first-deploy steps. `DATABASE_URL` takes `postgresql+psycopg://` (`postgres://` is rewritten,
+  `config._database_url`), with `pool_pre_ping`. Migrations must stay Postgres-safe: booleans as `TRUE`/`FALSE`, not
+  1/0 (fixed in five older migrations); they have **not been run on a real Postgres yet** (none available locally),
+  so run `flask db upgrade` on staging first. `FILE_STORAGE=s3` (`S3_BUCKET`, `S3_PREFIX`, `AWS_REGION` default
+  af-south-1, optional `S3_KMS_KEY_ID`) keeps files in a private bucket, SSE encrypted; only `files._put/_get/
+  _remove/local_copy` touch storage, so never open stored files by path (use `files.read` or `files.local_copy`).
+  `PROXY_FIX_HOPS` trusts the load balancer's X-Forwarded-* headers. Production forces `DEBUG` off. First-time setup:
+  `flask seed-reference-data`, `flask create-user <username> --email --name --role IT`; moving files:
+  `flask upload-files-to-s3`. `requirements.txt` now includes psycopg, boto3 and gunicorn
+  (`gunicorn run:app`). Tests: `tests/test_production_settings.py` (a fake in-memory S3).
 - **Scheduled jobs:** `flask run-sla-checks` (hourly), `flask close-expired-adverts`, `flask remind-jd-reviews` and
   `flask expire-offers` (daily).
 - **Email is live** (6 Nov 2026, at the user's request): `MAIL_PROVIDER=smtp` in `.env` selects

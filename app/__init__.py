@@ -15,11 +15,19 @@ def create_app(config_name=None, overrides=None):
     app = Flask(__name__, instance_path=INSTANCE_DIR)
     app.config.from_object(CONFIGS[config_name])
     app.config.update(overrides or {})
+    if config_name == "production":
+        app.debug = False                          # FLASK_DEBUG in the environment can't switch the debugger on
     if not app.config.get("SECRET_KEY") or not app.config.get("FERNET_KEY"):
         raise RuntimeError("SECRET_KEY and FERNET_KEY must be set. Copy .env.example to .env and fill them in "
                            "(see README.md).")
     os.makedirs(app.instance_path, exist_ok=True)
     logging.basicConfig(level=logging.INFO)
+    hops = app.config.get("PROXY_FIX_HOPS", 0)
+    if hops:                                       # behind a load balancer / reverse proxy (16 Nov 2026)
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops, x_port=hops)
+    if app.config.get("FILE_STORAGE") == "s3" and not app.config.get("S3_BUCKET"):
+        raise RuntimeError("FILE_STORAGE=s3 needs S3_BUCKET.")
 
     db.init_app(app)
     migrate.init_app(app, db, render_as_batch=True)

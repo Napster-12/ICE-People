@@ -250,14 +250,18 @@ def pdf(title, body, ref=None):
     """The document as PDF bytes, on the letterhead."""
     from xhtml2pdf import pisa
 
+    import contextlib
+
     from app.services import files
     sig = signature_file()
-    html = current_app.jinja_env.get_template("documents/letter.html").render(
-        title=title, blocks=blocks(body), ref=ref, rich=rich, letterhead=LETTERHEAD,
-        logo=os.path.join(STATIC, "logo.png"), images=os.path.join(STATIC, "documents"),
-        signature=files.path_for(sig) if sig else None)
-    out = io.BytesIO()
-    result = pisa.CreatePDF(html, dest=out, encoding="utf-8")
+    # The signature image needs a path on disk; with S3 storage that's a temporary copy (16 Nov 2026).
+    with (files.local_copy(sig) if sig else contextlib.nullcontext(None)) as sig_path:
+        html = current_app.jinja_env.get_template("documents/letter.html").render(
+            title=title, blocks=blocks(body), ref=ref, rich=rich, letterhead=LETTERHEAD,
+            logo=os.path.join(STATIC, "logo.png"), images=os.path.join(STATIC, "documents"),
+            signature=sig_path)
+        out = io.BytesIO()
+        result = pisa.CreatePDF(html, dest=out, encoding="utf-8")
     if result.err:
         raise DomainError("The PDF couldn't be made. Check the template.")
     return out.getvalue()

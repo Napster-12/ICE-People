@@ -30,16 +30,16 @@ NEW_RULES = [
 def upgrade():
     """The old rules are kept but switched off; requisitions already in approval keep their steps."""
     conn = op.get_bind()
-    conn.execute(sa.text("UPDATE routing_rules SET active = 0 WHERE workflow_type = 'requisition'"))
+    conn.execute(sa.text("UPDATE routing_rules SET active = FALSE WHERE workflow_type = 'requisition'"))
     for level, name, approver, condition, sla in NEW_RULES:
         conn.execute(sa.text("INSERT INTO routing_rules (workflow_type, level, name, approver, condition, sla_days, "
-                             "active) VALUES ('requisition', :l, :n, :a, :c, :sla, 1)"),
+                             "active) VALUES ('requisition', :l, :n, :a, :c, :sla, TRUE)"),
                      {"l": level, "n": name, "a": approver, "c": condition, "sla": sla})
 
 
 def downgrade():
     conn = op.get_bind()
-    conn.execute(sa.text("DELETE FROM routing_rules WHERE workflow_type = 'requisition' AND active = 1"))
-    conn.execute(sa.text("UPDATE routing_rules SET active = 1 WHERE workflow_type = 'requisition' "
+    conn.execute(sa.text("DELETE FROM routing_rules WHERE workflow_type = 'requisition' AND active = TRUE"))
+    conn.execute(sa.text("UPDATE routing_rules SET active = TRUE WHERE workflow_type = 'requisition' "
                          "AND id IN (SELECT MAX(id) FROM routing_rules WHERE workflow_type = 'requisition' "
                          "GROUP BY level, approver)"))

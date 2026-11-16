@@ -17,6 +17,15 @@ def _bool(name, default):
 
 INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
 
+
+def _database_url():
+    """DATABASE_URL, with postgres:// (as some hosts give it) turned into SQLAlchemy's psycopg 3 form."""
+    url = os.environ.get("DATABASE_URL", "").strip()
+    for old in ("postgres://", "postgresql://"):
+        if url.startswith(old):
+            return "postgresql+psycopg://" + url[len(old):]
+    return url
+
 MOCK_INTEGRATIONS = {
     "payroll": "app.integrations.payroll:MockPayroll",
     "erp": "app.integrations.erp:MockERP",
@@ -36,11 +45,22 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     FERNET_KEY = os.environ.get("FERNET_KEY")
 
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or (
-        "sqlite:///" + os.path.join(INSTANCE_DIR, "hr.db"))
+    SQLALCHEMY_DATABASE_URI = _database_url() or ("sqlite:///" + os.path.join(INSTANCE_DIR, "hr.db"))
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Re-check pooled connections before use: managed Postgres (e.g. AWS RDS) drops idle ones (16 Nov 2026).
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 1800}
+    # Behind a load balancer or reverse proxy: how many proxies to trust for the client IP, HTTPS and host
+    # (X-Forwarded-*). 0 when the app is reached directly. Needed for the sign-in rate limit and audit IPs.
+    PROXY_FIX_HOPS = int(os.environ.get("PROXY_FIX_HOPS", 0))
 
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER") or os.path.join(INSTANCE_DIR, "uploads")
+    # Where uploaded and generated files are kept (16 Nov 2026): "local" (UPLOAD_FOLDER) or "s3" (a private bucket,
+    # encrypted at rest; credentials from the server's IAM role or the AWS_* environment variables).
+    FILE_STORAGE = os.environ.get("FILE_STORAGE", "local").strip().lower()
+    S3_BUCKET = os.environ.get("S3_BUCKET", "")
+    S3_PREFIX = os.environ.get("S3_PREFIX", "uploads")
+    S3_KMS_KEY_ID = os.environ.get("S3_KMS_KEY_ID", "")            # blank: SSE-S3 (AES-256)
+    AWS_REGION = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "af-south-1"
     MAX_UPLOAD_BYTES = 10 * 1024 * 1024          # per file
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024       # per request (several attachments: an offer's onboarding documents)
     ALLOWED_UPLOADS = {".pdf", ".docx", ".xlsx", ".jpg", ".jpeg", ".png"}
@@ -92,7 +112,10 @@ class DevelopmentConfig(Config):
 
 
 class ProductionConfig(Config):
+    DEBUG = False                     # never the debugger in production, whatever FLASK_DEBUG says (16 Nov 2026)
     TEMPLATES_AUTO_RELOAD = False
+    # Behind a load balancer / reverse proxy that terminates HTTPS (see .env.production.example).
+    PREFERRED_URL_SCHEME = "https"
 
 
 class TestingConfig(Config):
@@ -100,6 +123,7 @@ class TestingConfig(Config):
     SECRET_KEY = "test-secret"
     FERNET_KEY = "l5yDmgolSwF7VWSjYOUYRiAFWEkCj99y5igIwomesHM="
     SQLALCHEMY_DATABASE_URI = "sqlite://"
+    FILE_STORAGE = "local"                         # tests never touch S3, whatever .env says
     WTF_CSRF_ENABLED = False
     RATELIMIT_ENABLED = False
     SESSION_COOKIE_SECURE = False

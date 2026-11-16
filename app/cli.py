@@ -99,6 +99,72 @@ def register_cli(app):
         db.session.commit()
         click.echo(f"{count} offer(s) expired.")
 
+    @app.cli.command("seed-reference-data")
+    def seed_reference_data_command():
+        """First-time setup of a new database (after flask db upgrade): roles, occupational levels, public holidays,
+        approval chains, settings and templates. Safe to run again: it only adds what's missing."""
+        from app.services.reference_data import seed_reference_data
+        seed_reference_data()
+        db.session.commit()
+        click.echo("Reference data is in place.")
+
+    @app.cli.command("create-user")
+    @click.argument("username")
+    @click.option("--email", required=True)
+    @click.option("--name", "full_name", required=True, help='Full name, e.g. "ICT Administrator"')
+    @click.option("--role", "roles", multiple=True, required=True, help='A role, e.g. --role IT (repeatable)')
+    def create_user(username, email, full_name, roles):
+        """Create a sign-in account, e.g. the first IT administrator on a new system. Asks for the password."""
+        from app.models import Role, User
+        from app.services import audit
+        if User.query.filter((User.username == username) | (User.email == email.lower())).first():
+            sys.exit("That username or email is already used.")
+        found = Role.query.filter(Role.name.in_(roles)).all()
+        missing = set(roles) - {r.name for r in found}
+        if missing:
+            sys.exit("Unknown role(s): " + ", ".join(sorted(missing)) + ". Run flask seed-reference-data first.")
+        password = getpass.getpass("Password: ")
+        if len(password) < 10:
+            sys.exit("Password must be at least 10 characters.")
+        user = User(username=username, email=email.lower(), full_name=full_name, roles=found)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.flush()
+        audit.record("create", "user", user.id, after={"username": username, "roles": sorted(roles)},
+                     detail="flask create-user")
+        db.session.commit()
+        click.echo(f"Created {username} ({', '.join(sorted(roles))}).")
+
+    @app.cli.command("upload-files-to-s3")
+    @click.option("--from-folder", default=None, help="Where the files are now (default: UPLOAD_FOLDER).")
+    def upload_files_to_s3(from_folder):
+        """Copy every stored file from the local upload folder to the S3 bucket (once, when moving to
+        FILE_STORAGE=s3). Files already in the bucket are skipped; the local copies are left alone."""
+        import os
+        from flask import current_app
+        from app.models import StoredFile
+        from app.services import files
+        if current_app.config.get("FILE_STORAGE") != "s3":
+            sys.exit("Set FILE_STORAGE=s3 (and S3_BUCKET) first.")
+        folder = from_folder or current_app.config["UPLOAD_FOLDER"]
+        client, bucket = files.s3_client(), current_app.config["S3_BUCKET"]
+        copied = skipped = missing = 0
+        for stored in StoredFile.query.order_by(StoredFile.id):
+            path = os.path.join(folder, stored.stored_name)
+            if not os.path.exists(path):
+                missing += 1
+                continue
+            try:
+                client.head_object(Bucket=bucket, Key=files._key(stored.stored_name))
+                skipped += 1
+                continue
+            except client.exceptions.ClientError:
+                pass
+            with open(path, "rb") as f:
+                files._put(stored.stored_name, f.read(), stored.content_type)
+            copied += 1
+        click.echo(f"Copied {copied}, already there {skipped}, not found locally {missing}.")
+
     @app.cli.command("set-password")
     @click.argument("username")
     def set_password(username):

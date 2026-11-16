@@ -177,7 +177,7 @@ def split_positions():
             result = conn.execute(sa.text(
                 "INSERT INTO approved_positions (department_id, cost_centre_id, job_grade_id, title, headcount, "
                 "financial_year, critical, status, is_ad_hoc, position_number, created_at, updated_at) "
-                "VALUES (:d, :cc, :g, :t, 1, :fy, :c, 'Vacant', 0, :n, :s, :s)"),
+                "VALUES (:d, :cc, :g, :t, 1, :fy, :c, 'Vacant', FALSE, :n, :s, :s)"),
                 {"d": row["department_id"], "cc": row["cost_centre_id"], "g": row["job_grade_id"], "t": row["title"],
                  "fy": row["financial_year"], "c": row["critical"], "n": number(), "s": stamp})
             seats.append(result.lastrowid)
@@ -236,14 +236,14 @@ def update_reference_data():
     conn = op.get_bind()
     if not conn.execute(sa.text("SELECT 1 FROM roles WHERE name = 'Exco'")).first():
         conn.execute(sa.text("INSERT INTO roles (name) VALUES ('Exco')"))
-    conn.execute(sa.text("UPDATE routing_rules SET active = 0 WHERE workflow_type = 'requisition'"))
+    conn.execute(sa.text("UPDATE routing_rules SET active = FALSE WHERE workflow_type = 'requisition'"))
     for workflow_type, rules in NEW_RULES.items():
-        if conn.execute(sa.text("SELECT 1 FROM routing_rules WHERE workflow_type = :w AND active = 1"),
+        if conn.execute(sa.text("SELECT 1 FROM routing_rules WHERE workflow_type = :w AND active = TRUE"),
                         {"w": workflow_type}).first():
             continue
         for level, name, approver, sla in rules:
             conn.execute(sa.text("INSERT INTO routing_rules (workflow_type, level, name, approver, condition, "
-                                 "sla_days, active) VALUES (:w, :l, :n, :a, '', :sla, 1)"),
+                                 "sla_days, active) VALUES (:w, :l, :n, :a, '', :sla, TRUE)"),
                          {"w": workflow_type, "l": level, "n": name, "a": approver, "sla": sla})
 
 

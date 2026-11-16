@@ -22,13 +22,13 @@ def upgrade():
     """Requisitions already in approval keep the steps they started with."""
     conn = op.get_bind()
     conn.execute(sa.text("UPDATE routing_rules SET condition = 'raised_by == \"Manager\"' "
-                         "WHERE workflow_type = 'requisition' AND active = 1 AND level = 1 "
+                         "WHERE workflow_type = 'requisition' AND active = TRUE AND level = 1 "
                          "AND approver = '@line_manager_or_hod' AND (condition = '' OR condition IS NULL)"))
-    if not conn.execute(sa.text("SELECT 1 FROM routing_rules WHERE workflow_type = 'requisition' AND active = 1 "
+    if not conn.execute(sa.text("SELECT 1 FROM routing_rules WHERE workflow_type = 'requisition' AND active = TRUE "
                                 "AND approver = '@department_manager'")).first():
         conn.execute(sa.text("INSERT INTO routing_rules (workflow_type, level, name, approver, condition, sla_days, "
                              "active) VALUES ('requisition', 1, 'Department manager', '@department_manager', "
-                             "'raised_by == \"HR\"', 2, 1)"))
+                             "'raised_by == \"HR\"', 2, TRUE)"))
 
 
 def downgrade():
