@@ -3,9 +3,9 @@ from datetime import date, timedelta
 
 from app.extensions import db
 from app.models import JobGrade, PublicHoliday, Role, RoutingRule
-from app.models.user import ALL_ROLES, FINANCE, GROUP_HR, HR_MANAGER
+from app.models.user import ALL_ROLES, FINANCE, HR_MANAGER
 from app.models.workflow import (DEPARTMENT_LINE_MANAGER, DEPARTMENT_MANAGER, FINANCE_DEPARTMENT_MANAGER,
-                                 GCOO_OR_EXCO)
+                                 GCOO_OR_EXCO, HR_DEPARTMENT_MANAGER, ORIGINATOR_MANAGER)
 from app.services import documents, notifications, settings
 from app.services.calendar import observed_holidays
 
@@ -16,6 +16,8 @@ FIXED_HOLIDAYS = [
 ]
 EASTER_SUNDAY = {2026: date(2026, 4, 5), 2027: date(2027, 3, 28)}
 
+# 10 Nov 2026, at the user's request: the Group HR Manager is the HR Department Manager, so its steps go to the
+# head of the HR department (HR_DEPARTMENT_MANAGER).
 # Default approval chains (spec §15.3, decided 28 Oct 2026): workflow type -> [(level, name, approver, condition, SLA)].
 DEFAULT_RULES = {
     # Decided 31 Oct 2026: Department Manager → Line Manager → Finance → Group HR → Exco. The Department Manager
@@ -24,7 +26,7 @@ DEFAULT_RULES = {
         (1, "Department manager", DEPARTMENT_MANAGER, 'raised_by == "HR"', 2),
         (2, "Line manager", DEPARTMENT_LINE_MANAGER, "", 2),
         (3, "Finance", FINANCE, "", 3),
-        (4, "Group HR Manager", GROUP_HR, "", 3),
+        (4, "Group HR Manager", HR_DEPARTMENT_MANAGER, "", 3),
         (5, "GCOO / Exco", GCOO_OR_EXCO, "", 5),
     ],
     # Decided 31 Oct 2026: a manager's request goes to Finance then Exco; HR's request starts with the
@@ -37,16 +39,24 @@ DEFAULT_RULES = {
     # 8 Nov 2026, at the user's request: the Finance Department Manager approves the register (was the Finance role).
     "position_register": [
         (1, "Finance Department Manager", FINANCE_DEPARTMENT_MANAGER, "", 5),
-        (2, "Group HR Manager", GROUP_HR, "", 5),
+        (2, "Group HR Manager", HR_DEPARTMENT_MANAGER, "", 5),
     ],
     "position_change": [
         (1, "Finance", FINANCE, "", 3),
-        (2, "Group HR Manager", GROUP_HR, "", 3),
+        (2, "Group HR Manager", HR_DEPARTMENT_MANAGER, "", 3),
     ],
     "advert": [  # spec §4.4: the HR Manager approves every advert before it is published
         (1, "HR Manager", HR_MANAGER, "", 2),
     ],
     "offer": [  # spec IN-009: an offer above the costed CTC goes to Finance before it is released
+        (1, "Finance", FINANCE, "", 2),
+    ],
+    # 14 Nov 2026, at the user's request: the requester's manager is the only approver of a travel request; i-Travel
+    # then sends the booking to Finance for a payment requisition.
+    "travel": [
+        (1, "Manager", ORIGINATOR_MANAGER, "", 2),
+    ],
+    "travel_payment": [
         (1, "Finance", FINANCE, "", 2),
     ],
 }

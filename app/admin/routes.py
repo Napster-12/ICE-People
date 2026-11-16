@@ -1,5 +1,6 @@
 """Configuration: users and roles, employees, departments, routing rules, settings, public holidays,
 notification templates, the asset register, audit log and integration log. HR keeps the people pages; ICT (the IT role) owns the rest."""
+import re
 from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
@@ -14,6 +15,7 @@ from app.models import (ApprovedPosition, Asset, AuditLog, Branch, BusinessUnit,
 from app.models.org import ASSET_STATUSES, EMPLOYEE_STATUSES, EMPLOYMENT_TYPES
 from app.models.user import COMPLIANCE, GROUP_HR, HR_ADMIN, HR_MANAGER, HR_ROLES, HRBP, IT
 from app.models.workflow import SPECIAL_APPROVERS
+from app.services import employee_documents
 from app.services import audit, files, onboarding, positions, settings
 from app.services.conditions import ConditionError, validate
 from app.services.errors import DomainError
@@ -236,7 +238,8 @@ def employee_form(emp_id=None):
         positions=ApprovedPosition.query.filter(ApprovedPosition.status.notin_(["Abolished", "Rejected"]))
         .order_by(ApprovedPosition.title, ApprovedPosition.position_number).all(),
         managers=Employee.query.filter(Employee.status.notin_(["Exited", "Archived"])).order_by(Employee.last_name).all(),
-        statuses=EMPLOYEE_STATUSES, employment_types=EMPLOYMENT_TYPES)
+        statuses=EMPLOYEE_STATUSES, employment_types=EMPLOYMENT_TYPES,
+        documents=employee_documents.collect(emp, current_user) if emp else [])
 
 
 # ------------------------------------------------------------ departments
@@ -257,7 +260,7 @@ def departments():
                 flash("That department code is taken.", "error")
             else:
                 before = {"code": dept.code, "name": dept.name, "hod": dept.hod_employee_id,
-                          "job_family": dept.job_family_id} if dept else None
+                          "job_family": dept.job_family_id, "hrbp": dept.hrbp_user_id} if dept else None
                 if dept is None:
                     dept = Department(code=code, name=name)
                     db.session.add(dept)
@@ -265,10 +268,13 @@ def departments():
                 dept.hod_employee_id = f.get("hod_employee_id", type=int) or None
                 dept.business_unit_id = f.get("business_unit_id", type=int) or None
                 dept.job_family_id = f.get("job_family_id", type=int) or None
+                hrbp = db.session.get(User, f.get("hrbp_user_id", type=int) or 0)
+                dept.hrbp_user_id = hrbp.id if hrbp is not None and hrbp.has_role(HRBP) else None
                 db.session.flush()
                 audit.record("config.department", "department", dept.id, before=before,
                              after={"code": code, "name": name, "hod": dept.hod_employee_id,
-                                    "business_unit": dept.business_unit_id, "job_family": dept.job_family_id})
+                                    "business_unit": dept.business_unit_id, "job_family": dept.job_family_id,
+                                    "hrbp": dept.hrbp_user_id})
                 db.session.commit()
                 flash("Department saved.", "success")
         elif kind == "cost_centre":
@@ -286,7 +292,9 @@ def departments():
     depts = Department.query.options(joinedload(Department.cost_centres), joinedload(Department.hod)) \
         .order_by(Department.name).all()
     employees = Employee.query.order_by(Employee.last_name).all()
-    return render_template("admin/departments.html", depts=depts, employees=employees,
+    hrbps = sorted((u for u in User.query.filter_by(active=True).all() if u.has_role(HRBP)),
+                   key=lambda u: u.full_name.lower())
+    return render_template("admin/departments.html", depts=depts, employees=employees, hrbps=hrbps,
                            business_units=BusinessUnit.query.order_by(BusinessUnit.name).all(),
                            families=JobFamily.query.order_by(JobFamily.name).all())
 
@@ -405,6 +413,8 @@ def settings_page():
                     errors.append(f"{row.label}: can't be empty.")
                 elif row.key in settings.URL_KEYS and not value.startswith("https://"):
                     errors.append(f"{row.label}: enter a full https:// address.")
+                elif row.key in settings.EMAIL_KEYS and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
+                    errors.append(f"{row.label}: enter an email address.")
                 elif value != row.value:
                     audit.record("config.setting", "setting", row.key, before={"value": row.value},
                                  after={"value": value})

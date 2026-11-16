@@ -53,6 +53,22 @@ def _form_values(form):
     }
 
 
+def _hrbp_ref():
+    """The form's reference data with only the departments this HR Business Partner maintains."""
+    ref = positions.reference_data()
+    mine = set(positions.hrbp_department_ids(current_user))
+    ref["departments"] = [d for d in ref["departments"] if d.id in mine]
+    ref["cost_centres"] = [c for c in ref["cost_centres"] if c.department_id in mine]
+    return ref
+
+
+def _get_editable(position_id):
+    p = _get_visible(position_id)
+    if not positions.can_edit(current_user, p):
+        abort(403)
+    return p
+
+
 def _reports_to_choices(exclude=None):
     q = ApprovedPosition.query.filter(ApprovedPosition.status.notin_(["Abolished", "Rejected"]))
     if exclude is not None:
@@ -88,8 +104,9 @@ def index():
     if instance and instance.status == "Pending" and instance.current_step \
             and workflow.can_act(instance.current_step, current_user):
         my_step = instance.current_step
-    can_edit = current_user.has_role(*EDIT_ROLES)
-    return render_template("positions/index.html", rows=rows, pager=pager, args=args, fy=fy, years=_years(),
+    my_departments = positions.hrbp_department_ids(current_user)
+    can_edit = bool(my_departments)
+    return render_template("positions/index.html", is_hrbp=current_user.has_role(*EDIT_ROLES), rows=rows, pager=pager, args=args, fy=fy, years=_years(),
                            fy_label=budget.fy_label, register=register, instance=instance, my_step=my_step,
                            planned=positions.planned_count(fy), editable=positions.register_editable(fy),
                            can_edit=can_edit, statuses=POSITION_STATUSES,
@@ -101,6 +118,10 @@ def index():
 @roles_required(*EDIT_ROLES)
 def new():
     fy = request.values.get("fy", type=int) or budget.financial_year_for(today())
+    if not positions.hrbp_department_ids(current_user):
+        flash("You aren't the HR Business Partner for any department yet. Ask HR Admin to assign you on the "
+              "Departments page.", "error")
+        return redirect(url_for("positions.index", fy=fy))
     if request.method == "POST":
         try:
             p = positions.create_planned(_form_values(request.form), current_user, fy)
@@ -111,14 +132,14 @@ def new():
             db.session.rollback()
             flash(str(exc), "error")
     return render_template("positions/form.html", position=None, fy=fy, fy_label=budget.fy_label,
-                           ref=positions.reference_data(), reports_to=_reports_to_choices(), values=request.form,
+                           ref=_hrbp_ref(), reports_to=_reports_to_choices(), values=request.form,
                            planned=True, ad_hoc=False)
 
 
 @bp.route("/<int:position_id>/edit", methods=["GET", "POST"])
 @roles_required(*EDIT_ROLES)
 def edit(position_id):
-    p = _get_visible(position_id)
+    p = _get_editable(position_id)
     if request.method == "POST":
         try:
             positions.update(p, _form_values(request.form), current_user)
@@ -129,7 +150,7 @@ def edit(position_id):
             db.session.rollback()
             flash(str(exc), "error")
     return render_template("positions/form.html", position=p, fy=p.financial_year, fy_label=budget.fy_label,
-                           ref=positions.reference_data(), reports_to=_reports_to_choices(p), values=request.form,
+                           ref=_hrbp_ref(), reports_to=_reports_to_choices(p), values=request.form,
                            planned=p.status in ("Planned", "Returned"), ad_hoc=False)
 
 
@@ -150,10 +171,10 @@ def detail(position_id):
         "positions/detail.html", p=p, reqs=reqs, approvals=approvals, my_steps=my_steps,
         fy_label=budget.fy_label, change_kinds=[k for k in POSITION_CHANGE_KINDS if p.status in positions.CHANGE_FROM[k]],
         pending_change=positions.pending_change(p), grades=positions.reference_data()["grades"],
-        can_edit=current_user.has_role(*EDIT_ROLES) and p.status not in ("Abolished", "Rejected"),
-        can_delete=current_user.has_role(*EDIT_ROLES) and p.status == "Planned"
+        can_edit=positions.can_edit(current_user, p) and p.status not in ("Abolished", "Rejected"),
+        can_delete=positions.can_edit(current_user, p) and p.status == "Planned"
         and positions.register_editable(p.financial_year),
-        can_change=current_user.has_role(*EDIT_ROLES),
+        can_change=positions.can_edit(current_user, p),
         can_resubmit=p.status == "Returned" and p.requested_by_id == current_user.id,
         can_raise=(p.status == "Vacant" and open_req is None and current_user.has_role(*CREATE_ROLES)
                    and positions.raisable_query(current_user).filter(ApprovedPosition.id == p.id).first() is not None),
@@ -163,7 +184,7 @@ def detail(position_id):
 @bp.route("/<int:position_id>/delete", methods=["POST"])
 @roles_required(*EDIT_ROLES)
 def delete(position_id):
-    p = _get_visible(position_id)
+    p = _get_editable(position_id)
     fy, number = p.financial_year, p.position_number
     positions.delete_planned(p, current_user)
     db.session.commit()
@@ -174,21 +195,30 @@ def delete(position_id):
 @bp.route("/<int:position_id>/change", methods=["POST"])
 @roles_required(*EDIT_ROLES)
 def request_change(position_id):
-    p = _get_visible(position_id)
+    p = _get_editable(position_id)
     kind = request.form.get("kind", "")
-    positions.request_change(p, kind, request.form.get("reason", ""), current_user,
-                             request.form.get("new_job_grade_id", type=int))
-    db.session.commit()
-    flash(f"{kind} of {p.position_number} sent for approval.", "success")
+    try:
+        positions.request_change(p, kind, request.form.get("reason", ""), current_user,
+                                 request.form.get("new_job_grade_id", type=int))
+        db.session.commit()
+        flash(f"{kind} of {p.position_number} sent for approval.", "success")
+    except DomainError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
     return redirect(url_for("positions.detail", position_id=p.id))
 
 
 @bp.route("/register/<int:fy>/submit", methods=["POST"])
 @roles_required(*EDIT_ROLES)
 def submit_register(fy):
-    positions.submit_register(fy, current_user)
-    db.session.commit()
-    flash(f"The {budget.fy_label(fy)} register was sent to Finance and the Group HR Manager for approval.", "success")
+    try:
+        positions.submit_register(fy, current_user)
+        db.session.commit()
+        flash(f"The {budget.fy_label(fy)} register was sent to the Finance Department Manager and the Group HR "
+              "Manager for approval.", "success")
+    except DomainError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
     return redirect(url_for("positions.index", fy=fy))
 
 

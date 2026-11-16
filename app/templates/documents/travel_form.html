@@ -1,0 +1,127 @@
+{#- The travel request as PDF (travel.form_pdf, xhtml2pdf), laid out like i-Travel's travel request form
+    (14 Nov 2026): office details, client / booker / approver details, the reference and date, then each table with
+    black headings and i-Travel's notes. xhtml2pdf understands simple CSS only, so it's tables. -#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ tr.reference }} travel request</title>
+<style>
+  @page { size: a4 landscape; margin: 1cm 1cm 1.2cm 1cm;
+    @frame footer { -pdf-frame-content: footer; bottom: 0.4cm; margin-left: 1cm; margin-right: 1cm; height: 0.6cm; } }
+  body { font-family: Helvetica; font-size: 7.5pt; color: #231F20; }
+  table { width: 100%; }
+  td, th { padding: 2px 4px; vertical-align: top; }
+  .bar { background-color: #000000; color: #FFFFFF; font-weight: bold; font-size: 8.5pt; padding: 3px 5px; }
+  .label { color: #808080; font-weight: bold; width: 22%; }
+  .title { text-align: center; font-weight: bold; font-size: 8.5pt; padding: 6px 0 3px 0; }
+  .grid th { background-color: #000000; color: #FFFFFF; font-weight: bold; text-align: center; font-size: 7pt; }
+  .grid td { border: 0.5pt solid #231F20; text-align: center; }
+  .notes { font-size: 6.8pt; padding: 3px 0 2px 0; }
+  .notes p { margin: 0; }
+  .brand { font-size: 24pt; color: #F26522; font-weight: bold; }
+  .tagline { color: #6E696A; font-size: 8pt; letter-spacing: 1px; }
+  .formbox { border: 1pt solid #231F20; text-align: center; }
+  .red { color: #D0021B; font-weight: bold; }
+  .sign td { text-align: center; }
+  .rule { border-top: 0.7pt solid #231F20; font-weight: bold; }
+</style>
+</head>
+<body>
+<table cellpadding="0" cellspacing="0">
+  <tr>
+    <td width="38%" style="vertical-align:middle;text-align:center">
+      <div class="brand">i-Travel</div>
+      <div class="tagline">Discover the world.</div>
+    </td>
+    <td width="62%">
+      <table cellpadding="0" cellspacing="0">
+        <tr><td colspan="4" class="bar">OFFICE DETAILS</td></tr>
+        <tr><td class="label">Office address:</td><td>{{ office.address }}</td><td class="label">Telephone:</td><td>{{ office.phone }}</td></tr>
+        <tr><td class="label">City:</td><td>{{ office.city }}</td><td class="label">Email address:</td><td>{{ office.email }}</td></tr>
+        <tr><td class="label">Country:</td><td>{{ office.country }}</td><td class="label">Website:</td><td>{{ office.web }}</td></tr>
+        <tr><td class="label">ZIP code:</td><td>{{ office.zip }}</td><td class="label">A/H telephone:</td><td>{{ office.after_hours }}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<table cellpadding="0" cellspacing="0" style="margin-top:6px">
+  <tr>
+    <td width="38%">
+      <table cellpadding="0" cellspacing="0">
+        <tr><td colspan="2" class="bar">CLIENT DETAILS</td></tr>
+        <tr><td class="label">Client name:</td><td>{{ tr.client_name }}</td></tr>
+        <tr><td class="label">Address:</td><td>{{ tr.client_address or '' }}</td></tr>
+        <tr><td class="label">City:</td><td>{{ tr.client_city or '' }}</td></tr>
+        <tr><td class="label">ZIP code:</td><td>{{ tr.client_zip or '' }}</td></tr>
+        <tr><td class="label">Telephone:</td><td>{{ tr.client_phone or '' }}</td></tr>
+        <tr><td class="label">Email address:</td><td>{{ tr.client_email or '' }}</td></tr>
+        <tr><td class="label">Client code:</td><td>{{ tr.client_code or '' }}</td></tr>
+      </table>
+    </td>
+    <td width="40%">
+      <table cellpadding="0" cellspacing="0">
+        <tr><td colspan="2" style="font-weight:bold;font-size:8.5pt">TRAVEL BOOKER DETAILS</td></tr>
+        <tr><td class="label">Name &amp; surname:</td><td>{{ tr.booker_name or '' }}</td></tr>
+        <tr><td class="label">Telephone:</td><td>{{ tr.booker_phone or '' }}</td></tr>
+        <tr><td class="label">Email address:</td><td>{{ tr.booker_email or '' }}</td></tr>
+        <tr><td colspan="2" style="font-weight:bold;font-size:8.5pt;padding-top:5px">TRAVEL BOOKING APPROVER DETAILS</td></tr>
+        <tr><td class="label">Name &amp; surname:</td><td>{{ tr.approver_name or '(awaiting approval)' }}</td></tr>
+        <tr><td class="label">Telephone:</td><td>{{ tr.approver_phone or '' }}</td></tr>
+        <tr><td class="label">Email address:</td><td>{{ tr.approver_email or '' }}</td></tr>
+      </table>
+    </td>
+    <td width="22%">
+      <table cellpadding="3" cellspacing="0" class="formbox">
+        <tr><td class="red" style="font-size:10pt">TRAVEL REQUEST FORM</td></tr>
+        <tr><td class="red">{{ tr.reference }}</td></tr>
+        <tr><td style="font-weight:bold">DATE</td></tr>
+        <tr><td class="red">{{ show('date', (tr.approved_at or tr.created_at).date().isoformat()) }}</td></tr>
+        <tr><td style="font-size:7pt">Status: {{ tr.status }}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<div class="title">{{ traveller_title|upper }}:</div>
+<table class="grid" cellpadding="2" cellspacing="0">
+  <tr><th width="3%">#</th>{% for key, label in traveller_fields %}<th>{{ label }}</th>{% endfor %}</tr>
+  <tr><td>1</td>{% for key, label in traveller_fields %}<td>{{ traveller.get(key) or '' }}</td>{% endfor %}</tr>
+</table>
+
+{#- One traveller (the requester), so "No. of PAX" is 1 wherever i-Travel's form asks for it. -#}
+{% set pax_after = {'flights': 'class', 'accommodation': 'vendor', 'auxiliary': 'quantity'} %}
+{% for section, (title, max_rows, fields) in sections.items() %}
+{% set rows = tr.rows(section) %}
+<div class="title">{{ title|upper }}</div>
+<table class="grid" cellpadding="2" cellspacing="0" repeat="1">
+  <tr>{% for key, label, kind, required, options in fields %}<th>{{ label }}</th>{% if section == 'accommodation' and key == 'check_out' %}<th>No. of days / nights</th>{% endif %}{% if pax_after.get(section) == key %}<th>No. of PAX</th>{% endif %}{% endfor %}</tr>
+  {% for row in rows %}
+  <tr>{% for key, label, kind, required, options in fields %}<td>{{ show(kind, row.get(key)) }}</td>{% if section == 'accommodation' and key == 'check_out' %}<td>{{ row.get('nights') or '' }}</td>{% endif %}{% if pax_after.get(section) == key %}<td>1</td>{% endif %}{% endfor %}</tr>
+  {% else %}
+  <tr>{% for key, label, kind, required, options in fields %}<td>&nbsp;</td>{% if section == 'accommodation' and key == 'check_out' %}<td>&nbsp;</td>{% endif %}{% if pax_after.get(section) == key %}<td>&nbsp;</td>{% endif %}{% endfor %}</tr>
+  {% endfor %}
+</table>
+{% if notes.get(section) %}
+<div class="notes"><p><b>NOTES:</b></p>
+  {% for n in notes[section] %}<p>({{ ['i', 'ii', 'iii', 'iv', 'v'][loop.index0] }}) {{ n }}</p>{% endfor %}</div>
+{% endif %}
+{% endfor %}
+
+<p style="text-align:center;font-weight:bold;font-size:8.5pt;margin-top:8px">NB: ALL REQUEST FORMS TO BE FORWARDED BY EMAIL TO {{ office.email }}</p>
+<table class="sign" cellpadding="2" cellspacing="0" style="margin-top:14px">
+  <tr>
+    <td width="33%">{{ tr.booker_name or '' }}</td>
+    <td width="34%">{% if tr.approved_at %}Approved online by {{ tr.approver_name }}{% endif %}</td>
+    <td width="33%">{{ approved_on }}</td>
+  </tr>
+  <tr><td class="rule">Travel booker name &amp; surname [print]</td><td class="rule">Signature</td><td class="rule">Date</td></tr>
+</table>
+
+<div id="footer"><table cellpadding="0" cellspacing="0"><tr>
+  <td style="font-size:6.5pt;color:#6E696A">{{ tr.reference }} · Icebolethu Group · ICE People Administration System · printed {{ today }}</td>
+  <td style="font-size:6.5pt;color:#6E696A;text-align:right">Page <pdf:pagenumber> of <pdf:pagecount></td>
+</tr></table></div>
+</body>
+</html>

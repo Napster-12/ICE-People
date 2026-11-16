@@ -42,7 +42,7 @@ class Config:
 
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER") or os.path.join(INSTANCE_DIR, "uploads")
     MAX_UPLOAD_BYTES = 10 * 1024 * 1024          # per file
-    MAX_CONTENT_LENGTH = 30 * 1024 * 1024        # per request (several attachments)
+    MAX_CONTENT_LENGTH = 100 * 1024 * 1024       # per request (several attachments: an offer's onboarding documents)
     ALLOWED_UPLOADS = {".pdf", ".docx", ".xlsx", ".jpg", ".jpeg", ".png"}
 
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=30)   # idle timeout

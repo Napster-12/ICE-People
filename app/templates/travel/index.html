@@ -1,0 +1,28 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status with context %}
+{% block title %}My travel requests{% endblock %}
+{% block heading %}My travel requests{% endblock %}
+{% block subheading %}Request business travel. Your manager approves it, i-Travel books it and Finance pays.{% endblock %}
+{% block actions %}
+{% if sees_dashboard %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('travel.dashboard') }}">{{ icon('dashboard') }} i-Travel dashboard</a>{% endif %}
+<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('travel.new') }}">{{ icon('plus') }} New travel request</a>
+{% endblock %}
+{% block content %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Your requests</h3><span class="results-count">{{ requests|length }}</span></div>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Request</th><th>Trip</th><th>First travel date</th><th>Requested</th><th>Status</th></tr>
+    {% for r in requests %}
+    <tr>
+      <td><a href="{{ url_for('travel.detail', tr_id=r.id) }}"><strong>{{ r.reference }}</strong></a><span class="sub">{{ r.lead_traveller }}</span></td>
+      <td>{{ r.summary }}</td>
+      <td>{{ show('date', r.first_date) or '—' }}</td>
+      <td class="small">{{ r.created_at|dt }}</td>
+      <td>{{ status(r.status) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="empty-row">You haven't requested any travel yet. Start with "New travel request".</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% endblock %}

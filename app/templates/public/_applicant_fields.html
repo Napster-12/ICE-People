@@ -1,33 +1,95 @@
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% set citizen = form.sa_citizen or 'Yes' %}
 
 <div class="step-group">
   <h4><span class="document-number">1</span> Your details</h4>
   <div class="form-grid">
-    <div><label>Full name *</label><input type="text" name="full_name" required value="{{ form.full_name }}"></div>
-    <div><label>Email address *</label><input type="email" name="email" required value="{{ form.email }}"></div>
-    <div><label>Phone number</label><input type="tel" name="phone" value="{{ form.phone }}" placeholder="e.g. 082 123 4567"></div>
-    <div><label>Location</label><input type="text" name="location" value="{{ form.location }}" placeholder="Start typing a town or province"
-        list="sa-places" autocomplete="off">
-      <datalist id="sa-places">{% for p in sa_places %}<option value="{{ p }}">{% endfor %}</datalist></div>
+    <div><label>Title *</label>
+      <select name="title" required><option value="">Select…</option>
+        {% for t in titles %}<option {{ 'selected' if form.title == t }}>{{ t }}</option>{% endfor %}</select></div>
+    <div><label>First names *</label><input type="text" name="first_names" required maxlength="100" value="{{ form.first_names }}" autocomplete="given-name"></div>
+    <div><label>Surname *</label><input type="text" name="surname" required maxlength="80" value="{{ form.surname }}" autocomplete="family-name"></div>
+    <div><label>Email address *</label><input type="email" name="email" required value="{{ form.email }}" autocomplete="email"></div>
+    <div><label>Cellphone number *</label><input type="tel" name="phone" required value="{{ form.phone }}" placeholder="e.g. 082 123 4567" autocomplete="tel"></div>
+    <div><label>Alternative number</label><input type="tel" name="alt_phone" value="{{ form.alt_phone }}"></div>
+    <div><label>South African citizen? *</label>
+      <select name="sa_citizen" required data-citizen>
+        <option {{ 'selected' if citizen == 'Yes' }}>Yes</option><option {{ 'selected' if citizen == 'No' }}>No</option></select></div>
+    <div><label data-citizen-label>{{ 'SA ID number' if citizen == 'Yes' else 'Passport number' }} *</label>
+      <input type="text" name="id_number" required maxlength="20" value="{{ form.id_number }}" inputmode="{{ 'numeric' if citizen == 'Yes' }}">
+      <span class="hint">Kept confidential and encrypted. Your date of birth is taken from your SA ID number.</span></div>
+    <div data-foreign {{ 'hidden' if citizen == 'Yes' }}><label>Nationality *</label><input type="text" name="nationality" maxlength="80" value="{{ form.nationality }}"></div>
+    <div data-foreign {{ 'hidden' if citizen == 'Yes' }}><label>Date of birth *</label><input type="date" name="date_of_birth" value="{{ form.date_of_birth }}"></div>
+    <div data-foreign {{ 'hidden' if citizen == 'Yes' }}><label>Work permit expiry date</label><input type="date" name="work_permit_expiry" value="{{ form.work_permit_expiry }}"></div>
   </div>
 </div>
 
 <div class="step-group">
-  <h4><span class="document-number">2</span> Experience &amp; qualifications</h4>
+  <h4><span class="document-number">2</span> Your address</h4>
+  <div class="form-grid">
+    <div><label>Street address *</label><input type="text" name="street" required maxlength="160" value="{{ form.street }}" placeholder="House number and street" autocomplete="address-line1"></div>
+    <div><label>Suburb</label><input type="text" name="suburb" maxlength="120" value="{{ form.suburb }}" autocomplete="address-line2"></div>
+    <div><label>City or town *</label><input type="text" name="city" required maxlength="120" value="{{ form.city }}"
+        list="sa-places" autocomplete="off" placeholder="Start typing a town" data-city>
+      <datalist id="sa-places">{% for p in sa_places %}<option value="{{ p }}">{% endfor %}</datalist></div>
+    <div><label>Postal code *</label><input type="text" name="postal_code" required maxlength="4" inputmode="numeric" value="{{ form.postal_code }}" autocomplete="postal-code"></div>
+    <div><label>Province *</label>
+      <select name="province" required><option value="">Select…</option>
+        {% for p in provinces %}<option {{ 'selected' if form.province == p }}>{{ p }}</option>{% endfor %}</select></div>
+  </div>
+</div>
+
+<div class="step-group">
+  <h4><span class="document-number">3</span> Experience &amp; qualifications</h4>
   <div class="form-grid">
     <div><label>Current / most recent job title</label><input type="text" name="current_title" value="{{ form.current_title }}"></div>
+    <div><label>Current / most recent employer</label><input type="text" name="current_employer" maxlength="160" value="{{ form.current_employer }}"></div>
     <div><label>Years of relevant experience</label><input type="number" name="years_experience" min="0" max="50" value="{{ form.years_experience }}"></div>
     <div><label>Highest qualification</label>
       <select name="education_level">
         {% for lvl, name in education_levels %}<option value="{{ lvl }}" {{ 'selected' if form.education_level == lvl|string }}>{{ name if lvl else 'Select…' }}</option>{% endfor %}
       </select></div>
-    <div><label>Key skills</label><input type="text" name="skills" value="{{ form.skills }}" placeholder="e.g. Customer service, MS Excel">
-      <span class="hint">Separate skills with commas.</span></div>
+    <div class="skill-rows-field"><label>Key skills</label>
+      {% set typed = (form.getlist('skills') if form.getlist is defined else []) | select | list %}
+      <div class="skill-rows" data-skill-rows>
+        {% for skill in (typed or ['', '', '']) %}
+        <div class="skill-row"><input type="text" name="skills" maxlength="60" value="{{ skill }}"
+             placeholder="{{ ['e.g. Customer service', 'e.g. Microsoft Excel', 'e.g. Sales'][loop.index0] if loop.index0 < 3 else 'Another skill' }}" aria-label="Skill {{ loop.index }}">
+          <button type="button" class="skill-remove" data-skill-remove aria-label="Remove this skill">×</button></div>
+        {% endfor %}
+      </div>
+      <button type="button" class="skill-add" data-skill-add>+ Add another skill</button>
+      <span class="hint">One skill per line, e.g. "Microsoft Excel" or "Customer service". Up to 30.</span></div>
+    <div><label>Languages</label><input type="text" name="languages" maxlength="255" value="{{ form.languages }}" placeholder="e.g. English, isiZulu"></div>
+    <div><label>Notice period *</label>
+      <select name="notice_period" required><option value="">Select…</option>
+        {% for n in notice_periods %}<option {{ 'selected' if form.notice_period == n }}>{{ n }}</option>{% endfor %}</select></div>
+    <div><label>Driver's licence *</label>
+      <select name="drivers_licence" required><option value="">Select…</option>
+        {% for l in licences %}<option {{ 'selected' if form.drivers_licence == l }}>{{ l }}</option>{% endfor %}</select></div>
+    <div><label>Own transport</label>
+      <select name="own_transport"><option value="">Select…</option>
+        {% for o in ('Yes', 'No') %}<option {{ 'selected' if form.own_transport == o }}>{{ o }}</option>{% endfor %}</select></div>
+    <div><label>Current salary (R per month)</label><input type="text" name="current_salary" inputmode="decimal" value="{{ form.current_salary }}"></div>
+    <div><label>Expected salary (R per month)</label><input type="text" name="expected_salary" inputmode="decimal" value="{{ form.expected_salary }}"></div>
   </div>
 </div>
 
 <div class="step-group">
-  <h4><span class="document-number">3</span> Upload your CV</h4>
+  <h4><span class="document-number">4</span> Employment equity</h4>
+  <p class="small" style="margin:0 0 10px 0">Voluntary and confidential, for the Employment Equity Act. It's never used to score or select applicants. Choose "Prefer not to say" if you'd rather not answer.</p>
+  <div class="form-grid">
+    <div><label>Gender *</label><select name="gender" required><option value="">Select…</option>
+      {% for o in genders %}<option {{ 'selected' if form.gender == o }}>{{ o }}</option>{% endfor %}</select></div>
+    <div><label>Race *</label><select name="race" required><option value="">Select…</option>
+      {% for o in races %}<option {{ 'selected' if form.race == o }}>{{ o }}</option>{% endfor %}</select></div>
+    <div><label>Person with a disability *</label><select name="disability" required><option value="">Select…</option>
+      {% for o in disability_options %}<option {{ 'selected' if form.disability == o }}>{{ o }}</option>{% endfor %}</select></div>
+  </div>
+</div>
+
+<div class="step-group">
+  <h4><span class="document-number">5</span> Your CV and documents</h4>
   <div class="document-file-input">
     <input type="file" name="cv" accept=".pdf,.docx,.txt" required
            onchange="document.getElementById('cv-name').textContent = this.files[0] ? 'Selected: ' + this.files[0].name : ''">
@@ -35,10 +97,82 @@
       <span class="small">PDF or Word (.docx), max 5 MB</span></span>
   </div>
   <div class="document-selected-name" id="cv-name"></div>
+  {% set all_docs = required_docs + optional_docs %}
+  {% if all_docs %}
+  <p class="small" style="margin:14px 0 8px 0">{{ 'Attach these documents' if docs_required else 'You may also attach these documents now (you will be asked for them when you apply for a job)' }}. Each can be a PDF or a clear photo (JPG or PNG).</p>
+  <div class="offer-docs">
+    {% for name in all_docs %}
+    {% set needed = docs_required and name in required_docs %}
+    <label for="doc_{{ loop.index0 }}">{{ name }}{{ ' *' if needed else ' (optional)' }}</label>
+    <input id="doc_{{ loop.index0 }}" type="file" name="doc_{{ loop.index0 }}" accept=".pdf,.jpg,.jpeg,.png" {{ 'required' if needed }}>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {# One cover letter only (16 Nov 2026): no typed note when a "Cover letter" document is asked for. The talent-pool
+     form sets its own box (cover_label). #}
+  {% set has_cover_doc = all_docs|map('lower')|select('equalto', 'cover letter')|list %}
+  {% if cover_label is defined or not has_cover_doc %}
   <label>{{ cover_label|default('Cover note (optional)') }}</label>
-  <textarea name="cover_note" placeholder="Tell us briefly why you're a great fit">{{ form.cover_note }}</textarea>
+  <textarea name="cover_note" placeholder="{{ 'e.g. Sales, customer service' if cover_label is defined else 'Tell us briefly why you’re a great fit' }}">{{ form.cover_note }}</textarea>
+  {% endif %}
 </div>
 
 <label class="consent"><input type="checkbox" name="consent" value="1" required {{ 'checked' if form.consent }}>
-  <span>I consent to Icebolethu Group storing and processing my personal information and CV for this
+  <span>I consent to Icebolethu Group storing and processing my personal information, CV and documents for this
     and future recruitment opportunities, in line with the Protection of Personal Information Act (POPIA).</span></label>
+
+<script>
+(function () {
+  var select = document.querySelector('[data-citizen]');
+  if (!select) return;
+  function sync() {
+    var foreign = select.value === 'No';
+    document.querySelectorAll('[data-foreign]').forEach(function (el) { el.hidden = !foreign; });
+    var label = document.querySelector('[data-citizen-label]');
+    if (label) label.textContent = (foreign ? 'Passport number' : 'SA ID number') + ' *';
+  }
+  select.addEventListener('change', sync);
+  sync();
+})();
+(function () {
+  // Key skills: one per row (16 Nov 2026).
+  var rows = document.querySelector('[data-skill-rows]'), add = document.querySelector('[data-skill-add]');
+  if (!rows || !add) return;
+  add.addEventListener('click', function () {
+    if (rows.children.length >= 30) return;
+    var row = rows.lastElementChild.cloneNode(true);
+    var input = row.querySelector('input');
+    input.value = ''; input.placeholder = 'Another skill';
+    input.setAttribute('aria-label', 'Skill ' + (rows.children.length + 1));
+    rows.appendChild(row);
+    input.focus();
+  });
+  rows.addEventListener('click', function (e) {
+    var remove = e.target.closest('[data-skill-remove]');
+    if (!remove) return;
+    if (rows.children.length > 1) remove.parentElement.remove();
+    else remove.parentElement.querySelector('input').value = '';
+  });
+  rows.addEventListener('keydown', function (e) {        // Enter adds the next row instead of submitting
+    if (e.key === 'Enter' && e.target.name === 'skills') {
+      e.preventDefault();
+      if (e.target.parentElement === rows.lastElementChild) add.click();
+      else e.target.parentElement.nextElementSibling.querySelector('input').focus();
+    }
+  });
+})();
+(function () {
+  // Picking a suggestion ("Durban, KwaZulu-Natal") fills the city and the province.
+  var city = document.querySelector('[data-city]'), province = document.querySelector('select[name=province]');
+  if (!city || !province) return;
+  city.addEventListener('change', function () {
+    var at = city.value.lastIndexOf(', ');
+    if (at < 0) return;
+    var prov = city.value.slice(at + 2);
+    if (Array.prototype.some.call(province.options, function (o) { return o.value === prov; })) {
+      province.value = prov;
+      city.value = city.value.slice(0, at);
+    }
+  });
+})();
+</script>

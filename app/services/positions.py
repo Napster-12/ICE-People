@@ -12,8 +12,7 @@ from sqlalchemy import or_
 from app.extensions import db
 from app.models import (ApprovedPosition, Branch, CostCentre, Department, Employee, JobFamily, JobGrade,
                         PositionChange, PositionRegister, Requisition)
-from app.models.user import COMPLIANCE, EXCO, FINANCE, GCOO, GROUP_HR, HOD, HR_ADMIN, HR_MANAGER, HR_ROLES, HRBP, \
-    LINE_MANAGER
+from app.models.user import COMPLIANCE, EXCO, FINANCE, GCOO, HOD, HR_ROLES, HRBP, LINE_MANAGER
 from app.services import audit, budget, workflow
 from app.services.dates import now, today
 from app.services.errors import DomainError, StateMachine
@@ -32,7 +31,9 @@ FLOW = StateMachine("position", {
     "Abolished": set(),
 })
 
-EDIT_ROLES = {HR_ADMIN, GROUP_HR, HR_MANAGER, HRBP}           # load and maintain the register
+# 10 Nov 2026, at the user's request: only HR Business Partners load and maintain the register, each for the
+# departments assigned to them (Department.hrbp); other HR roles view it.
+EDIT_ROLES = {HRBP}
 SEE_ALL_ROLES = HR_ROLES | {FINANCE, GCOO, EXCO, COMPLIANCE}
 REQUEST_ROLES = {LINE_MANAGER, HOD} | HR_ROLES                # may request an ad-hoc position
 VIEW_ROLES = SEE_ALL_ROLES | {HOD, LINE_MANAGER}
@@ -43,11 +44,35 @@ OPEN_REQUISITION = ("Draft", "Submitted", "In Approval", "Returned", "Approved",
 ADVERTISED_REQUISITION = ("Advertised", "Interviewing", "Offer")
 ALWAYS_EDITABLE = ["title", "branch_id", "job_family_id", "reports_to_id", "minimum_requirements", "critical"]
 PLANNED_EDITABLE = ALWAYS_EDITABLE + ["department_id", "cost_centre_id", "job_grade_id", "budgeted_ctc"]
-# HR may change the grade and budgeted CTC at any stage, an ad-hoc request in approval included (31 Oct 2026).
+# The HR BP may change the grade and budgeted CTC at any stage, an ad-hoc request in approval included (31 Oct 2026).
 HR_EDITABLE = ALWAYS_EDITABLE + ["job_grade_id", "budgeted_ctc"]
 CHANGE_FROM = {"Freeze": ("Vacant",), "Unfreeze": ("Frozen",), "Abolish": ("Vacant", "Frozen"),
                "Regrade": ("Vacant", "Filled", "Frozen")}
 MIN_JUSTIFICATION = 50
+
+
+def hrbp_department_ids(user):
+    """The departments this user is the HR Business Partner for."""
+    if not user.has_role(HRBP):
+        return []
+    return [d.id for d in Department.query.filter_by(hrbp_user_id=user.id).all()]
+
+
+def can_maintain(user, department_id):
+    return department_id is not None and department_id in hrbp_department_ids(user)
+
+
+def can_edit(user, position):
+    return can_maintain(user, position.department_id)
+
+
+def _check_department(user, department_id):
+    if department_id is None:
+        return                                               # validate() reports the missing department
+    if not can_maintain(user, department_id):
+        dept = db.session.get(Department, department_id)
+        raise DomainError(f"Only the HR Business Partner for {dept.name if dept else 'that department'} "
+                          "can maintain its positions.")
 
 
 def snapshot(p):
@@ -231,6 +256,7 @@ def create_planned(values, user, financial_year):
     errors = validate(values)
     if errors:
         raise DomainError(" ".join(errors))
+    _check_department(user, values.get("department_id"))
     register_for(financial_year, create=True)
     p = ApprovedPosition(position_number=next_reference("POS"), financial_year=financial_year, status="Planned",
                          **{k: values.get(k) for k in PLANNED_EDITABLE})
@@ -245,6 +271,7 @@ def update(position, values, user):
     request is in approval, everything except the department and cost centre."""
     if position.status in ("Abolished", "Rejected"):
         raise DomainError(f"A {position.status.lower()} position can't be edited.")
+    _check_department(user, position.department_id)
     planned = position.status in ("Planned", "Returned")
     allowed = PLANNED_EDITABLE if planned else HR_EDITABLE
     values = _clean(values)
@@ -253,6 +280,7 @@ def update(position, values, user):
     errors = validate(merged, position)
     if errors:
         raise DomainError(" ".join(errors))
+    _check_department(user, merged.get("department_id"))
     before = snapshot(position)
     for f in allowed:
         if f in values:
@@ -265,12 +293,15 @@ def update(position, values, user):
 def delete_planned(position, user):
     if position.status != "Planned" or not register_editable(position.financial_year):
         raise DomainError("Only planned positions on a register that isn't approved can be deleted.")
+    _check_department(user, position.department_id)
     audit.record("delete", "position", position.id, before=snapshot(position))
     ApprovedPosition.query.filter_by(reports_to_id=position.id).update({"reports_to_id": None})
     db.session.delete(position)
 
 
 def submit_register(financial_year, user):
+    if not hrbp_department_ids(user):
+        raise DomainError("Only an HR Business Partner with a department can submit the register.")
     reg = register_for(financial_year)
     if reg is None or not ApprovedPosition.query.filter_by(financial_year=financial_year, status="Planned").count():
         raise DomainError(f"Add positions to the {budget.fy_label(financial_year)} register first.")
@@ -428,6 +459,7 @@ def pending_change(position):
 
 
 def request_change(position, kind, reason, user, new_job_grade_id=None):
+    _check_department(user, position.department_id)
     if kind not in CHANGE_FROM:
         raise DomainError("Choose freeze, unfreeze, abolish or regrade.")
     if position.status not in CHANGE_FROM[kind]:
@@ -541,6 +573,8 @@ def import_csv(text, user):
         cc = centres.get(row["cost_centre_code"].upper())
         if dept is None:
             problems.append(f"unknown department '{row['department_code']}'")
+        elif not can_maintain(user, dept.id):
+            problems.append(f"you aren't the HR Business Partner for {dept.code}")
         if cc is None:
             problems.append(f"unknown cost centre '{row['cost_centre_code']}'")
         elif dept is not None and cc.department_id != dept.id:

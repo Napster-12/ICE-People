@@ -465,7 +465,8 @@ def candidate(cand_id):
              "cover_note": a.cover_note, "reference": a.reference, "breakdown": a.breakdown or {}} for a in apps]
     audit.record("data.view", "candidate", cand.id)
     db.session.commit()
-    return render_template("admin/candidate.html", cand=cand, apps=apps)
+    from app.services import careers
+    return render_template("admin/candidate.html", cand=cand, apps=apps, documents=careers.candidate_documents(cand))
 
 
 @bp.route("/candidates/<int:cand_id>/cv")

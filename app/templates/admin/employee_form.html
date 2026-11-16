@@ -7,6 +7,7 @@
 {% set ro = 'disabled' if not can_edit %}
 <form method="post" class="admin-split">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
   <section class="admin-panel admin-form">
     <div class="admin-panel-head" style="margin:0"><h3>Employment</h3></div>
     <div class="admin-form-grid">
@@ -36,7 +37,6 @@
     <label class="consent"><input type="checkbox" name="critical_role" value="1" {{ 'checked' if emp and emp.critical_role }} {{ ro }}> <span>Critical role (needs a knowledge-transfer plan at exit)</span></label>
     {% if can_edit %}<div><button class="filter-btn">Save employee</button></div>{% endif %}
   </section>
-  <div style="display:flex;flex-direction:column;gap:22px">
     {% if sensitive %}
     <section class="admin-panel admin-form">
       <div class="admin-panel-head" style="margin:0"><h3>Sensitive (POPIA)</h3>{{ icon('shield') }}</div>
@@ -54,7 +54,28 @@
       </div>
     </section>
     {% endif %}
+  </div>
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
     {% if emp %}
+    <section class="admin-panel" id="documents">
+      {% set count = documents|map(attribute=1)|map('length')|sum %}
+      <div class="admin-panel-head"><h3>Documents</h3><span class="results-count">{{ count }}</span></div>
+      {% for group, items in documents %}
+      <h4 class="doc-group">{{ group }}</h4>
+      <ul class="doc-rows">
+        {% for d in items %}
+        <li class="doc-row">
+          <span class="doc-row-icon" aria-hidden="true">{{ icon('file') }}</span>
+          <div class="doc-row-text"><strong>{{ d.label }}</strong><span>{{ d.file }}{% if d.when %} · {{ d.when|dt }}{% endif %}</span></div>
+          <a class="admin-btn-sm admin-btn-secondary doc-row-view" href="{{ d.url }}" target="_blank" rel="noopener"
+             {% if d.viewable %}data-pdf-view data-pdf-title="{{ d.label }}" data-pdf-file="{{ d.file }}"{% endif %}>{{ 'View' if d.viewable else 'Download' }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="small muted" style="margin:0">No documents on file. Documents are collected when someone is hired through the system (application, background checks, offer, onboarding and the new starter pack) and from signed asset allocation forms.</p>
+      {% endfor %}
+    </section>
     <section class="admin-panel">
       <div class="admin-panel-head"><h3>Assets</h3></div>
       <ul class="timeline">{% for a in emp.assets %}<li><strong>{{ a.asset_tag }}</strong> {{ a.description }}<span class="sub">{{ a.category }} · issued {{ a.issued_on|dt }} · {{ a.status }}</span></li>

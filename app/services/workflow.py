@@ -16,7 +16,8 @@ from app.integrations import get_adapter
 from app.models import Delegation, Role, RoutingRule, User, WorkflowInstance, WorkflowStep
 from app.models.user import EXCO, GCOO, HR_ADMIN
 from app.models.workflow import (DEPARTMENT_LINE_MANAGER, DEPARTMENT_MANAGER, FINANCE_DEPARTMENT_CODE,
-                                 FINANCE_DEPARTMENT_MANAGER, GCOO_OR_EXCO, LINE_MANAGER_OR_HOD, ORIGINATOR_MANAGER)
+                                 FINANCE_DEPARTMENT_MANAGER, GCOO_OR_EXCO, HR_DEPARTMENT_CODE, HR_DEPARTMENT_MANAGER,
+                                 LINE_MANAGER_OR_HOD, ORIGINATOR_MANAGER)
 from app.services import audit, settings
 from app.services.calendar import add_business_days, business_hours_between
 from app.services.conditions import evaluate
@@ -99,6 +100,11 @@ def resolve_approver(rule_value, originator, department):
         from app.models.user import FINANCE
         finance = Department.query.filter_by(code=FINANCE_DEPARTMENT_CODE).first()
         user = hod_user(finance) or first_user_with_role(FINANCE)
+    elif rule_value == HR_DEPARTMENT_MANAGER:            # the head of HR (the Group HR Manager), else that role
+        from app.models import Department
+        from app.models.user import GROUP_HR
+        hr = Department.query.filter_by(code=HR_DEPARTMENT_CODE).first()
+        user = hod_user(hr) or first_user_with_role(GROUP_HR)
     elif rule_value == GCOO_OR_EXCO:
         user = first_user_with_role(GCOO, exclude=originator) or first_user_with_role(EXCO, exclude=originator)
     else:

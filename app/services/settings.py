@@ -19,16 +19,42 @@ DEFAULTS = {
                             "Advert EE and equal opportunity statement",
                             "Added to every new advert (JA-004). Recruiters can adjust it per advert."),
     "letter_signatory_name": ("", "Offer letter: who signs",
-                              "The name under the signature on offer letters and contracts, e.g. Mr. A. Mdala "
-                              "(8 Nov 2026). HR Admin sets it under Onboarding → Letter and contract templates."),
+                              "The name under the signature on offer letters, e.g. Mr. A. Mdala "
+                              "(8 Nov 2026). HR Admin sets it under Onboarding → Offer letter and documents."),
     "letter_signatory_title": ("Group Human Resources Manager", "Offer letter: signatory's title",
                                "The job title under the signatory's name."),
+    "onboarding_documents": ("ID copy\nHighest qualification\nProof of address\nBank confirmation letter\n"
+                             "Tax number (SARS document)\nUpdated CV",
+                             "Onboarding documents",
+                             "Documents a candidate attaches to accept an offer, one per line (10 Nov 2026). HR Admin "
+                             "edits the list under Onboarding → Offer letter and documents."),
+    "application_documents": ("ID copy\nHighest qualification certificate\nAcademic transcript",
+                              "Documents required when applying",
+                              "Every job applicant attaches these, one per line (16 Nov 2026). HR Admin edits the "
+                              "list under Onboarding → Offer letter and documents."),
+    "application_optional_documents": ("Cover letter", "Optional documents when applying",
+                                       "Applicants may attach these, one per line (16 Nov 2026)."),
+    "background_checks": ("ID verification\nCriminal record check\nCredit check\nQualification verification\n"
+                          "Reference checks",
+                          "Background checks",
+                          "Checks run on a successful candidate before the offer is sent, one per line (16 Nov 2026). "
+                          "HR Admin edits the list under Onboarding → Offer letter and documents."),
     "sage_self_service_url": ("https://online.sage.co.za/U36476/#/signin", "Sage 300 self-service link",
                               "The staff portal's \"Leave and payslips\" tile opens this page (1 Nov 2026)."),
+    "itravel_email": ("quotes@i-travel.africa", "i-Travel email address",
+                      "Approved travel requests are emailed here as a PDF, with a copy to Finance (14 Nov 2026)."),
+    "itravel_email_live": ("0", "Email approved travel requests to i-Travel (1 = on, 0 = off)",
+                           "Off (0) until i-Travel goes live (15 Nov 2026, at the user's request): Finance still gets "
+                           "the PDF and i-Travel sees the request on the i-Travel dashboard, but nothing is emailed "
+                           "to the i-Travel address."),
 }
-TEXT_KEYS = {"advert_ee_statement", "sage_self_service_url", "letter_signatory_name", "letter_signatory_title"}   # every other setting is a number
+TEXT_KEYS = {"advert_ee_statement", "sage_self_service_url", "letter_signatory_name", "letter_signatory_title",
+             "onboarding_documents", "background_checks", "itravel_email",
+             "application_documents", "application_optional_documents"}   # every other setting is a number
 URL_KEYS = {"sage_self_service_url"}
-LETTER_KEYS = {"letter_signatory_name", "letter_signatory_title"}   # HR Admin's, on the Onboarding templates page                           # must be an https:// address
+EMAIL_KEYS = {"itravel_email"}                          # must be an email address
+LETTER_KEYS = {"letter_signatory_name", "letter_signatory_title", "onboarding_documents", "background_checks",
+               "application_documents", "application_optional_documents"}   # HR Admin's, on the Onboarding templates page                           # must be an https:// address
 
 
 def get(key, cast=str):

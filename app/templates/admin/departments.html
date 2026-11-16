@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}Departments{% endblock %}
 {% block heading %}Departments &amp; Cost Centres{% endblock %}
-{% block subheading %}The Department Manager is used as an approver when the originator has no line manager{% endblock %}
+{% block subheading %}Each department's Department Manager approves its requests; its HR Business Partner maintains its positions{% endblock %}
 {% block content %}
 <div class="admin-split">
   <section class="admin-panel">
@@ -13,6 +13,9 @@
         <div class="admin-form-row"><label>Name</label><input name="name" value="{{ d.name }}" required></div>
         <div class="admin-form-row"><label>Department Manager</label><select name="hod_employee_id"><option value="">—</option>
           {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if d.hod_employee_id == e.id }}>{{ e.full_name }}</option>{% endfor %}</select></div>
+        <div class="admin-form-row"><label>HR Business Partner</label><select name="hrbp_user_id"><option value="">—</option>
+          {% for u in hrbps %}<option value="{{ u.id }}" {{ 'selected' if d.hrbp_user_id == u.id }}>{{ u.full_name }}</option>{% endfor %}</select>
+          <span class="hint">Adds the department's approved positions and attaches its new starters' signed contracts.</span></div>
         <div class="admin-form-row"><label>Business unit</label><select name="business_unit_id"><option value="">—</option>
           {% for b in business_units %}<option value="{{ b.id }}" {{ 'selected' if d.business_unit_id == b.id }}>{{ b.name }}</option>{% endfor %}</select></div>
         <div class="admin-form-row"><label>Default job family</label><select name="job_family_id"><option value="">—</option>

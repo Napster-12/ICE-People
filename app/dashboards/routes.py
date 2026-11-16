@@ -10,8 +10,8 @@ from sqlalchemy import func
 from app.auth.decorators import roles_required
 from app.auth.portals import PORTAL_LABELS, current_portal
 from app.models import (Application, ApprovedPosition, BudgetLine, Employee, InterviewSlot, Job, Requisition,
-                        ShortlistReview, WorkflowStep)
-from app.models.user import FINANCE, GCOO, HR_ADMIN, HR_MANAGER, HR_ROLES, IT
+                        ShortlistReview, TravelRequest, WorkflowStep)
+from app.models.user import FINANCE, GCOO, HR_ADMIN, HR_MANAGER, HR_ROLES, IT, ITRAVEL, HRBP
 from app.services import budget, interviews, positions, requisitions, settings, shortlisting, workflow
 from app.services.dates import format_datetime, now, today
 
@@ -20,6 +20,7 @@ bp = Blueprint("dashboards", __name__)
 BUDGET_ROLES = (FINANCE, HR_ADMIN, HR_MANAGER, GCOO)
 COMING_SOON = "Coming soon"
 IN_APPROVAL = ("Submitted", "In Approval")
+TRAVEL_OPEN = ("Draft", "In Approval", "Returned", "Approved", "With Finance", "Payment approved")
 
 
 def _greeting():
@@ -138,6 +139,15 @@ def _admin_home(user, steps):
         tiles.append(_tile("user-plus", "Onboarding", f"{to_make} offers to make · {out} offers out · "
                            f"{starters} new starters", url_for("onboarding.index"), "Open onboarding",
                            tone="featured" if to_make else ""))
+    elif user.has_role(HRBP):                                       # 16 Nov 2026: their departments' new starters
+        from app.services import screening, starter_pack
+        packs = len(starter_pack.to_review(user))
+        checks = sum(1 for a in screening.waiting(user) if screening.status_of(a) in ("Not started", "In progress"))
+        contracts = sum(1 for c in onboarding.cases(user) if c.contract_status != "Signed" and c.status != "Cancelled")
+        tiles.append(_tile("user-plus", "Onboarding", f"{packs} starter pack{'s' if packs != 1 else ''} to review · "
+                           f"{checks} background check{'s' if checks != 1 else ''} to run · {contracts} contract"
+                           f"{'s' if contracts != 1 else ''} to attach", url_for("onboarding.index"),
+                           "Open onboarding", tone="featured" if packs or checks else ""))
     else:
         tiles.append(_tile("user-plus", "Onboarding", "New starters, documents to verify and IT access requests",
                            later=COMING_SOON))
@@ -278,6 +288,8 @@ def _staff_home(user, steps, unread):
         banner = {"title": f"Action needed: {len(steps)} request{'s' if len(steps) != 1 else ''} waiting for you",
                   "text": "Review and respond in your approvals inbox.", "link": url_for("approvals.inbox"),
                   "link_label": "Review now"}
+    open_trips = TravelRequest.query.filter(TravelRequest.requester_id == user.id,
+                                            TravelRequest.status.in_(TRAVEL_OPEN)).count()
     tiles = [
         _tile("users", "My profile", "Your details, position and reporting line", url_for("portal.me"),
               "Open my profile", tone="featured"),
@@ -289,10 +301,20 @@ def _staff_home(user, steps, unread):
               later=COMING_SOON),
         _tile("award", "My qualifications", "Add or update your qualifications and upload certificates for HR to verify",
               later=COMING_SOON),
+        _tile("plane", "Travel request", "Request flights, car hire, transfers and accommodation. Your manager "
+              "approves it, then i-Travel books it", url_for("travel.new"),
+              f"New request · {open_trips} open" if open_trips else "New travel request"),
+        _tile("car", "My fleet", "Your assigned vehicle, fuel card, logbook and service bookings",
+              later=COMING_SOON),
         _tile("calendar", "Leave and payslips", "Apply for leave, check balances and download payslips in Sage 300 "
                                           "self-service", settings.get("sage_self_service_url"), tone="dark",
               link_label="Open Sage 300 self-service"),
     ]
+    if user.has_role(ITRAVEL):                       # i-Travel books the approved trips (14 Nov 2026)
+        to_book = TravelRequest.query.filter_by(status="Approved").count()
+        tiles.insert(0, _tile("dashboard", "i-Travel dashboard", f"{to_book} approved trip{'s' if to_book != 1 else ''}"
+                              " to book · send quotes and invoices to Finance for payment",
+                              url_for("travel.dashboard"), "Open i-Travel dashboard", tone="featured"))
     return {"intro": "Your ICE People tasks. Leave, payslips and other self-service stay in Sage 300.",
             "banner": banner, "tiles": tiles}
 

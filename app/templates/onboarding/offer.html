@@ -26,6 +26,10 @@
 <div class="alert alert-warning">This offer is {{ offer.status|lower }}.</div>
 {% endif %}
 
+{% if check_problem and offer.status in ('Draft', 'Returned', 'Approved') %}
+<div class="alert alert-warning">{{ check_problem }} <a href="{{ url_for('onboarding.checks', app_id=offer.application_id) }}">Open the background checks</a>.</div>
+{% endif %}
+
 {% if my_step %}
 <section class="admin-panel app-block">
   <div class="admin-panel-head"><h3>Your decision · Level {{ my_step.level }} {{ my_step.name }}</h3>
@@ -62,9 +66,10 @@
           </select></div>
         <div class="admin-form-row"><label for="start_date">Start date *</label>
           <input id="start_date" type="date" name="start_date" value="{{ form.get('start_date') or offer.start_date.isoformat() }}" required></div>
-        <div class="admin-form-row"><label for="contract_end_date">Contract end date</label>
-          <input id="contract_end_date" type="date" name="contract_end_date" value="{{ form.get('contract_end_date') or (offer.contract_end_date.isoformat() if offer.contract_end_date else '') }}">
-          <span class="hint">Needed for a Contract offer only.</span></div>
+        {% set is_contract = (form.get('employment_type') or offer.employment_type) == 'Contract' %}
+        <div class="admin-form-row" data-contract-only {{ 'hidden' if not is_contract }}><label for="contract_end_date">Contract end date *</label>
+          <input id="contract_end_date" type="date" name="contract_end_date" {{ 'disabled' if not is_contract }} value="{{ form.get('contract_end_date') or (offer.contract_end_date.isoformat() if offer.contract_end_date else '') }}">
+          <span class="hint">When the fixed-term contract ends.</span></div>
         <div class="admin-form-row"><label for="expires_on">Candidate must answer by *</label>
           <input id="expires_on" type="date" name="expires_on" value="{{ form.get('expires_on') or offer.expires_on.isoformat() }}" required></div>
         <div class="admin-form-row"><label for="probation_months">Probation (months)</label>
@@ -77,7 +82,7 @@
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="admin-btn-sm admin-btn-secondary" name="action" value="save">{{ icon('check') }} Save</button>
         <button class="filter-btn" name="action" value="send" data-confirm-title="Send the offer?" data-confirm-ok="Send"
-                data-confirm="{{ offer.candidate.full_name }} gets the offer letter by email with a link to accept or decline. An offer above the costed CTC goes to Finance first.">{{ icon('mail') }} Send offer</button>
+                data-confirm="{{ offer.candidate.full_name }} gets the offer letter by email with a link to accept or decline. An offer above the costed CTC goes to Finance first. It can only go to the candidate once every background check is clear.">{{ icon('mail') }} Send offer</button>
       </div>
     </form>
     {% else %}
@@ -92,7 +97,7 @@
         {{ kv('Costed on the requisition', costed|money if costed is not none else 'None (unbudgeted)') }}
         {{ kv('Employment type', offer.employment_type) }}
         {{ kv('Start date', offer.start_date|dt) }}
-        {{ kv('Contract end date', offer.contract_end_date|dt if offer.contract_end_date) }}
+        {% if offer.employment_type == 'Contract' %}{{ kv('Contract end date', offer.contract_end_date|dt if offer.contract_end_date) }}{% endif %}
         {{ kv('Answer by', offer.expires_on|dt) }}
         {{ kv('Extra conditions', offer.conditions) }}
         {{ kv('Letter as sent', '') if not offer.letter_file }}
@@ -102,7 +107,7 @@
       {% if can_edit and offer.status == 'Approved' %}
       <form method="post" style="margin-top:14px">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="filter-btn" name="action" value="send">{{ icon('mail') }} Send offer</button>
+        <button class="filter-btn" name="action" value="send" {% if check_problem %}disabled title="{{ check_problem }}"{% endif %}>{{ icon('mail') }} Send offer</button>
       </form>
       {% endif %}
     </section>
@@ -120,6 +125,16 @@
   </div>
 
   <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Background checks</h3>{{ status(screening.status if screening else 'Not started') }}</div>
+      {% if screening %}
+      <ul class="detail-list" style="margin-top:0;border-top:none;padding-top:0">
+        {% for c in screening.checks %}<li style="display:flex;justify-content:space-between;gap:10px"><span>{{ c.name }}</span>{{ status(c.status) }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if check_problem and offer.status in ('Draft', 'Returned', 'In Approval', 'Approved') %}<p class="small muted">{{ check_problem }}</p>{% endif %}
+      <p style="margin-top:10px"><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.checks', app_id=offer.application_id) }}">{{ icon('check') }} Open the checks</a></p>
+    </section>
     <section class="admin-panel">
       <div class="admin-panel-head"><h3>Candidate</h3></div>
       <div class="kv-grid">
@@ -139,4 +154,18 @@
     {% endif %}
   </div>
 </div>
+<script>
+(function () {
+  // The contract end date is for Contract offers only (16 Nov 2026).
+  var type = document.getElementById('employment_type'), row = document.querySelector('[data-contract-only]');
+  if (!type || !row) return;
+  function sync() {
+    var contract = type.value === 'Contract';
+    row.hidden = !contract;
+    row.querySelector('input').disabled = !contract;
+  }
+  type.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endblock %}

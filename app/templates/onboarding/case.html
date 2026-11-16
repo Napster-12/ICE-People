@@ -7,16 +7,88 @@
 {% block subheading %}{{ case.reference }} · {{ emp.position_title }} · starts {{ case.start_date|dt }}{% endblock %}
 {% block actions %}
 {{ status(case.status) }}
-{% if case.offer %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.offer', offer_id=case.offer.id) }}">{{ icon('file') }} Offer {{ case.offer.reference }}</a>{% endif %}
+{% if case.offer and sees_offers %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.offer', offer_id=case.offer.id) }}">{{ icon('file') }} Offer {{ case.offer.reference }}</a>{% endif %}
 <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('admin.employee_form', emp_id=emp.id) }}">{{ icon('users') }} Employee record</a>
 {% endblock %}
 {% block content %}
 {% set days = (case.start_date - today).days %}
 <div class="alert alert-info">{% if days > 0 %}{{ days }} day{{ 's' if days != 1 }} to the start date.{% elif days == 0 %}Starts today.{% else %}Started {{ -days }} day{{ 's' if -days != 1 }} ago.{% endif %}
-  Documents, IT access and induction follow in the next onboarding release.</div>
+  IT access and induction follow in the next onboarding release.</div>
+
+{% if pack and pack.status == 'Submitted' %}
+{% if can_review %}
+<section class="admin-panel review-bar app-block">
+  <div class="review-bar-text">
+    <h3 style="margin:0 0 4px 0">{{ icon('check') }} New starter pack to approve</h3>
+    <p class="small" style="margin:0">{{ emp.full_name }} submitted it on {{ pack.submitted_at|dtt }}.
+      <a href="#pack">Check the Take-On form and documents below</a>, then approve it or send it back.</p>
+  </div>
+  <div class="review-bar-actions">
+    <form method="post" data-confirm-title="Approve the new starter pack?" data-confirm-ok="Approve"
+          data-confirm="The employee record is updated from the Take-On form (names, ID number, date of birth, cell number, gender, race, disability and bank account).">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="admin-btn-sm admin-btn-primary" name="action" value="pack_approve">{{ icon('check') }} Approve pack</button>
+    </form>
+    <a class="admin-btn-sm admin-btn-secondary" href="#pack-return">Return with a comment</a>
+  </div>
+</section>
+{% else %}
+<div class="alert alert-warning">{{ emp.full_name }} submitted their new starter pack on {{ pack.submitted_at|dtt }}. It's waiting for
+  HR Admin or {{ hrbp.full_name if hrbp else "the department's HR Business Partner" }} to review it.</div>
+{% endif %}
+{% endif %}
 
 <div class="admin-split">
   <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    {% if pack %}
+    <section class="admin-panel" id="pack" style="scroll-margin-top:20px">
+      <div class="admin-panel-head"><h3>New starter pack</h3>{{ status(pack.status) }}</div>
+      <div class="kv-grid">
+        {{ kv('Submitted', (pack.submitted_at|dtt) ~ ' · declared by ' ~ pack.declared_name if pack.submitted_at) }}
+        {{ kv('Reviewed', (pack.reviewed_at|dtt) ~ ' by ' ~ pack.reviewed_by.full_name if pack.reviewed_at and pack.reviewed_by) }}
+        {{ kv('Returned for', pack.review_comment if pack.status == 'Returned') }}
+        {{ kv('Code of Conduct accepted', case.offer.code_of_conduct_at|dtt if case.offer and case.offer.code_of_conduct_at) }}
+      </div>
+      {% if pack.status in ('Not started', 'In progress', 'Returned') %}
+      <p class="hint" style="margin-top:10px">Waiting for {{ emp.full_name }} to complete it. Their link was in the welcome email{% if pack_link and can_review %}: <span style="word-break:break-all">{{ pack_link }}</span>{% endif %}.</p>
+      {% endif %}
+      <h4 style="margin:16px 0 6px 0">Documents</h4>
+      <ul style="margin:0;padding-left:18px">
+        {% for key, label, required in pack_doc_list %}
+        {% if key in pack_docs %}<li><a href="{{ url_for('portal.download', file_id=pack_docs[key].id) }}" target="_blank" rel="noopener">{{ label }}</a> <span class="small muted">· {{ pack_docs[key].created_at|dtt }}</span></li>
+        {% elif required %}<li class="muted">{{ label }}: not uploaded yet</li>{% endif %}
+        {% endfor %}
+      </ul>
+      {% if pack.status in ('Submitted', 'Approved') or pack.data %}
+      <details style="margin-top:14px" {{ 'open' if pack.status == 'Submitted' and can_review }}>
+        <summary style="cursor:pointer;font-weight:600">New Hire Take-On form</summary>
+        {% for title, rows in pack_sections %}
+        <h4 style="margin:14px 0 6px 0">{{ title }}</h4>
+        <div class="kv-grid">{% for label, value in rows %}{% if value %}{{ kv(label, value) }}{% endif %}{% endfor %}</div>
+        {% endfor %}
+      </details>
+      <p style="margin-top:12px"><a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.takeon_pdf', case_id=case.id) }}" target="_blank" rel="noopener">{{ icon('file') }} Take-On form (PDF)</a></p>
+      {% endif %}
+      {% if can_review and pack.status == 'Submitted' %}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:flex-start">
+        <form method="post" data-confirm-title="Approve the new starter pack?" data-confirm-ok="Approve"
+              data-confirm="The employee record is updated from the Take-On form (names, ID number, date of birth, cell number, gender, race, disability and bank account).">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="admin-btn-sm admin-btn-primary" name="action" value="pack_approve">{{ icon('check') }} Approve</button>
+        </form>
+        <form method="post" class="admin-form" id="pack-return" style="padding:0;border:0;flex:1;min-width:240px;scroll-margin-top:20px">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="admin-form-row" style="margin:0"><label for="comment">Or return it: what must be corrected?</label>
+            <textarea id="comment" name="comment" style="min-height:70px" maxlength="1000"></textarea></div>
+          <div><button class="admin-btn-sm admin-btn-secondary" name="action" value="pack_return">Return to the new starter</button></div>
+        </form>
+      </div>
+      {% elif pack.status == 'Submitted' %}
+      <p class="hint" style="margin-top:10px">Waiting for HR Admin or {{ hrbp.full_name if hrbp else "the department's HR Business Partner" }} to review it.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
     <section class="admin-panel">
       <div class="admin-panel-head"><h3>Employee number</h3></div>
       {% if can_edit %}
@@ -35,34 +107,43 @@
     <section class="admin-panel">
       <div class="admin-panel-head"><h3>Employment contract</h3>{{ status(case.contract_status) }}</div>
       <div class="kv-grid">
-        {{ kv('Template', contract_name) }}
-        {{ kv('Last generated', case.contract_generated_at|dtt if case.contract_generated_at) }}
+        {{ kv('HR Business Partner', hrbp.full_name if hrbp else 'Not assigned') }}
         {{ kv('Signed on', case.contract_signed_on|dt if case.contract_signed_on) }}
       </div>
-      {% if can_edit %}
-      <p style="margin:14px 0 6px 0;display:flex;gap:10px;flex-wrap:wrap">
-        <a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.contract', case_id=case.id) }}" target="_blank" rel="noopener">{{ icon('file') }} View contract</a>
-        <a class="admin-btn-sm admin-btn-primary" href="{{ url_for('onboarding.contract', case_id=case.id, download=1) }}">{{ icon('download') }} Download to print</a>
-      </p>
-      <p class="hint">Filled in from the employee record and the accepted offer. Check the employee number first; it's printed on the contract.</p>
+      {% if not hrbp %}<p class="hint" style="margin-top:10px">The contract is attached by the department's HR Business Partner. HR Admin assigns one on the Departments page.</p>{% endif %}
+      {% if can_attach %}
       <form method="post" enctype="multipart/form-data" class="admin-form" style="padding:0;border:0;margin-top:16px">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <h4 style="margin:0">Upload the signed contract</h4>
+        <h4 style="margin:0">Attach the signed contract</h4>
         <div class="admin-form-grid">
-          <div class="admin-form-row"><label for="contract">Signed copy (PDF or photo) *</label><input id="contract" type="file" name="contract" accept=".pdf,.jpg,.jpeg,.png" required></div>
+          <div class="admin-form-row"><label for="contract">Signed contract (PDF or photo) *</label><input id="contract" type="file" name="contract" accept=".pdf,.jpg,.jpeg,.png" required></div>
           <div class="admin-form-row"><label for="signed_on">Date signed *</label><input id="signed_on" type="date" name="signed_on" max="{{ today.isoformat() }}" value="{{ today.isoformat() }}" required></div>
         </div>
-        <div><button class="admin-btn-sm admin-btn-primary" name="action" value="signed">{{ icon('upload') }} Upload signed copy</button></div>
+        <div><button class="admin-btn-sm admin-btn-primary" name="action" value="signed">{{ icon('upload') }} Attach signed contract</button></div>
       </form>
       {% endif %}
       {% if copies %}
-      <h4 style="margin:18px 0 6px 0">Signed copies</h4>
+      <h4 style="margin:18px 0 6px 0">Signed contracts</h4>
       <ul style="margin:0;padding-left:18px">
         {% for f in copies %}
         <li><a href="{{ url_for('portal.download', file_id=f.id) }}" target="_blank" rel="noopener">{{ f.original_name }}</a>
           <span class="small muted">· {{ f.created_at|dtt }}{% if f.uploaded_by %} · {{ f.uploaded_by.full_name }}{% endif %}{% if loop.first %} · current{% endif %}</span></li>
         {% endfor %}
       </ul>
+      {% endif %}
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Documents from the candidate</h3><span class="results-count">{{ documents|length }}</span></div>
+      {% if documents %}
+      <ul style="margin:0;padding-left:18px">
+        {% for f in documents %}
+        <li><a href="{{ url_for('portal.download', file_id=f.id) }}" target="_blank" rel="noopener">{{ f.original_name }}</a>
+          <span class="small muted">· {{ f.created_at|dtt }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted small" style="margin:0">None. The candidate attaches the required documents when they accept the offer.</p>
       {% endif %}
     </section>
   </div>
@@ -80,7 +161,7 @@
         {{ kv('Occupational level', emp.job_grade.name if emp.job_grade) }}
         {{ kv('Employment type', emp.employment_type) }}
         {{ kv('Start date', case.start_date|dt) }}
-        {{ kv('End date', emp.end_date|dt if emp.end_date) }}
+        {% if emp.employment_type == 'Contract' %}{{ kv('Contract end date', emp.end_date|dt if emp.end_date) }}{% endif %}
         {{ kv('Cost to company', case.offer.ctc|money if case.offer) }}
         <div class="kv"><span class="kv-label">Record status</span><span class="kv-value">{{ status(emp.status) }}</span></div>
       </div>

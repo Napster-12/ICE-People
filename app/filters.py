@@ -91,3 +91,5 @@ def register(app):
     app.add_template_filter(format_money, "money")
     app.add_template_filter(slug)
     app.add_template_filter(isodate)
+    from app.services.careers import skill_list
+    app.add_template_filter(skill_list)              # applicant skills as tags (16 Nov 2026)

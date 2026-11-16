@@ -26,4 +26,63 @@
     <p class="hint" style="margin-top:14px">Onboarding plan, assessments and IDP appear here as those modules go live.</p>
   </section>
 </div>
+
+<section class="admin-panel" id="appearance" style="margin-top:22px;max-width:640px">
+  <div class="admin-panel-head"><div><h3>Appearance</h3><p class="small muted" style="margin:2px 0 0">Choose how ICE People looks for your account</p></div></div>
+  <form method="post" action="{{ url_for('portal.theme') }}" data-theme-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset class="ig-theme-options">
+      <legend class="visually-hidden">Colour mode</legend>
+      {% for value, label in THEMES.items() %}
+      <label class="ig-theme-option{% if ui_theme == value %} is-checked{% endif %}">
+        <input type="radio" name="theme" value="{{ value }}" {% if ui_theme == value %}checked{% endif %}>
+        <span class="ig-theme-preview ig-theme-preview--{{ value }}" aria-hidden="true">
+          <span class="ig-theme-preview-side"></span>
+          <span class="ig-theme-preview-main"><span class="ig-theme-preview-bar"></span><span class="ig-theme-preview-card"></span>
+            <span class="ig-theme-preview-card ig-theme-preview-card--short"></span></span>
+        </span>
+        <span class="ig-theme-label">{{ label }} mode</span>
+      </label>
+      {% endfor %}
+    </fieldset>
+    <p class="ig-theme-status" role="status" data-theme-status></p>
+    <noscript><button class="admin-btn-sm admin-btn-primary">Save appearance</button></noscript>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // Settings > Appearance (IGSP's shell.js): switch straight away and save it to the account in the background.
+  var themeForm = document.querySelector('[data-theme-form]');
+  if (!themeForm) return;
+  var themeStatus = themeForm.querySelector('[data-theme-status]');
+  var savedTheme = document.documentElement.getAttribute('data-theme') || 'light';
+  function marks() {
+    themeForm.querySelectorAll('.ig-theme-option').forEach(function (opt) {
+      opt.classList.toggle('is-checked', !!opt.querySelector('input:checked'));
+    });
+  }
+  themeForm.addEventListener('change', function (e) {
+    if (e.target.name !== 'theme') return;
+    var theme = e.target.value, labelEl = e.target.closest('label');
+    var label = labelEl ? labelEl.textContent.trim() : '';
+    document.documentElement.setAttribute('data-theme', theme);
+    marks();
+    themeStatus.textContent = 'Saving…';
+    fetch(themeForm.action, { method: 'POST', body: new FormData(themeForm), credentials: 'same-origin',
+                              headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json().then(function (data) { if (!r.ok || !data.ok) { throw data; } }); })
+      .then(function () { savedTheme = theme; themeStatus.textContent = label + ' is on.'; })
+      .catch(function () {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        var previous = themeForm.querySelector('input[name="theme"][value="' + savedTheme + '"]');
+        if (previous) previous.checked = true;
+        marks();
+        themeStatus.textContent = "Couldn't save your choice. Please refresh the page and try again.";
+      });
+  });
+})();
+</script>
 {% endblock %}

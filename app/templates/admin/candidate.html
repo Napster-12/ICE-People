@@ -56,9 +56,34 @@
         <li>{{ icon('award') }}{{ cand.years_experience ~ ' years experience' if cand.years_experience is not none else 'Experience not stated' }}</li>
         <li>{{ icon('file') }}{{ education_labels[cand.education_level or 0] if cand.education_level else 'Qualification not stated' }}</li>
       </ul>
-      {% if cand.skills %}<div class="skill-tags" style="justify-content:center">{% for s in cand.skills.split(',') %}<span class="skill-tag">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+      {% if cand.skills %}<div class="skill-tags" style="justify-content:center">{% for s in cand.skills|skill_list %}<span class="skill-tag">{{ s }}</span>{% endfor %}</div>{% endif %}
+      <p class="small muted" style="margin:0 0 10px 0">Employment equity details are kept for the EE report and the employee record only. They aren't shown here or used in scoring.</p>
       <p class="small muted" style="margin:0">In database since {{ cand.created_at|dt }} · CV updated {{ cand.updated_at|dt }}<br>
         POPIA consent: {{ 'Given' if cand.consent else 'No' }}</p>
+    </section>
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Profile</h3></div>
+      <div class="kv-grid">
+        {% for label, value in [
+             ('Title', cand.title), ('ID / passport number', cand.id_number), ('Date of birth', cand.date_of_birth|dt if cand.date_of_birth),
+             ('South African citizen', cand.sa_citizen), ('Nationality', cand.nationality),
+             ('Work permit expires', cand.work_permit_expiry|dt if cand.work_permit_expiry), ('Alternative number', cand.alt_phone),
+             ('Address', [cand.street, cand.suburb, cand.city, cand.postal_code, cand.province]|select|join(', ')),
+             ('Current employer', cand.current_employer), ('Notice period', cand.notice_period),
+             ('Current salary (pm)', cand.current_salary|money if cand.current_salary is not none),
+             ('Expected salary (pm)', cand.expected_salary|money if cand.expected_salary is not none),
+             ("Driver's licence", cand.drivers_licence), ('Own transport', cand.own_transport), ('Languages', cand.languages)] %}
+        <div class="kv"><span class="kv-label">{{ label }}</span><span class="kv-value">{{ value if value else '—' }}</span></div>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Documents</h3><span class="results-count">{{ documents|length }}</span></div>
+      {% if documents %}
+      <ul style="margin:0;padding-left:18px">
+        {% for name, f in documents %}<li><a href="{{ url_for('portal.download', file_id=f.id) }}" target="_blank" rel="noopener">{{ name }}</a> <span class="small muted">· {{ f.created_at|dt }}</span></li>{% endfor %}
+      </ul>
+      {% else %}<p class="small muted" style="margin:0">None attached (applied before documents were asked for, or via the talent pool).</p>{% endif %}
     </section>
     <form method="post" action="{{ url_for('recruitment.candidate_delete', cand_id=cand.id) }}"
           data-confirm-danger data-confirm-title="Delete this candidate?" data-confirm-ok="Delete permanently"

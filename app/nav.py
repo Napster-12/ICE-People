@@ -1,5 +1,6 @@
 """Left-rail navigation for the staff area, filtered by the signed-in user's roles."""
-from app.models.user import (COMPLIANCE, FINANCE, GCOO, GROUP_HR, HOD, HR_ADMIN, HR_MANAGER, HR_ROLES, IT, LINE_MANAGER,
+from app.models.user import (COMPLIANCE, FINANCE, GCOO, GROUP_HR, HOD, HR_ADMIN, HR_MANAGER, HR_ROLES, HRBP, IT,
+                              ITRAVEL, LINE_MANAGER,
                               RECRUITMENT_ROLES)
 from app.services.interviews import PANEL_ROLES
 from app.services.positions import REQUEST_ROLES, VIEW_ROLES as POSITION_VIEW_ROLES
@@ -48,13 +49,20 @@ MENUS = [
          "Budget and demand per department"),
     ]),
     ("People", [
-        ("Onboarding", "onboarding.index", "user-plus", {HR_ADMIN, HR_MANAGER, GROUP_HR}, ("onboarding.",),
-         "Offers, new starters, employee numbers and contracts"),
+        ("Onboarding", "onboarding.index", "user-plus", {HR_ADMIN, HR_MANAGER, GROUP_HR, HRBP}, ("onboarding.",),
+         "Offers, new starters, their documents and signed contracts"),
         ("Employees", "admin.employees", "users", HR_ROLES, ("admin.employee",), "Employee records"),
         ("Departments", "admin.departments", "building", {HR_ADMIN}, ("admin.department",),
-         "Departments, department managers and cost centres"),
+         "Departments, managers, HR Business Partners and cost centres"),
         ("Org Structure", "admin.org_structure", "filter", {HR_ADMIN}, ("admin.org_structure",),
          "Business units, regions, branches and job families"),
+    ]),
+    ("Travel", [   # 14 Nov 2026: travel requests for everyone; i-Travel and Finance see every approved one
+        ("Travel Requests", "travel.index", "plane", ANY, ("travel.index", "travel.new", "travel.edit",
+                                                          "travel.detail", "travel.form_pdf"),
+         "Request business travel and track it"),
+        ("i-Travel Dashboard", "travel.dashboard", "dashboard", {ITRAVEL, FINANCE}, ("travel.dashboard",),
+         "Approved trips to book and their payments"),
     ]),
     ("ICT", [
         ("Approvals Dashboard", "approvals.dashboard", "clock", {IT}, ("approvals.dashboard",),

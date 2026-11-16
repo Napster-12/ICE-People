@@ -62,9 +62,10 @@ def _register_blueprints(app):
     from app.recruitment.careers import bp as careers_bp
     from app.recruitment.routes import bp as recruitment_bp
     from app.requisitions.routes import bp as requisitions_bp
+    from app.travel.routes import bp as travel_bp
 
     for bp in (careers_bp, auth_bp, dashboards_bp, portal_bp, requisitions_bp, positions_bp, approvals_bp, budget_bp,
-               adverts_bp, recruitment_bp, onboarding_bp, admin_bp):
+               adverts_bp, recruitment_bp, onboarding_bp, travel_bp, admin_bp):
         app.register_blueprint(bp)
 
 
@@ -108,7 +109,12 @@ def _register_template_helpers(app):
             ctx["nav"] = nav_for(current_user, request.endpoint)
             ctx["portal"], ctx["portal_labels"] = current_portal(), PORTAL_LABELS
             ctx["unread_notifications"] = unread_count(current_user)
-            ctx["pending_approvals"] = pending_count(current_user)
+            from app.models.user import THEMES
+            ctx["ui_theme"] = current_user.theme if current_user.theme in THEMES else "light"
+            ctx["THEMES"] = THEMES
+            from app.services import starter_pack
+            # Workflow steps plus new starter packs to approve (16 Nov 2026), so My Approvals shows everything waiting.
+            ctx["pending_approvals"] = pending_count(current_user) + len(starter_pack.to_review(current_user))
         return ctx
 
 
@@ -176,17 +182,63 @@ def _register_file_access():
 
     files.register_access("requisition", requisition_rule)
     files.register_access("candidate", candidate_rule)
+    files.register_access("candidate_document", candidate_rule)       # documents attached when applying
     files.register_access("asset_allocation", asset_rule)
 
-    def onboarding_rule(user, _entity_id):           # offer letters and signed contracts (8 Nov 2026)
+    def onboarding_rule(user, _entity_id):           # offer letters (8 Nov 2026)
         from app.services.onboarding import VIEW_ROLES
         return user.has_role(*VIEW_ROLES)
 
+    def case_rule(user, case_id):                     # signed contracts and the candidate's documents (10 Nov 2026)
+        from app.models import OnboardingCase
+        from app.services import onboarding
+        case = db.session.get(OnboardingCase, case_id or 0)
+        return case is not None and onboarding.can_view_case(user, case)
+
     files.register_access("offer_letter", onboarding_rule)
-    files.register_access("employment_contract", onboarding_rule)
+    files.register_access("employment_contract", case_rule)
+    files.register_access("onboarding_document", case_rule)
+
+    def check_rule(user, check_id):                   # background check reports (16 Nov 2026)
+        from app.models import BackgroundCheck
+        from app.services import screening
+        check = db.session.get(BackgroundCheck, check_id or 0)
+        return check is not None and screening.can_view(user, check.screening.application)
+
+    files.register_access("background_check", check_rule)
+
+    def consent_rule(user, screening_id):             # the signed MIE form and POPIA consent (16 Nov 2026)
+        from app.models import BackgroundScreening
+        from app.services import screening
+        record = db.session.get(BackgroundScreening, screening_id or 0)
+        return record is not None and screening.can_view(user, record.application)
+
+    def pack_rule(user, pack_id):                     # the new starter pack's uploads (16 Nov 2026)
+        from app.models import NewStarterPack
+        from app.services import onboarding
+        pack = db.session.get(NewStarterPack, pack_id or 0)
+        return pack is not None and onboarding.can_view_case(user, pack.case)
+
+    def blank_form_rule(user, _entity_id):            # HR Admin's replacement blank forms
+        from app.models.user import HRBP
+        from app.services.onboarding import VIEW_ROLES
+        return user.has_role(*VIEW_ROLES, HRBP)
+
+    files.register_access("screening_consent", consent_rule)
+    files.register_access("starter_pack", pack_rule)
+    files.register_access("candidate_form", blank_form_rule)
 
     def signature_rule(user, _entity_id):            # the signature on letters: HR Admin only
         from app.models.user import HR_ADMIN
         return user.has_role(HR_ADMIN)
 
     files.register_access("document_signature", signature_rule)
+
+    def travel_rule(user, tr_id):                     # travel request PDFs and i-Travel's invoices (14 Nov 2026)
+        from app.models import TravelRequest
+        from app.services import travel
+        tr = db.session.get(TravelRequest, tr_id or 0)
+        return tr is not None and travel.can_view(user, tr)
+
+    files.register_access("travel_form", travel_rule)
+    files.register_access("travel_invoice", travel_rule)

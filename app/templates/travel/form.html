@@ -1,0 +1,102 @@
+{% extends "admin/base.html" %}
+{#- The i-Travel travel request form, digitised (14 Nov 2026). Each table posts one value per row and field
+    (<section>.<key>); blank rows are dropped. "Add another …" ([data-add-row], admin/base.html) shows the next row. -#}
+{% block title %}{{ tr.reference if tr else 'New travel request' }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('travel.detail', tr_id=tr.id) if tr else url_for('travel.index') }}">← {{ tr.reference if tr else 'My travel requests' }}</a>{% endblock %}
+{% block heading %}{{ 'Edit ' ~ tr.reference if tr else 'Travel request' }}{% endblock %}
+{% block subheading %}Fill in the trip as i-Travel's travel request form asks. Your manager approves it, then it goes to i-Travel to book and to Finance.{% endblock %}
+{% block content %}
+{% macro field_input(section, key, label, kind, options, value, n) -%}
+{% if kind == 'select' %}
+<select name="{{ section }}.{{ key }}" aria-label="{{ label }} {{ n }}">
+  <option value=""></option>
+  {% for o in options %}<option {{ 'selected' if value == o }}>{{ o }}</option>{% endfor %}
+</select>
+{% else %}
+<input name="{{ section }}.{{ key }}" aria-label="{{ label }} {{ n }}" value="{{ value }}"
+       type="{{ {'date': 'date', 'time': 'time', 'number': 'number', 'email': 'email'}.get(kind, 'text') }}"
+       {% if kind == 'number' %}min="1" max="99" inputmode="numeric"{% endif %}
+       {% if kind == 'date' %}min="{{ today_iso }}" max="{{ max_iso }}" data-date data-key="{{ key }}"{% endif %}>
+{% if kind == 'date' %}<span class="date-echo" aria-live="polite"></span>{% endif %}
+{% endif %}
+{%- endmacro %}
+
+{% macro row_table(section) -%}
+{% set title, max_rows, fields = sections[section] %}
+{% set rows = values.get(section) or [] %}
+{% set shown = [rows|length + 1, 1]|max %}
+<div class="table-responsive travel-rows" data-rows>
+  <table class="admin-table">
+    <tr><th class="travel-no">#</th>{% for key, label, kind, required, options in fields %}<th>{{ label }}{{ ' *' if required }}</th>{% endfor %}</tr>
+    {% for i in range(max_rows) %}
+    {% set row = rows[i] if i < rows|length else {} %}
+    <tr data-row {{ 'hidden' if i >= shown }}>
+      <td class="travel-no">{{ i + 1 }}</td>
+      {% for key, label, kind, required, options in fields %}
+      <td>{{ field_input(section, key, label, kind, options, row.get(key, ''), i + 1) }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+  {% if max_rows > shown %}<button type="button" class="admin-btn-sm admin-btn-secondary" data-add-row>{{ icon('plus') }} Add another {{ {'travellers': 'traveller', 'flights': 'flight', 'accommodation': 'stay', 'auxiliary': 'service'}[section] }}</button>{% endif %}
+</div>
+{% if notes.get(section) %}
+<ol class="travel-notes" type="i">{% for n in notes[section] %}<li>{{ n }}</li>{% endfor %}</ol>
+{% endif %}
+{%- endmacro %}
+
+<form method="post" class="admin-form travel-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <p class="small muted">You're the traveller: your name, ID number, gender, phone and email come from your employee record.{% if problems %} <strong style="color:var(--primary-text)">{{ problems|join(' ') }}</strong>{% endif %}</p>
+
+  <section class="admin-panel app-block">
+    <div class="admin-panel-head"><h3>{{ sections.flights[0] }}</h3></div>
+    {{ row_table('flights') }}
+    <fieldset class="seat-choices">
+      <legend>Seat preference</legend>
+      {% for s in seats %}
+      <label class="seat-choice"><input type="radio" name="seat" value="{{ s }}" {{ 'checked' if (values.get('seat') or 'No preference') == s }}><span>{{ s }}</span></label>
+      {% endfor %}
+    </fieldset>
+  </section>
+
+  <section class="admin-panel app-block">
+    <div class="admin-panel-head"><h3>{{ sections.accommodation[0] }}</h3></div>
+    {{ row_table('accommodation') }}
+  </section>
+
+  <section class="admin-panel app-block">
+    <div class="admin-panel-head"><h3>{{ sections.auxiliary[0] }}</h3></div>
+    {{ row_table('auxiliary') }}
+  </section>
+
+  <p class="small muted">* Required. Add at least one flight, stay or auxiliary service. Leave tables you don't need empty.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="admin-btn-sm admin-btn-secondary" name="action" value="save">{{ icon('check') }} Save draft</button>
+    <button class="filter-btn" name="action" value="submit" data-confirm-title="Send for approval?" data-confirm-ok="Send"
+            data-confirm="Your manager gets the request to approve. Once approved it goes to i-Travel to book and to Finance.">{{ icon('arrow') }} Submit for approval</button>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Spell out each date as the browser understood it (a browser set to US order reads 01/12 as 12 January), and keep
+  // check-out after check-in in the date picker (15 Nov 2026).
+  (function () {
+    var fmt = new Intl.DateTimeFormat('en-ZA', {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'});
+    function echo(input) {
+      var out = input.nextElementSibling, v = input.value;
+      if (out && out.classList.contains('date-echo')) out.textContent = v ? fmt.format(new Date(v + 'T12:00:00')) : '';
+      if (input.dataset.key === 'check_in') {
+        var checkOut = input.closest('tr').querySelector('[data-key="check_out"]');
+        if (checkOut) checkOut.min = v || input.min;
+      }
+    }
+    document.querySelectorAll('[data-date]').forEach(echo);
+    ['input', 'change'].forEach(function (type) {
+      document.addEventListener(type, function (e) { if (e.target.matches('[data-date]')) echo(e.target); });
+    });
+  })();
+</script>
+{% endblock %}

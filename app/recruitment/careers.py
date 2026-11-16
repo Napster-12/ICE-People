@@ -77,6 +77,19 @@ def job_detail(job_id):
     return render_template("public/job.html", job=job, questions=questions, answers=request.form)
 
 
+def _document_uploads():
+    """The applicant's documents, posted as doc_0, doc_1, ... in the order of required then optional documents."""
+    names = careers.required_documents() + careers.optional_documents()
+    return {name: request.files.get(f"doc_{i}") for i, name in enumerate(names)}
+
+
+def _profile_options():
+    return {"titles": careers.TITLES, "provinces": careers.provinces(), "notice_periods": careers.NOTICE_PERIODS,
+            "licences": careers.LICENCES, "genders": careers.GENDERS, "races": careers.RACES,
+            "disability_options": careers.DISABILITY, "required_docs": careers.required_documents(),
+            "optional_docs": careers.optional_documents()}
+
+
 @bp.route("/jobs/<int:job_id>/apply", methods=["GET", "POST"])
 def apply(job_id):
     """Step 2 of 2: the application form, only after the eligibility check is passed."""
@@ -87,7 +100,7 @@ def apply(job_id):
         flash("Please answer the eligibility questions first.", "info")
         return redirect(url_for("careers.job_detail", job_id=job.id, _anchor="apply"))
     if request.method == "POST":
-        candidate = careers.save_candidate_from_form(request.form, request.files.get("cv"))
+        candidate = careers.save_candidate_from_form(request.form, request.files.get("cv"), _document_uploads())
         if candidate:
             channel = session.get("job_src", {}).get(str(job.id), adverts.CAREERS_SITE)
             ref = careers.upsert_application(candidate, job, request.form.get("cover_note", "").strip(),
@@ -103,13 +116,15 @@ def apply(job_id):
             session["eligible_jobs"] = [j for j in session.get("eligible_jobs", []) if j != job.id]
             return redirect(url_for("careers.application_done", ref=ref))
         db.session.rollback()
-    return render_template("public/apply.html", job=job, form=request.form)
+    return render_template("public/apply.html", job=job, form=request.form, docs_required=True,
+                           **_profile_options())
 
 
 @bp.route("/talent-pool", methods=["GET", "POST"])
 def talent_pool():
     if request.method == "POST":
-        candidate = careers.save_candidate_from_form(request.form, request.files.get("cv"))
+        candidate = careers.save_candidate_from_form(request.form, request.files.get("cv"), _document_uploads(),
+                                                     documents_required=False)
         if candidate:
             ref = careers.upsert_application(candidate, None, request.form.get("cover_note", "").strip(),
                                              source="Talent pool")
@@ -122,7 +137,8 @@ def talent_pool():
         db.session.rollback()
     # Shown once when the applicant was sent here from a failed eligibility check.
     ineligible = session.pop("ineligible", None) if request.method == "GET" else None
-    return render_template("public/talent_pool.html", form=request.form, ineligible=ineligible)
+    return render_template("public/talent_pool.html", form=request.form, ineligible=ineligible,
+                           docs_required=False, **_profile_options())
 
 
 @bp.route("/thank-you/<ref>")
@@ -175,7 +191,11 @@ def offer(token):
             if request.form.get("answer") == "accept":
                 if not request.form.get("confirm"):
                     raise DomainError("Tick the box to confirm you accept the offer.")
-                onboarding.accept(offer, ip)
+                required = onboarding.required_documents()
+                uploads = {name: request.files.get(f"doc_{i}") for i, name in enumerate(required)}
+                from flask import current_app
+                onboarding.accept(offer, ip, uploads, code_of_conduct=bool(request.form.get("code_of_conduct")),
+                                  base_url=current_app.config.get("PUBLIC_BASE_URL") or request.host_url)
                 outcome = "accepted"
             elif request.form.get("answer") == "decline":
                 onboarding.decline(offer, request.form.get("reason", ""), ip)
@@ -188,7 +208,106 @@ def offer(token):
             db.session.rollback()
             flash(str(exc), "error")
             offer = _offer_or_404(token)
-    return render_template("public/offer.html", offer=offer, token=token)
+    return render_template("public/offer.html", offer=offer, token=token,
+                           required=onboarding.required_documents() if offer.status == "Sent" else [],
+                           have=onboarding.already_submitted(offer.candidate) if offer.status == "Sent" else {})
+
+
+@bp.route("/background-checks/<token>", methods=["GET", "POST"])
+def screening_consent(token):
+    """The secure link in the consent email: give or refuse consent to the background checks (16 Nov 2026)."""
+    from app.services import screening
+    from app.services.errors import DomainError
+    record = screening.by_token(token)
+    if record is None:
+        abort(404)
+    if request.method == "POST":
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+        try:
+            if request.form.get("answer") == "consent":
+                if not request.form.get("confirm"):
+                    raise DomainError("Tick the box to confirm you consent to the background checks.")
+                screening.give_consent(record, request.form, request.files.get("mie"), ip)
+            elif request.form.get("answer") == "refuse":
+                screening.refuse_consent(record, ip)
+            else:
+                abort(400)
+            db.session.commit()
+            return render_template("public/screening_done.html", screening=record)
+        except DomainError as exc:
+            db.session.rollback()
+            flash(str(exc), "error")
+            record = screening.by_token(token) or abort(404)
+    from app.services import candidate_forms
+    return render_template("public/screening.html", screening=record, token=token,
+                           clauses=candidate_forms.popia_clauses(), intro=candidate_forms.POPIA_INTRO)
+
+
+def _form_pdf(key):
+    """A blank form for the candidate to download (16 Nov 2026)."""
+    from flask import Response
+    from app.services import candidate_forms
+    return Response(candidate_forms.data(key), mimetype="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{candidate_forms.filename(key)}"',
+                             "X-Content-Type-Options": "nosniff"})
+
+
+@bp.route("/background-checks/<token>/forms/<key>")
+def screening_form(token, key):
+    from app.services import screening
+    if screening.by_token(token) is None or key != "mie":
+        abort(404)
+    return _form_pdf(key)
+
+
+@bp.route("/offer/<token>/forms/<key>")
+def offer_form(token, key):
+    from app.services import onboarding
+    if onboarding.by_token(token) is None or key != "code_of_conduct":
+        abort(404)
+    return _form_pdf(key)
+
+
+@bp.route("/new-starter/<token>/forms/<key>")
+def starter_form(token, key):
+    from app.services import starter_pack
+    if starter_pack.by_token(token) is None or key not in ("disclosure", "liberty", "code_of_conduct"):
+        abort(404)
+    return _form_pdf(key)
+
+
+@bp.route("/new-starter/<token>", methods=["GET", "POST"])
+def new_starter(token):
+    """The new starter pack (16 Nov 2026): the Take-On form online, plus the forms to download and upload."""
+    from app.services import starter_pack
+    pack = starter_pack.by_token(token)
+    if pack is None or pack.case.status == "Cancelled":
+        abort(404)
+    values, issues = None, []
+    if request.method == "POST" and pack.status in starter_pack.EDITABLE:
+        from app.services.errors import DomainError
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+        uploads = {key: request.files.get(key) for key, _l, _r in starter_pack.DOCUMENTS}
+        try:
+            if request.form.get("action") == "submit":
+                issues = starter_pack.submit(pack, request.form, uploads, request.form.get("declared_name"),
+                                             request.form.get("confirm"), ip)
+            else:
+                starter_pack.save(pack, request.form, uploads)
+            db.session.commit()
+            if not issues:
+                flash("Your new starter pack has been submitted. Thank you!" if pack.status == "Submitted"
+                      else "Saved. You can come back to this link to finish.", "success")
+                return redirect(url_for("careers.new_starter", token=token))
+        except DomainError as exc:
+            db.session.rollback()
+            flash(str(exc), "error")
+            values = request.form
+            pack = starter_pack.by_token(token)
+    return render_template("public/new_starter.html", pack=pack, token=token, issues=issues,
+                           values=values or {**starter_pack.prefill(pack), **starter_pack.answers(pack)},
+                           sections=starter_pack.SECTIONS, documents=starter_pack.DOCUMENTS,
+                           uploaded=starter_pack.uploaded(pack), editable=pack.status in starter_pack.EDITABLE)
 
 
 @bp.route("/offer/<token>/letter.pdf")

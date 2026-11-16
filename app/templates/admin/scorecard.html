@@ -91,7 +91,7 @@
     {{ kv('Experience', (c.years_experience ~ ' years') if c.years_experience is not none else '—') }}
     {{ kv('Qualification', education_labels.get(c.education_level, '—') if c.education_level else '—') }}
     {{ kv('Location', c.location or '—') }}
-    {% if c.skills %}<div class="tag-list" style="margin-top:12px">{% for s in c.skills.split(',') %}<span class="tag soft">{{ s.strip() }}</span>{% endfor %}</div>{% endif %}
+    {% if c.skills %}<div class="tag-list" style="margin-top:12px">{% for s in c.skills|skill_list %}<span class="tag soft">{{ s }}</span>{% endfor %}</div>{% endif %}
     {% if app.cover_note %}<div class="review-comment" style="margin-top:12px">{{ app.cover_note }}</div>{% endif %}
   </aside>
 </div>

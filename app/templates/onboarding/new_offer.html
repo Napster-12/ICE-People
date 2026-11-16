@@ -15,6 +15,8 @@
     <div class="kv"><span class="kv-label">Status</span><span class="kv-value">{{ status(application.status) }}</span></div>
     {{ kv('Marked successful', (application.successful_at|dtt) ~ (' by ' ~ application.successful_by.full_name if application.successful_by else '') if application.successful_at) }}
     {{ kv('Comment', application.decision_comment) }}
+    <div class="kv"><span class="kv-label">Background checks</span><span class="kv-value"><a href="{{ url_for('onboarding.checks', app_id=application.id) }}">{{ status(application.screening.status if application.screening else 'Not started') }}</a></span>
+      <span class="hint">The offer can be prepared now, but it can only be sent once every check is clear.</span></div>
   </div>
   {% if application.status != 'Offer' %}
   <p class="muted" style="margin-top:14px">This candidate isn't waiting for an offer ({{ application.status }}).</p>

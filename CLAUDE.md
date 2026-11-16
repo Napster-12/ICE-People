@@ -56,6 +56,79 @@ Read it in full before any build work and follow its §0 process:
   `[data-platform]` / `[data-online]` / `[data-offline]` in `admin/base.html`. `shortlisting.interview_details`
   validates and formats them (date as "Tuesday, 17 November 2026", duration); online invitations get a "Join the
   meeting" button, and `emails.linkify` makes links in email text clickable.
+  **HR Business Partners, Group HR, onboarding documents and attached contracts** (10 Nov 2026, at the user's request;
+  migration `f1a7c3e5b829`): (1) **The Group HR Manager is the HR Department Manager**: every "Group HR Manager"
+  routing step uses the special approver `@hr_department_manager` (`HR_DEPARTMENT_MANAGER`: the head of the `HR`
+  department, else the Group HR Manager role), like the Finance Department Manager; the `grouphr` account is switched
+  off in the dev DB (dm.hr is head of HR). (2) **Each department has its own HR Business Partner**
+  (`Department.hrbp_user_id`, `Department.hrbp`; one HR BP may cover several), chosen by HR Admin on the Departments
+  page from users with the HR BP role. Only the department's HR BP adds, edits (grade and CTC included), imports,
+  deletes or requests changes to its positions (`positions.EDIT_ROLES = {HRBP}`, `hrbp_department_ids`,
+  `can_maintain`, `can_edit`, checked in the service and routes; the form lists only their departments); any HR BP
+  with a department submits the register. HR Admin, HR Manager and Group HR only view it. Ad-hoc requests are
+  unchanged. (3) **The candidate attaches the onboarding documents to accept the offer** (`/offer/<token>` is
+  multipart, fields `doc_<i>`): the list is the `onboarding_documents` setting (one per line; default ID copy, Highest
+  qualification, Proof of address, Bank confirmation letter, Tax number (SARS document), Updated CV), edited by HR
+  Admin under Onboarding → Offer letter and documents (kept off IT's Settings page). `onboarding.accept(offer, ip,
+  uploads)` checks them first (`check_documents`: all present, PDF/JPG/PNG, size) and stores them on the case as
+  `onboarding_document` files (`case_documents`). `MAX_CONTENT_LENGTH` is 100 MB. (4) **Contracts aren't generated**:
+  the contract templates, `contract_pdf` and `contract_generated_at` are gone; contract status is "Awaiting
+  contract" or "Signed"; the department's HR BP (`onboarding.hrbp_for(case)`) attaches the signed contract on the case
+  (`upload_signed`, `can_attach_contract`) and is notified on acceptance (`contract_needed`). The HR BP sees their
+  departments' cases (not offers) under Onboarding (`can_view_case`, `cases(user)`); case files (contract and
+  documents) follow `can_view_case`. Tests: `tests/test_positions.py` (HR BP), `tests/test_onboarding.py`.
+  **Background checks before the offer** (16 Nov 2026, at the user's request, as offers went out unchecked; spec
+  IN-008; `app/services/screening.py`, models `BackgroundScreening` (one per application) and `BackgroundCheck`,
+  migration `b8d4f2a6c193`): marking a candidate successful also notifies the department's HR BP
+  (`screening_needed`). **HR Admin or the HR BP of the requisition's department** (`screening.can_manage`; HR
+  Manager / Group HR view only) starts the checks on `/onboarding/checks/<app_id>` (list: the `background_checks`
+  setting, one per line, edited by HR Admin under Onboarding → Offer letter and documents; default ID verification,
+  Criminal record check, Credit check, Qualification verification, Reference checks). The **candidate consents
+  online** (user's choice) on the public token link `/background-checks/<token>` (careers blueprint; email
+  `candidate_screening_consent`; tick box plus typed full name, IP kept) or refuses. Results are **recorded
+  manually** (no provider connected): Clear or Adverse, completion date (not before consent), provider reference,
+  notes (required for Adverse) and the report (`background_check` files). Status: Awaiting consent → In progress →
+  Clear / Adverse, or Consent refused; `screening_update` notifies HR Admin, the HR BP and whoever started them.
+  **The offer can only be sent once every check is Clear** (`onboarding._deliver` → `screening.require_clear`); it can
+  be drafted and approved by Finance meanwhile (`send` returns "approved" if Finance approves at once). Adverse or
+  refused consent **blocks the offer** (user's choice, no override); `screening.reject` marks the candidate Rejected,
+  withdraws the offer and sends the requisition back to Interviewing (`onboarding.requisition_back`). Results lock once
+  the offer is sent. The Onboarding page lists "Background checks" for HR and the HR BP's departments. Tests:
+  `tests/test_screening.py`; `test_onboarding.cleared(app)` clears the checks in other tests.
+  **Candidate forms and the new starter pack** (16 Nov 2026, at the user's request, from Icebolethu's paper forms in
+  the user's `~/Downloads/hr bp/`; migration `c2e7a9d4f615`): the blank PDFs are in `static/forms/` and HR Admin can
+  replace them on Onboarding → Offer letter and documents ("Forms candidates download", `candidate_forms.FORMS`,
+  `candidate_form` files; candidates get them through their token links only). (1) **POPIA consent is online**: the
+  consent page (`/background-checks/<token>`) carries Icebolethu's POPIA consent wording (`candidate_forms.POPIA_*`)
+  with full name, ID number (SA ID validated, or passport; encrypted) and "signed at", and the candidate **uploads the
+  signed MIE Personal Credential Disclosure Form** (required). Both are kept as `screening_consent` files (the POPIA
+  consent as a letterhead PDF, `candidate_forms.popia_pdf`). (2) **Code of Conduct**: downloaded from the offer page
+  and accepted with a tick box (`onboarding.accept(..., code_of_conduct=True)`, `Offer.code_of_conduct_at`). (3) **The
+  new starter pack** (`app/services/starter_pack.py`, model `NewStarterPack`, one per case): acceptance creates it and
+  the welcome email (`candidate_offer_accepted`) links to `/new-starter/<token>`, where the candidate fills in the
+  **New Hire Take-On form online** (`starter_pack.SECTIONS`; answers JSON, encrypted; save and come back, then
+  submit with a declaration) and uploads the **Business and Financial Disclosure** (sworn before a Commissioner of
+  Oaths) and the **Liberty Nomination of Beneficiary** (unchanged, Liberty rejects modified forms), plus optional
+  supporting documents (`starter_pack` files). **HR Admin or the department's HR BP reviews it** on the case
+  (`can_review`; HR Admin added 16 Nov 2026 at the user's request, like the background checks; an orange "New starter
+  pack to approve" bar with Approve / Return sits at the top of the case, the pack panel first):
+  Return with a comment (emails `candidate_starter_pack_returned`; the candidate resubmits) or Approve, which updates
+  the employee record (`apply_to_employee`: names, ID number, date of birth, cell, gender, race, disability, bank
+  account) and retires the link. HR sees a printable Take-On PDF (`/onboarding/cases/<id>/take-on.pdf`).
+  Where the HR BP finds it (16 Nov 2026, as the user couldn't): "New starter packs to review" on the Onboarding page
+  (`starter_pack.to_review`), a "Starter pack" column on New starters, a banner at the top of the case linking to
+  `#pack`, and a live Onboarding tile on the HR BP's home (packs to review, checks to run, contracts to attach;
+  it was a "Coming soon" tile). Others see who it's waiting for.
+  **Packs to approve are in My Approvals** (16 Nov 2026, at the user's request): `/approvals/` lists
+  `starter_pack.to_review(user)` as cards ("New starter pack · Onboarding") with Approve / Return posting to the case
+  route with `next` back to the inbox, and the sidebar's My Approvals count includes them (`pending_approvals` in
+  `app/__init__.py`). They aren't workflow steps, so no SLA reminders or approvals dashboard figures.
+  **The employee record lists every document** (16 Nov 2026, at the user's request): a "Documents" panel on
+  `/admin/employees/<id>` (`app/services/employee_documents.collect`) groups Employment (offer letters as sent and
+  accepted, signed contracts), Onboarding documents, New starter pack (Take-On form PDF and uploads), Application (CV
+  and documents), Background checks (POPIA and MIE consent, the latest report per check) and Assets (allocation forms),
+  showing only files the viewer may open (`files.can_download`).
+  Notifications: `starter_pack_update`. Tests: `tests/test_starter_pack.py`.
   **Offers and onboarding, owned by HR Admin** (8 Nov 2026, at the user's request; pulls forward part of Phase 7 and
   Phase 8's contracts; `app/services/onboarding.py`, `app/onboarding/routes.py` at `/onboarding`, migration
   `b7e4c1d9a352`): (1) once the whole panel has scored, HR marks a candidate **successful** on the panel's Results
@@ -68,12 +141,12 @@ Read it in full before any build work and follow its §0 process:
   and position Filled, budget consumed at the offer CTC, advert closed, an `Employee` (Pre-boarding) with the **next
   ICE number** (`onboarding.next_employee_number`, editable by HR Admin on the case; the new-employee form suggests it
   too) and an `OnboardingCase` (ONB-…); HR Admin and the TA notified, the candidate welcomed. Decline/expiry
-  (`flask expire-offers`)/withdrawal sends the requisition back to Interviewing. (5) HR Admin generates the
-  **contract** PDF for the employment type and uploads the **signed copy** (`employment_contract` files). Offer letter
-  and contract wording are `DocumentTemplate`s HR Admin edits under Onboarding → Letter and contract templates
+  (`flask expire-offers`)/withdrawal sends the requisition back to Interviewing. (5) the department's HR BP
+  attaches the **signed contract** (`employment_contract` files; not generated since 10 Nov 2026). The offer letter
+  wording is a `DocumentTemplate` HR Admin edits under Onboarding → Offer letter and documents
   (`app/services/documents.py`, xhtml2pdf, `templates/documents/letter.html` letterhead). Edit: HR Admin only; view:
-  HR Admin, HR Manager, Group HR; Finance sees offers sent to it. Still to come: references and screening, candidate
-  accounts, the new-starter portal (documents, e-sign, IT access), induction.
+  HR Admin, HR Manager, Group HR; Finance sees offers sent to it. Still to come: tokenised reference requests, candidate
+  accounts, the new-starter portal (e-sign, IT access), induction.
   **Letter layout follows Icebolethu's current offer letter** (8 Nov 2026, the user's example, "Codnell Chablala
   Offer letter.pdf"): logo and orange/grey rule, STRICTLY CONFIDENTIAL, date, the candidate's address, "Dear Mr …",
   underlined "# RE: Conditional employment offer letter", **bold** values, "1. Remuneration" with 1.1 CTC per annum,
@@ -140,7 +213,7 @@ Read it in full before any build work and follow its §0 process:
     manager. REQ-2026-00001 was re-routed to this chain (round 2) on 31 Oct 2026. Test fixtures follow the org order:
     employee → hod (Department Manager) → linemanager → gcoo.
     **The positions register is approved by the Finance Department Manager** (8 Nov 2026, at the user's request), then
-    the Group HR Manager: the special approver `@finance_department_manager` (`FINANCE_DEPARTMENT_MANAGER`) is the head
+    the Group HR Manager (the head of HR since 10 Nov 2026): the special approver `@finance_department_manager` (`FINANCE_DEPARTMENT_MANAGER`) is the head
     of the Finance department (code `FIN`, `dm.finance` in the dev DB), else the Finance role; the dev DB's rule was
     updated in place. The other Finance steps (requisitions, ad-hoc positions, position changes, offers) still use the
     Finance role.
@@ -231,6 +304,32 @@ Read it in full before any build work and follow its §0 process:
   questions (saved onto each). A job with none (imported) skips the check. Passing opens `/jobs/<id>/apply`, gated
   by `session["eligible_jobs"]`. A wrong answer goes to `/talent-pool` with the questions it failed. The user chose
   this over §15.4's "can't apply yet" page. Answers are never stored.
+- **Applicant profile and documents** (16 Nov 2026, at the user's request; migration `d5a1c8e3b947`): the apply and
+  talent-pool forms (`public/_applicant_fields.html`) ask for title, first names and surname (`full_name` is built from
+  them), SA citizen + ID number (validated; date of birth taken from it; encrypted) or nationality, passport, date of
+  birth and work permit expiry, cell and alternative number, address (street, suburb, city with the SA town
+  suggestions, postal code, province; `location` = "City, Province"), current employer, notice period, current and
+  expected salary (per month), driver's licence, own transport, languages, and **voluntary EE** gender, race and
+  disability ("Prefer not to say"; never scored, not shown on the candidate page or to the panel). Rules:
+  `careers.parse_profile`. **Documents when applying**: the `application_documents` (required; default ID copy,
+  Highest qualification certificate, Academic transcript) and `application_optional_documents` (default Cover letter)
+  settings, edited by HR Admin under Onboarding → Offer letter and documents (`careers.set_application_documents`);
+  posted as `doc_<i>`, PDF/JPG/PNG, stored as `candidate_document` files (`Candidate.documents`, one current file per
+  name; recruitment roles download them). The talent-pool form takes the profile but documents are optional there. The typed "Cover note" box is
+  hidden when a "Cover letter" document is in the lists, so it's asked for once (the talent pool keeps its own box).
+  **Key skills are one per row** (16 Nov 2026, at the user's request): the form posts several `skills` inputs ("+ Add
+  another skill", up to `careers.MAX_SKILLS` = 30; Enter adds a row); `careers.clean_skills` splits any commas, drops
+  duplicates and stores them one per line in `Candidate.skills` (older comma lists still read; the `skill_list` filter
+  shows either as tags). The ATS joins the CV, skills and title with line breaks, so `ats._near` never pairs words
+  from two different skills.
+  The profile flows on: the offer's salutation and address (`careers.address_lines`), the new employee's names, ID
+  number, date of birth, gender, race and disability (not "Prefer not to say"), the POPIA consent's ID number and the
+  Take-On form's prefill. HR sees the profile and documents on `/recruitment/candidates/<id>`. **The offer page doesn't ask
+  again** for onboarding documents sent with the application (16 Nov 2026, at the user's request):
+  `onboarding.already_submitted` matches by key words (`_doc_words` ignores copy/certificate/updated/...; "Updated CV"
+  = the CV), shows them as "Received with your application" with an optional newer copy, and `accept` copies them onto
+  the case as `onboarding_document` files. Tests:
+  `tests/test_applicant_profile.py`; `test_careers.PROFILE` and `documents()` build a valid application.
 - **Styling:** since 31 Oct 2026, at the user's request, the layout, design and colours of the IGSP admin
   area (`static/css/icebolethu.css` and `templates/admin_base.html` in the IGSP project). Don't change the
   layout or swap the palette without asking.
@@ -264,6 +363,18 @@ Read it in full before any build work and follow its §0 process:
     pictures and `logo.png` are used by the sign-in pages and layouts. The browser-tab icon is the handshake-and-sun
     mark copied from IGSP (1 Nov 2026): `favicon.ico`, `favicon.png` and `apple-touch-icon.png`, linked in
     `base.html` (so every page) and served at `/favicon.ico`.
+  - **Light / dark mode** (16 Nov 2026, at the user's request, IGSP's): each account picks it under My Profile →
+    Appearance (`User.theme`, `THEMES` in `models/user.py`, migration `e7b3d9f1a264`; POST `/me/theme`, JSON for the
+    instant switch). `admin/base.html` puts `data-theme` on `<html>` (block `html_attrs` in `base.html`); the careers
+    site and sign-in pages never set it, so they stay light. The neutral colours in `style.css` are tokens
+    (`--white`, `--background`, `--surface-1/2`, `--text-*`, `--primary-light`, `--accent-light`, `--danger-*`,
+    `--success-*`, borders) whose light values are the old hard-coded ones (light mode was pixel-compared unchanged);
+    `html[data-theme="dark"]` at the end of `style.css` swaps them. **Use these tokens, not hex, for new staff-area
+    colours**, or they won't follow dark mode. Text on solid orange/yellow/green/red stays fixed.
+  - **Document viewer** (16 Nov 2026, IGSP's `static/js/pdf-viewer.js`, loaded by `admin/base.html`): a link with
+    `data-pdf-view data-pdf-title="…"` (and `data-pdf-file` for images) opens the PDF or image in a window over the
+    page with a Download link. Used by the employee record's Documents panel (now first in the right column, with
+    Sensitive (POPIA) moved under Employment on the left; IGSP-style rows with a View button, Download for Word files).
   - Shared macros are in `templates/_ui.html`. Add new components to `style.css` using its variables.
 - **Data:**
   - **Reset on 31 Oct 2026, at the user's request:** `instance/hr.db` was rebuilt with `flask db upgrade` and
@@ -273,7 +384,14 @@ Read it in full before any build work and follow its §0 process:
     Line Manager `lm.<dept>` (grade 10, reporting to exco) and a Department Manager `dm.<dept>` (role Department
     Manager, grade 7, set as the department's head, reporting to the lm). `dm.hr` also holds the HR Manager role
     (1 Nov 2026, at the user's request), so it approves job adverts and signs in on the admin page (`/login`).
-    `ta` (Talent Acquisition Specialist, HR, reporting to dm.hr) was added on 5 Nov 2026, making 36 accounts. It also has departments, cost centres, the org structure and reference
+    `ta` (Talent Acquisition Specialist, HR, reporting to dm.hr) was added on 5 Nov 2026, making 36 accounts.
+    On 10 Nov 2026 `hrbp1`–`hrbp5` (HR Business Partner, HR, reporting to dm.hr, ICE1038–ICE1042, no departments
+    assigned: the user assigns them) were added and `grouphr` switched off (41 accounts, 40 active). Backup:
+    `instance/backup-before-hrbp-2026-11-10/`. On 14 Nov 2026, at the user's request, `python seed_staff_details.py` gave all 40
+    employee records dummy SA ID numbers (valid format and check digit), mobile numbers, gender (random) and the
+    matching date of birth, where blank (backup `instance/backup-before-travel-2026-11-14/hr-before-staff-details.db`). Later that day, at the user's request, hrbp1–3 were renamed Luyanda,
+    Nomthandazo and Buhle (user and employee names only; no surnames given, `last_name` blank; usernames and emails
+    unchanged; backup `instance/backup-before-hrbp-names-2026-11-10/`). It also has departments, cost centres, the org structure and reference
     data (roles, grades, holidays, approval chains, templates, settings). It has no budgets, positions, requisitions, adverts, JD library, jobs, candidates,
     applications or uploads, and the old portal was not re-imported. Don't re-add demo data unless asked.
     **Cleaned on 8 Nov 2026, at the user's request ("delete all dummy data"):** the ICT demo (adverts, requisitions,
@@ -288,7 +406,11 @@ Read it in full before any build work and follow its §0 process:
     Exception, at the user's request (1 Nov 2026): `python seed_ict_demo.py` added dummy ICT recruitment data, 30 open
     ICT adverts (ADV-2026-00002 to -00031, each with an In-recruitment position and an Advertised requisition raised
     by dm.ict), 150 applicants (`is_demo`, @example.com) and 385 ATS-scored applications (the first 10 adverts have
-    3 Shortlisted each); `python seed_ict_demo.py --remove` deletes exactly that. On 2 Nov 2026,
+    3 Shortlisted each); `python seed_ict_demo.py --remove` deletes exactly that. On 16 Nov 2026, at the user's request,
+    `python seed_ict_demo.py --adverts 2` (new option: N open ICT adverts, no applicants) added ADV-2026-00002 Service Desk
+    Agent and ADV-2026-00003 Desktop Support Technician (each with an "[ICT demo]" position, an Advertised requisition
+    raised by dm.ict and three eligibility questions; backup `instance/backup-before-ict-adverts-2026-11-16/`);
+    `--remove` deletes them. On 2 Nov 2026,
     `python seed_ict_demo.py --positions` added an approved ICT establishment (24 positions marked "[ICT demo]"): the
     ICT Line Manager, Department Manager and IT Administrator posts, Filled and linked to those accounts (found by
     role, as the accounts were renamed), 19 Vacant seats and 2 Frozen, reporting to the Department Manager post.
@@ -311,8 +433,26 @@ Read it in full before any build work and follow its §0 process:
   - `portal.db` is the old portal's data and is only read by `import-legacy`.
   - A new migration needs `import app.models.base` for `EncryptedString`. The migration template
     already adds it.
-- **Tests:** run `python -m pytest --cov=app/services`. 308 tests pass, with 91% coverage on
-  services. Fixtures are in `tests/conftest.py` (`login(client, "finance")`, `make_position`, `make_requisition`; each test requisition gets its own
+- **Travel requests** (14 Nov 2026, at the user's request; outside the spec): the i-Travel travel request form,
+  digitised (`app/services/travel.py`, `app/travel/routes.py` at `/travel`, model `TravelRequest` TRF-…, migration
+  `a3c9e7b1d540`). Any staff member fills it in; the client and travel booker aren't typed but taken from the signed-in
+  requester's account (`travel.profile`, at the user's request; the PDF still shows them). **Every staff member raises
+  their own trip**: there's no travellers table; the traveller is the requester (`travel.traveller_for`: name from the
+  account, ID number, gender and phone from the employee record, citizenship from the ID's citizen digit; encrypted on
+  the request), submitting needs the ID number and phone on the record (`traveller_problems`), "No. of PAX" is not
+  asked (1 on the PDF), and only a seat preference is chosen. They fill in flights (preferred airline: FlySafair, SAA, Airlink or Emirates), accommodation
+  and auxiliary services (table rows in `travel.SECTIONS`, posted as `<section>.<key>`). The requester's manager is the only approver (workflow `travel`, `@originator_manager`). On
+  approval the form PDF (`documents/travel_form.html`, i-Travel layout) is stored and emailed to the `itravel_email`
+  setting (default quotes@i-travel.africa, IT's Settings) and every Finance user; **the i-Travel address only when
+  `itravel_email_live` is 1** (0 since 15 Nov 2026, at the user's request: not live yet; one email for TRF-2026-00001
+  had already gone to quotes@i-travel.africa that morning). The **i-Travel** role (`ITRAVEL`,
+  staff portal) books from the i-Travel dashboard (`/travel/dashboard`, i-Travel and Finance), enters the cost and
+  attaches the quote/invoice, and sends it to Finance (workflow `travel_payment`, Finance role; return → back to
+  i-Travel); Finance then marks it Paid. Staff home: "Travel request" tile (and "i-Travel dashboard" for that role);
+  "My fleet" is still a Coming soon tile. Nobody holds the i-Travel role yet: IT assigns it. Tests:
+  `tests/test_travel.py`.
+- **Tests:** run `python -m pytest --cov=app/services`. 357 tests pass, with 92% coverage on
+  services. Interview test slots are in 2036 so they never count as started. Fixtures are in `tests/conftest.py` (`login(client, "finance")`, `make_position`, `make_requisition`; each test requisition gets its own
   vacant position).
 - **Scheduled jobs:** `flask run-sla-checks` (hourly), `flask close-expired-adverts`, `flask remind-jd-reviews` and
   `flask expire-offers` (daily).

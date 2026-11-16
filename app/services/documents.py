@@ -1,4 +1,5 @@
-"""Offer letters and employment contracts as PDFs (8 Nov 2026, at the user's request; spec IN-009 and OB-004).
+"""Offer letters as PDFs (8 Nov 2026, at the user's request; spec IN-009). Employment contracts aren't generated
+since 10 Nov 2026: the department's HR Business Partner attaches the signed copy.
 
 The layout follows Icebolethu's current offer letter (the user's example, 8 Nov 2026): the logo and a rule at the top
 of page 1, "STRICTLY CONFIDENTIAL", the date and address block, "Dear Mr …", an underlined "RE:" line, numbered
@@ -6,7 +7,7 @@ sections, "Yours sincerely" with the signature and the signatory's name and titl
 and on every page the page number, the contact line (phone, addresses, web) and the patterned orange band
 (templates/documents/letter.html; footer images from tools/make_letterhead.py).
 
-The wording is in DocumentTemplate rows that HR Admin edits (Onboarding → Letter and contract templates); the
+The wording is in DocumentTemplate rows that HR Admin edits (Onboarding → Letter template); the
 defaults below are seeded once. A body is text with {{ placeholders }}, laid out by these rules:
 - A blank line starts a new block; inside a block each line keeps its own line (an address).
 - "# " starts the underlined subject line ("# RE: Conditional employment offer letter").
@@ -55,53 +56,7 @@ Start date: {{ start_date }}
 Offer reference: {{ ref }}
 Accepted online: {{ accepted_on or "________________________" }}"""
 
-_TERMS = """Remuneration
-Your total cost to company is **{{ ctc }}** per annum ({{ monthly }} per month), paid monthly in arrears into your \
-nominated bank account. It includes your basic salary and all company contributions. Statutory deductions (PAYE, \
-UIF and SDL) are made as the law requires.
-
-Hours of work
-Your ordinary hours of work are set by company policy for your position and will not exceed 45 hours a week, in \
-line with the Basic Conditions of Employment Act (BCEA). Overtime is worked only when agreed and is paid or \
-compensated as the BCEA provides.
-
-Leave
-You are entitled to annual, sick and family responsibility leave as set out in the BCEA and company leave policy. \
-Leave is applied for and recorded on Sage 300 self-service.
-
-Confidentiality and personal information
-You must keep the company's and its clients' information confidential during and after your employment. The \
-company processes your personal information for employment purposes in line with the Protection of Personal \
-Information Act (POPIA).
-
-Policies
-You agree to follow the company's policies and procedures, including the code of conduct and the disciplinary \
-code, as amended from time to time. They form part of this contract."""
-
-_CONTRACT_SIGN = """Signed for Icebolethu Group
-[signature]
-{% if signatory_name %}**{{ signatory_name }}**
-{% endif %}**{{ signatory_title }}**
-
-[page break]
-
-Employee acceptance
-
-I, **{{ name }}**, accept the terms of this contract.
-
-Employee number: {{ employee_number }}
-Signature: ________________________________
-Date: ________________________________"""
-
-_CONTRACT_HEAD = """{{ today }}
-
-{% if address %}{{ address }}
-
-{% endif %}Dear {{ salutation }} {{ name }}
-
-"""
-
-# key: (name, title, body)
+# key: (name, title, body). Contracts aren't generated since 10 Nov 2026.
 DEFAULTS = {
     "offer_letter": ("Offer letter", "Conditional employment offer letter", """{{ today }}
 
@@ -144,80 +99,7 @@ full terms and conditions of employment which are in line with the provisions of
 Employment Act (BCEA).
 
 """ + _SIGN_OFF + "\n\n" + _ACCEPT),
-    "contract_permanent": ("Contract: permanent", "Letter of appointment (permanent)", _CONTRACT_HEAD + """\
-# RE: Letter of appointment: permanent employment
-
-Further to your acceptance of our offer, Icebolethu Group ("the company") appoints you to the position of \
-**{{ title }}** within the **{{ department }}** department on the terms below.
-
-Employee number: {{ employee_number }}
-Position: {{ title }}
-Department: {{ department }}
-Reports to: {{ reports_to }}
-Occupational level: {{ grade }}
-Start date: {{ start_date }}
-
-1. Commencement and probation
-Your employment starts on **{{ start_date }}** and is permanent.{% if probation %} It is subject to you \
-successfully completing a {{ probation }} probation period, during which your performance and suitability are \
-assessed.{% endif %}
-
-""" + _TERMS + """
-
-Termination
-Either party may end this contract by giving written notice as required by section 37 of the BCEA, or the longer \
-period set by company policy for your position.
-
-""" + _CONTRACT_SIGN),
-    "contract_contract": ("Contract: fixed-term", "Letter of appointment (fixed-term)", _CONTRACT_HEAD + """\
-# RE: Letter of appointment: fixed-term employment
-
-Further to your acceptance of our offer, Icebolethu Group ("the company") appoints you to the position of \
-**{{ title }}** within the **{{ department }}** department for a fixed term, on the terms below.
-
-Employee number: {{ employee_number }}
-Position: {{ title }}
-Department: {{ department }}
-Reports to: {{ reports_to }}
-Start date: {{ start_date }}
-End date: {{ end_date }}
-
-1. Duration
-Your employment starts on **{{ start_date }}** and ends automatically on **{{ end_date }}**, unless it is ended \
-earlier under this contract or extended in writing by both parties. This contract creates no expectation of renewal \
-or of permanent employment.
-
-""" + _TERMS + """
-
-Termination
-Either party may end this contract before its end date by giving written notice as required by section 37 of the \
-BCEA.
-
-""" + _CONTRACT_SIGN),
-    "contract_casual": ("Contract: casual", "Letter of appointment (casual)", _CONTRACT_HEAD + """\
-# RE: Letter of appointment: casual employment
-
-Further to your acceptance of our offer, Icebolethu Group ("the company") appoints you as a casual employee in the \
-position of **{{ title }}** within the **{{ department }}** department, on the terms below.
-
-Employee number: {{ employee_number }}
-Position: {{ title }}
-Department: {{ department }}
-Reports to: {{ reports_to }}
-Start date: {{ start_date }}
-
-1. Nature of employment
-You are employed on a casual basis and will work when the company needs you. The company doesn't guarantee a \
-minimum number of shifts or hours, and you may decline a shift offered to you.
-
-""" + _TERMS + """
-
-Termination
-Either party may end this contract by giving written notice as required by section 37 of the BCEA.
-
-""" + _CONTRACT_SIGN),
 }
-CONTRACT_KEYS = {"Permanent": "contract_permanent", "Contract": "contract_contract", "Casual": "contract_casual"}
 
 # Placeholders HR Admin may use, with what they are (shown on the template form).
 PLACEHOLDERS = {
@@ -232,7 +114,6 @@ PLACEHOLDERS = {
     "conditions": "The offer's extra conditions (a list)", "expires_on": "Last day to accept the offer",
     "signatory_name": "Who signs (Letter settings)", "signatory_title": "Their job title (Letter settings)",
     "accepted_by": "The candidate's name once they accept online", "accepted_on": "When they accepted online",
-    "employee_number": "Employee number (contracts)",
 }
 NUMBERS = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"]
 

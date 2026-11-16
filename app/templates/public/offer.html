@@ -26,9 +26,36 @@
   </div>
 
   {% if offer.status == 'Sent' %}
-  <form class="igsp-form" method="post" style="margin-top:22px">
+  <form class="igsp-form" method="post" enctype="multipart/form-data" style="margin-top:22px">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3 style="margin:0 0 8px 0">Accept the offer</h3>
+    {% if required %}
+    {% set still_needed = required|reject('in', have)|list %}
+    {% if still_needed %}
+    <p style="margin:0 0 12px 0">To accept, attach these documents for your onboarding. Each can be a PDF or a clear photo (JPG or PNG).</p>
+    {% else %}
+    <p style="margin:0 0 12px 0">We already have the documents we need from your application.</p>
+    {% endif %}
+    <div class="offer-docs">
+      {% for name in required %}
+      {% if name in have %}
+      <label for="doc_{{ loop.index0 }}">{{ name }}</label>
+      <div><span class="small" style="color:#1e6b34">✓ Received with your application ({{ have[name].original_name }})</span>
+        <details class="small"><summary style="cursor:pointer">Send a newer copy instead</summary>
+          <input id="doc_{{ loop.index0 }}" type="file" name="doc_{{ loop.index0 }}" accept=".pdf,.jpg,.jpeg,.png"></details></div>
+      {% else %}
+      <label for="doc_{{ loop.index0 }}">{{ name }} *</label>
+      <input id="doc_{{ loop.index0 }}" type="file" name="doc_{{ loop.index0 }}" accept=".pdf,.jpg,.jpeg,.png" required>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+    <p style="margin:14px 0 8px 0">Please also read the Icebolethu Group Employee Code of Conduct, which applies to everyone who works with us.</p>
+    <p style="margin:0 0 12px 0"><a class="pill-btn outline-dark" href="{{ url_for('careers.offer_form', token=token, key='code_of_conduct') }}">Download the Code of Conduct (PDF)</a></p>
+    <label class="check-row" style="display:flex;gap:10px;align-items:flex-start;font-weight:500">
+      <input type="checkbox" name="code_of_conduct" value="1" style="width:auto;margin-top:3px">
+      <span>I have read, understand and accept the Icebolethu Group Code of Conduct.</span>
+    </label>
     <label class="check-row" style="display:flex;gap:10px;align-items:flex-start;font-weight:500">
       <input type="checkbox" name="confirm" value="1" style="width:auto;margin-top:3px">
       <span>I have read the offer letter and I accept the offer of employment on the terms it sets out.</span>
@@ -45,7 +72,7 @@
             onclick="return confirm('Decline this offer? You can\'t change your answer afterwards.')">Decline the offer</button>
   </form>
   {% elif offer.status == 'Accepted' %}
-  <p style="margin-top:18px">You accepted this offer on {{ offer.responded_at|dt }}. Welcome to Icebolethu Group! Our HR team will contact you about your contract and your first day.</p>
+  <p style="margin-top:18px">You accepted this offer on {{ offer.responded_at|dt }} and sent us your onboarding documents. Welcome to Icebolethu Group! Please complete your new starter pack: the link is in the welcome email we sent you.</p>
   {% elif offer.status == 'Declined' %}
   <p style="margin-top:18px">You declined this offer on {{ offer.responded_at|dt }}. Thank you for letting us know, and for your interest in Icebolethu Group.</p>
   {% elif offer.status == 'Expired' %}

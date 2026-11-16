@@ -1,0 +1,44 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kpi with context %}
+{% block title %}i-Travel dashboard{% endblock %}
+{% block heading %}i-Travel dashboard{% endblock %}
+{% block subheading %}Every travel request the manager approved: book it, then send the quote or invoice to Finance for payment.{% endblock %}
+{% block actions %}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('travel.index') }}">{{ icon('plane') }} My travel requests</a>
+{% endblock %}
+{% block content %}
+{% set c = stats.counts %}
+<div class="reports-kpi-grid plain">
+  {{ kpi('To book', c.get('Approved', 0), 'plane', 'orange') }}
+  {{ kpi('With Finance', c.get('With Finance', 0), 'clock', 'yellow') }}
+  {{ kpi('Payment approved, to pay', c.get('Payment approved', 0), 'check', 'black') }}
+  {{ kpi('Paid', c.get('Paid', 0), 'check') }}
+  {{ kpi('Awaiting payment', stats.awaiting|money, 'building', 'orange') }}
+  {{ kpi('Paid this month', stats.paid_month|money, 'trending') }}
+</div>
+
+<div class="slicer-tabs app-block" role="tablist">
+  {% for key, label, statuses in tabs %}
+  <a class="slicer-tab {{ 'slicer-tab-active' if key == tab }}" href="{{ url_for('travel.dashboard', tab=key) }}">{{ label }} ({{ c.get(statuses[0], 0) }})</a>
+  {% endfor %}
+</div>
+
+<section class="admin-panel app-block">
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Request</th><th>Traveller</th><th>Trip</th><th>First travel date</th><th>Approved</th><th>Cost</th><th>Status</th></tr>
+    {% for r in rows %}
+    <tr>
+      <td><a href="{{ url_for('travel.detail', tr_id=r.id) }}"><strong>{{ r.reference }}</strong></a><span class="sub">{{ r.requester.full_name }}{% if r.department %} · {{ r.department.name }}{% endif %}</span></td>
+      <td>{{ r.lead_traveller }}</td>
+      <td>{{ r.summary }}</td>
+      <td>{{ show('date', r.first_date) or '—' }}</td>
+      <td class="small">{{ r.approved_at|dtt if r.approved_at }}<span class="sub">{{ r.approver_name or '' }}</span></td>
+      <td>{{ r.amount|money if r.amount is not none else '—' }}</td>
+      <td>{{ status(r.status) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="empty-row">Nothing here.</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% endblock %}

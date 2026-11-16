@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block html_attrs %} data-theme="{{ ui_theme|default('light') }}"{% endblock %}
 {% block site_name %}{{ system_name }}{% endblock %}
 {% block body_class %}ig-body{% endblock %}
 {% block layout %}
@@ -39,7 +40,7 @@
         {% for p in current_user.portals %}
         <a class="ig-nav-link{{ ' is-active' if p == portal and request.endpoint == 'dashboards.home' }}" href="{{ url_for('dashboards.switch_portal', name=p) }}">
           {{ icon('users' if p == 'staff' else 'briefcase' if p == 'manager' else 'dashboard') }}<span>{{ portal_labels[p] }}</span>
-          {% if p == portal %}<span class="ig-nav-count" style="background:var(--text)">here</span>{% endif %}</a>
+          {% if p == portal %}<span class="ig-nav-count ig-nav-here">here</span>{% endif %}</a>
         {% endfor %}
         {% endif %}
         <div class="ig-nav-heading">My account</div>
@@ -134,13 +135,15 @@
   }
   document.querySelectorAll('[data-platform]').forEach(syncPlatform);
   document.addEventListener('change', function (e) { if (e.target.matches('[data-platform]')) syncPlatform(e.target); });
-  // Question rows (_ui.question_rows, 8 Nov 2026): "Add another question" shows the next hidden row.
+  // Question rows (_ui.question_rows, 8 Nov 2026) and table rows ([data-row], the travel request form, 14 Nov 2026):
+  // "Add another …" shows the next hidden row.
   document.addEventListener('click', function (e) {
     var add = e.target.closest('[data-add-row]');
     if (!add) return;
-    var next = add.closest('[data-rows]').querySelector('.question-row[hidden]');
-    if (next) { next.hidden = false; next.querySelector('textarea').focus(); }
-    if (!add.closest('[data-rows]').querySelector('.question-row[hidden]')) add.hidden = true;
+    var rows = add.closest('[data-rows]'), hidden = '.question-row[hidden], [data-row][hidden]';
+    var next = rows.querySelector(hidden);
+    if (next) { next.hidden = false; var field = next.querySelector('textarea, input, select'); if (field) field.focus(); }
+    if (!rows.querySelector(hidden)) add.hidden = true;
   });
   // Approval forms (_ui.act_form): Return for revision and Reject open the comment box, which then needs a reason.
   var ACT = {return: ['Reason for returning (required)', 'Return for revision', 'admin-btn-secondary'],
@@ -191,5 +194,6 @@
   modal.addEventListener('click', function (e) { if (e.target === modal) modal.close('cancel'); });   // backdrop
 })();
 </script>
+<script src="{{ url_for('static', filename='js/pdf-viewer.js') }}"></script>   {# IGSP's document viewer #}
 {% block scripts %}{% endblock %}
 {% endblock %}

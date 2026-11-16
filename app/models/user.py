@@ -25,9 +25,10 @@ GCOO = "GCOO"
 HR_ADMIN = "HR Admin"
 PANEL = "Panel Member"
 EXCO = "Exco"
+ITRAVEL = "i-Travel"   # 14 Nov 2026: books approved travel requests and sends them to Finance for payment
 
 ALL_ROLES = [EMPLOYEE, LINE_MANAGER, HOD, HRBP, RECRUITER, HR_MANAGER, GROUP_HR, HR_OD, FINANCE,
-             PAYROLL, IT, ASSET_CONTROLLER, COMPLIANCE, GCOO, EXCO, HR_ADMIN, PANEL]
+             PAYROLL, IT, ASSET_CONTROLLER, COMPLIANCE, GCOO, EXCO, HR_ADMIN, PANEL, ITRAVEL]
 HR_ROLES = {HRBP, HR_MANAGER, GROUP_HR, HR_OD, HR_ADMIN}
 # Recruitment (adverts, JD library, ATS, shortlists, interview panels): HR plus the Talent Acquisition Specialist,
 # who sees nothing else but approved requisitions, read-only (5 Nov 2026, at the user's request).
@@ -59,6 +60,9 @@ class Role(db.Model):
         return f"<Role {self.name}>"
 
 
+THEMES = {"light": "Light", "dark": "Dark"}   # the colour mode each account picks (16 Nov 2026, from IGSP)
+
+
 class User(UserMixin, TimestampMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -69,6 +73,7 @@ class User(UserMixin, TimestampMixin, db.Model):
     active = db.Column(db.Boolean, default=True, nullable=False)
     last_login_at = db.Column(db.DateTime)
     employee_id = db.Column(db.Integer, db.ForeignKey("employees.id"), unique=True, index=True)
+    theme = db.Column(db.String(10), nullable=False, default="light", server_default="light")   # IGSP's light / dark
 
     roles = db.relationship(Role, secondary=user_roles, lazy="selectin")
     employee = db.relationship("Employee", foreign_keys=[employee_id], back_populates="user")

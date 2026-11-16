@@ -1,5 +1,5 @@
 """Employee self-service: my profile, my notifications, and permission-checked file downloads."""
-from flask import Blueprint, Response, abort, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from app.auth.decorators import roles_required
@@ -16,6 +16,28 @@ bp = Blueprint("portal", __name__)
 @roles_required()
 def me():
     return render_template("portal/me.html", emp=current_user.employee)
+
+
+@bp.route("/me/theme", methods=["POST"])
+@roles_required()
+def theme():
+    """Settings > Appearance (16 Nov 2026, from IGSP): light or dark, saved on the account. JSON for the page's
+    instant switch; a redirect without JavaScript."""
+    from flask import jsonify
+    from app.models.user import THEMES
+    choice = request.form.get("theme", "")
+    wants_json = "application/json" in request.headers.get("Accept", "")
+    if choice not in THEMES:
+        if wants_json:
+            return jsonify(ok=False, error="Unknown theme."), 400
+        flash("Choose light or dark.", "error")
+        return redirect(url_for("portal.me"))
+    current_user.theme = choice
+    db.session.commit()
+    if wants_json:
+        return jsonify(ok=True, theme=choice)
+    flash(f"{THEMES[choice]} mode is on.", "success")
+    return redirect(url_for("portal.me"))
 
 
 @bp.route("/notifications")

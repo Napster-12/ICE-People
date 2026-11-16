@@ -128,13 +128,44 @@ DEFAULT_TEMPLATES = {
                              "{{ decided_by }} marked {{ name }} successful after the interview for {{ title }}.\n\n"
                              "Candidate: {{ name }}\nApplication: {{ ref }}\nPanel score: {{ average }}%"
                              "{% if comment %}\nComment: {{ comment }}{% endif %}\n\n"
-                             "Please prepare and send the offer letter."),
+                             "Please start the background checks (you or the department's HR Business Partner) "
+                             "and prepare the offer letter. The offer can only be sent once every background "
+                             "check is clear."),
+    # Background checks before the offer (16 Nov 2026, at the user's request; spec IN-008).
+    "screening_needed": ("Background checks to run (to the HR Business Partner)",
+                         "Background checks: {{ name }} for {{ title }}",
+                         "{{ decided_by }} marked {{ name }} successful after the interview for {{ title }} in "
+                         "{{ department }}.\n\nCandidate: {{ name }}\nApplication: {{ ref }}\n\n"
+                         "As the department's HR Business Partner, please start the background checks. The "
+                         "candidate is asked for consent first, and the offer can only be sent once every check "
+                         "is clear."),
+    "screening_update": ("Background checks update (to HR Admin and the HR Business Partner)",
+                         "Background checks {{ outcome }}: {{ name }} for {{ title }}",
+                         "{{ message }}\n\nCandidate: {{ name }}\nPosition: {{ title }}\nApplication: {{ ref }}\n"
+                         "Status: {{ status }}"),
+    "candidate_screening_consent": ("Applicant: consent to background checks",
+                                    "Your consent to background checks: {{ title }} at Icebolethu Group",
+                                    "Dear {{ name }}\n\nThank you for attending the interview for the {{ title }} "
+                                    "position. Before we can make an offer, Icebolethu Group runs background "
+                                    "checks on successful candidates, and we need your consent to do so.\n\n"
+                                    "Position: {{ title }}\nReference: {{ ref }}\n\nWe will run these checks:\n"
+                                    "{{ checks }}\n\nPlease use the button below to read what the checks involve "
+                                    "and to give or refuse your consent. Your information is used only for this "
+                                    "recruitment decision and is handled in line with the Protection of Personal "
+                                    "Information Act (POPIA).\n\nKind regards\nIcebolethu Group Human Resources"),
     "offer_accepted": ("Offer accepted (to HR Admin)",
                        "Offer accepted: {{ name }} for {{ title }}",
                        "{{ name }} accepted offer {{ ref }} for {{ title }}.\n\nStart date: {{ start_date }}\n"
-                       "Employee number: {{ employee_number }}\n\nAn onboarding case has been opened. Please "
-                       "check the employee number, then prepare the contract. The other applicants for this "
-                       "advert are marked Not selected; send them the regret letter from the job's messages page."),
+                       "Employee number: {{ employee_number }}\n\nAn onboarding case has been opened with the "
+                       "candidate's documents. Please check the employee number; the department's HR Business "
+                       "Partner attaches the signed contract. The other applicants for this advert are marked Not "
+                       "selected; send them the regret letter from the job's messages page."),
+    "contract_needed": ("New starter: attach the contract (to the HR Business Partner)",
+                        "Contract needed: {{ name }} for {{ title }}",
+                        "{{ name }} accepted the offer for {{ title }} in {{ department }}.\n\nCase: {{ ref }}\n"
+                        "Start date: {{ start_date }}\n\nAs the department's HR Business Partner, please attach "
+                        "the signed employment contract to the onboarding case. The candidate's documents are on "
+                        "the case."),
     "offer_declined": ("Offer declined or expired (to HR Admin)",
                        "Offer {{ outcome }}: {{ name }} for {{ title }}",
                        "Offer {{ ref }} to {{ name }} for {{ title }} was {{ outcome }}.\n\nReason: {{ reason }}\n\n"
@@ -151,9 +182,40 @@ DEFAULT_TEMPLATES = {
                                  "Welcome to Icebolethu Group, {{ name }}!",
                                  "Dear {{ name }}\n\nThank you for accepting our offer for the {{ title }} "
                                  "position. We are excited to welcome you to the team.\n\nPosition: {{ title }}\n"
-                                 "Start date: {{ start_date }}\n\nOur HR team will contact you shortly about your "
-                                 "employment contract and the documents we need before your first day.\n\n"
+                                 "Start date: {{ start_date }}\n\nThank you for sending your onboarding documents. "
+                                 "Next, please complete your new starter pack using the button below:\n"
+                                 "- the New Hire Take-On form (online)\n"
+                                 "- the Business and Financial Disclosure Form, completed before a Commissioner "
+                                 "of Oaths\n"
+                                 "- the Liberty Nomination of Beneficiary Form\n\n"
+                                 "You can save the pack and come back to it. Our HR team will contact you about "
+                                 "your employment contract and your first day.\n\n"
                                  "Kind regards\nIcebolethu Group Human Resources"),
+    # The new starter pack (16 Nov 2026).
+    "starter_pack_update": ("New starter pack update (to HR Admin and the HR Business Partner)",
+                            "New starter pack {{ outcome }}: {{ name }}",
+                            "{{ message }}\n\nNew starter: {{ name }}\nPosition: {{ title }}\nCase: {{ ref }}\n"
+                            "Status: {{ status }}"),
+    "candidate_starter_pack_returned": ("Applicant: new starter pack returned",
+                                        "Please update your new starter pack, {{ name }}",
+                                        "Dear {{ name }}\n\nThank you for submitting your new starter pack. Our HR "
+                                        "Business Partner has asked you to correct the following before we can "
+                                        "complete your onboarding:\n\n{{ comment }}\n\nPlease use the button below "
+                                        "to update and resubmit it.\n\nKind regards\n"
+                                        "Icebolethu Group Human Resources"),
+    # Travel requests (14 Nov 2026).
+    "travel_status": ("Travel request update",
+                      "Travel request {{ ref }}: {{ status }}",
+                      "{{ message }}\n\nReference: {{ ref }}\nTraveller: {{ traveller }}\nTrip: {{ trip }}\n"
+                      "Status: {{ status }}"),
+    "travel_booking": ("Approved travel request (to i-Travel and Finance)",
+                       "Travel request {{ ref }}: {{ traveller }}, {{ trip }}",
+                       "Good day\n\nPlease find attached approved travel request {{ ref }} from Icebolethu Group.\n\n"
+                       "Reference: {{ ref }}\nRequested by: {{ requester }}\nDepartment: {{ department }}\n"
+                       "Traveller: {{ traveller }}\nTrip: {{ trip }}\nFirst travel date: {{ first_date }}\n"
+                       "Approved by: {{ approver }}\nApproved on: {{ approved_on }}\n\n"
+                       "i-Travel: please book it and send the quote or invoice to Finance for payment from the "
+                       "i-Travel dashboard.\n\nKind regards\nICE People Administration System"),
     "budget_overspend": ("Budget overspend alert",
                          "Budget alert: {{ cost_centre }} at {{ pct }}%",
                          "Cost centre {{ cost_centre }} has committed and consumed {{ pct }}% of its {{ fy }} budget ({{ used }} of {{ amount }})."),

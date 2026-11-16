@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero with context %}
+{% block title %}Background checks{% endblock %}
+
+{% block hero %}
+{% call page_hero("Consent to background checks", compact=True, id='screening') %}
+  <p class="poster-lead">{{ screening.application.candidate.full_name }} · {{ screening.application.job.title }} at Icebolethu Group</p>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<div class="card status-card">
+  <div class="status-result" style="margin-top:0">
+    <div class="status-result-head">
+      <div class="title-pill">{{ screening.application.reference }}</div>
+      <span class="status-badge st-Pending">Waiting for your answer</span>
+    </div>
+    <p style="margin:12px 0 8px 0">Congratulations on your interview. Before we can make an offer, Icebolethu Group runs these background checks on successful candidates, through its verification agent, Managed Integrity Evaluation (MIE):</p>
+    <ul style="margin:0 0 12px 20px">
+      {% for c in screening.checks %}<li>{{ c.name }}</li>{% endfor %}
+    </ul>
+    <p class="small" style="margin:0">You may refuse consent, but we can't make an offer without the checks.</p>
+  </div>
+
+  <form class="igsp-form" method="post" enctype="multipart/form-data" style="margin-top:22px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 style="margin:0 0 4px 0">1. Consent to process your personal information (POPIA)</h3>
+    <p class="small" style="margin:0 0 10px 0">In terms of Section 18 of the Protection of Personal Information Act, 2013 (Act No. 4 of 2013).</p>
+    <p class="small">{{ intro }}</p>
+    <ol class="small" style="margin:0 0 14px 20px;display:flex;flex-direction:column;gap:6px">
+      {% for c in clauses %}<li>{{ c }}</li>{% endfor %}
+    </ol>
+    <label for="full_name">Your full name *</label>
+    <input id="full_name" name="full_name" autocomplete="name" maxlength="160" required value="{{ request.form.get('full_name', screening.application.candidate.full_name) }}">
+    <label for="id_number">ID number *</label>
+    <input id="id_number" name="id_number" maxlength="20" required inputmode="numeric" value="{{ request.form.get('id_number', screening.application.candidate.id_number or '') }}" placeholder="13-digit SA ID number, or your passport number">
+    <label for="place">Signed at (town or city) *</label>
+    <input id="place" name="place" maxlength="120" required value="{{ request.form.get('place', '') }}" placeholder="e.g. Durban">
+
+    <h3 style="margin:22px 0 4px 0">2. MIE Personal Credential Disclosure Form</h3>
+    <p class="small" style="margin:0 0 10px 0">MIE runs the checks for us and needs its own signed form. Download it, complete the candidate section, sign and date it, then attach it here (a PDF or a clear photo).</p>
+    <p style="margin:0 0 10px 0"><a class="pill-btn outline-dark" href="{{ url_for('careers.screening_form', token=token, key='mie') }}">Download the MIE form (PDF)</a></p>
+    <label for="mie">Signed MIE form *</label>
+    <input id="mie" type="file" name="mie" accept=".pdf,.jpg,.jpeg,.png" required>
+
+    <label class="check-row" style="display:flex;gap:10px;align-items:flex-start;font-weight:500;margin-top:14px">
+      <input type="checkbox" name="confirm" value="1" style="width:auto;margin-top:3px">
+      <span>I have read the consent above and give my consent. Typing my name serves as my signature.</span>
+    </label>
+    <button type="submit" name="answer" value="consent" style="margin-top:12px">Give consent</button>
+  </form>
+
+  <form class="igsp-form" method="post" style="margin-top:26px;padding-top:20px;border-top:1px solid var(--border)">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 style="margin:0 0 8px 0">Refuse consent</h3>
+    <p style="margin:0 0 8px 0">If you refuse, we can't continue with your application.</p>
+    <button type="submit" name="answer" value="refuse" class="offer-decline"
+            onclick="return confirm('Refuse consent? We won\'t be able to make you an offer, and you can\'t change your answer afterwards.')">Refuse consent</button>
+  </form>
+</div>
+{% endblock %}

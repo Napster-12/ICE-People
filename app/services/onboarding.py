@@ -6,10 +6,15 @@
 2. HR Admin drafts the offer (CTC, start date, employment type, conditions, expiry). An offer above the
    requisition's costed CTC (or for an unbudgeted position) goes to Finance first (workflow type "offer").
 3. Sending emails the candidate the offer letter PDF and a secure link (/offer/<token>) to accept or decline.
+   It's refused until every background check is Clear (services/screening.py, 16 Nov 2026, at the user's request);
+   the offer can be drafted and approved by Finance while the checks run.
 4. Acceptance hands off: application Hired, requisition and position Filled, budget consumed, the advert's other
    open applicants "Not selected" (HR sends the regrets), an Employee (Pre-boarding, next employee number) and an
    OnboardingCase.
-5. HR Admin generates the contract PDF for the employment type and uploads the signed copy.
+   The candidate attaches the required onboarding documents (settings "onboarding_documents") to accept
+   (10 Nov 2026, at the user's request).
+5. Contracts aren't generated (10 Nov 2026, at the user's request): the department's HR Business Partner attaches
+   the signed contract to the case.
 """
 import re
 import secrets
@@ -17,11 +22,12 @@ from decimal import Decimal, InvalidOperation
 
 from app.extensions import db
 from app.integrations import IntegrationError, get_adapter
-from app.models import Application, Employee, Offer, OnboardingCase
+from app.models import Application, Department, Employee, Offer, OnboardingCase
 from app.models.onboarding import OFFER_EDITABLE, OFFER_OPEN, SALUTATIONS
 from app.models.org import EMPLOYMENT_TYPES
-from app.models.user import FINANCE, GROUP_HR, HR_ADMIN, HR_MANAGER, RECRUITER
-from app.services import audit, budget, documents, files, positions, refs, requisitions, settings, workflow
+from app.models.user import FINANCE, GROUP_HR, HR_ADMIN, HR_MANAGER, HRBP, RECRUITER
+from app.services import (audit, budget, careers, documents, files, positions, refs, requisitions, settings,
+                          workflow)
 from app.services.calendar import add_business_days
 from app.services.dates import format_money, now, today
 from app.services.errors import DomainError
@@ -31,6 +37,8 @@ EDIT_ROLES = (HR_ADMIN,)                                    # make offers, run o
 VIEW_ROLES = (HR_ADMIN, HR_MANAGER, GROUP_HR)               # see them
 OPEN_APPLICATION = ("New", "Screening", "Shortlisted", "Interview", "Offer")
 CONTRACT_FILE = "employment_contract"
+DOCUMENTS_FILE = "onboarding_document"                     # the candidate's documents, uploaded on acceptance
+DOCUMENT_TYPES = {".pdf", ".jpg", ".jpeg", ".png"}
 OFFER_FILE = "offer_letter"
 EMPLOYEE_PREFIX = "ICE"
 
@@ -113,7 +121,9 @@ def draft(application, user):
                   expires_on=add_business_days(today(), 5), created_by_id=user.id,
                   work_location=(position.branch.name if position and position.branch else None)
                   or (application.job.location if application.job else None),
-                  candidate_address=application.candidate.location or None)
+                  candidate_address=careers.address_lines(application.candidate) or application.candidate.location
+                  or None,
+                  salutation=application.candidate.title if application.candidate.title in SALUTATIONS else None)
     offer.probation_months = settings.get("probation_months", int) if offer.employment_type == "Permanent" else None
     db.session.add(offer)
     db.session.flush()
@@ -264,7 +274,12 @@ def send(offer, user, base_url):
                          after={"status": "In Approval"}, user=user)
             workflow.start("offer", "offer", offer.id, user, context=_context(offer),
                            department=req.department if req else None)
-            return "approval" if offer.status == "In Approval" else _deliver(offer, user, base_url)
+            if offer.status == "In Approval":
+                return "approval"
+            from app.services import screening
+            if screening.problem(offer.application):       # approved at once, but the checks aren't clear yet
+                return "approved"
+            return _deliver(offer, user, base_url)
         return _deliver(offer, user, base_url)
     if offer.status == "Approved":
         return _deliver(offer, user, base_url)
@@ -281,6 +296,8 @@ def _context(offer):
 
 
 def _deliver(offer, user, base_url):
+    from app.services import screening
+    screening.require_clear(offer.application)        # background checks first (16 Nov 2026)
     pdf = letter_pdf(offer)
     stored = files.store_bytes(pdf, f"{offer.reference} offer letter.pdf", OFFER_FILE, offer.id, user=user,
                                check=False)
@@ -319,14 +336,18 @@ def withdraw(offer, user, reason=""):
 
 def _back_to_interviewing(offer):
     """No offer left in play for the requisition: it goes back to Interviewing."""
-    req = offer.requisition
+    requisition_back(offer.application, f"{offer.reference} {offer.status.lower()}")
+
+
+def requisition_back(application, comment):
+    """With nobody else at offer stage, the requisition goes back from Offer to Interviewing."""
+    job = application.job
+    req = job.requisition if job else None
     if req is None or req.status != "Offer":
         return
-    job = offer.job
-    others = [a for a in job.applications if a.status == "Offer" and a.id != offer.application_id]
+    others = [a for a in job.applications if a.status == "Offer" and a.id != application.id]
     if not others:
-        requisitions.set_status(req, "Interviewing", comment=f"{offer.reference} {offer.status.lower()}",
-                                notify_originator=False)
+        requisitions.set_status(req, "Interviewing", comment=comment, notify_originator=False)
 
 
 # ------------------------------------------------------------------ the candidate's answer
@@ -375,10 +396,112 @@ def decline(offer, reason, ip=None):
     _back_to_interviewing(offer)
 
 
-def accept(offer, ip=None):
-    """The candidate accepts: hand off to onboarding. Returns the new OnboardingCase."""
+def required_documents():
+    """The documents a candidate must attach to accept an offer (HR Admin edits the list, one per line)."""
+    return [line.strip() for line in settings.get("onboarding_documents").splitlines() if line.strip()]
+
+
+def set_required_documents(text, user):
+    names = []
+    for line in (text or "").splitlines():
+        name = " ".join(line.split())[:120]
+        if name and name.lower() not in {n.lower() for n in names}:
+            names.append(name)
+    if len(names) > 20:
+        raise DomainError("List 20 documents at most.")
+    value = "\n".join(names)
+    if value != settings.get("onboarding_documents"):
+        audit.record("config.setting", "setting", "onboarding_documents",
+                     before={"value": settings.get("onboarding_documents")}, after={"value": value}, user=user)
+        settings.set_value("onboarding_documents", value)
+    return names
+
+
+# Words that don't tell documents apart: "ID copy" is the application's "ID copy", "Highest qualification" its
+# "Highest qualification certificate", "Updated CV" the CV.
+_DOC_NOISE = {"copy", "of", "your", "the", "a", "an", "certificate", "certified", "document", "documents", "updated",
+              "recent", "latest", "sars"}
+
+
+def _doc_words(name):
+    return {w for w in re.findall(r"[a-z0-9]+", (name or "").lower()) if w not in _DOC_NOISE}
+
+
+def already_submitted(candidate):
+    """The required onboarding documents the candidate already sent with their application (16 Nov 2026, at the
+    user's request: don't ask for them again). {document name: StoredFile}."""
+    from app.services import careers
+    sent = careers.candidate_documents(candidate) if candidate is not None else []
+    found = {}
+    for name in required_documents():
+        words = _doc_words(name)
+        if not words:
+            continue
+        if words == {"cv"} and candidate.cv_file is not None:
+            found[name] = candidate.cv_file
+            continue
+        for sent_name, stored in sent:
+            theirs = _doc_words(sent_name)
+            if theirs and (words <= theirs or theirs <= words):
+                found[name] = stored
+                break
+    return found
+
+
+def check_documents(uploads, have=None):
+    """uploads: {document name: FileStorage}. Returns [(name, filename, bytes)] for every required document, or
+    raises DomainError listing what's missing or wrong. Checked before anything changes. have: documents already
+    received with the application (already_submitted); they're not needed again, but a newer one may be attached."""
+    from flask import current_app
+    limit = current_app.config["MAX_UPLOAD_BYTES"]
+    ready, missing, problems = [], [], []
+    for name in required_documents():
+        upload = (uploads or {}).get(name)
+        if upload is None or not upload.filename:
+            if name not in (have or {}):
+                missing.append(name)
+            continue
+        ext = "." + upload.filename.rsplit(".", 1)[-1].lower() if "." in upload.filename else ""
+        data = upload.read()
+        if ext not in DOCUMENT_TYPES:
+            problems.append(f"{name} must be a PDF, JPG or PNG file.")
+        elif not data:
+            problems.append(f"The file for {name} is empty.")
+        elif len(data) > limit:
+            problems.append(f"{name} is larger than {limit // (1024 * 1024)} MB.")
+        else:
+            ready.append((name, upload.filename, data))
+    if missing:
+        problems.insert(0, "Attach " + ", ".join(missing) + " to accept the offer.")
+    if problems:
+        raise DomainError(" ".join(problems))
+    return ready
+
+
+def _store_documents(case, ready):
+    for name, filename, data in ready:
+        files.store_bytes(data, f"{name} - {filename}"[:255], DOCUMENTS_FILE, case.id, check=False)
+    if ready:
+        audit.record("onboarding.documents", "onboarding_case", case.id, after={"documents": [n for n, _f, _d in ready]})
+
+
+def case_documents(case):
+    return files.files_for(DOCUMENTS_FILE, case.id)
+
+
+def accept(offer, ip=None, uploads=None, code_of_conduct=False, base_url=""):
+    """The candidate accepts, attaching the required documents and accepting the Code of Conduct (16 Nov 2026):
+    hand off to onboarding. Returns the new OnboardingCase, whose new starter pack link is in the welcome email."""
     if expire_if_due(offer) or offer.status != "Sent":
         raise DomainError("This offer can no longer be answered.")
+    if not code_of_conduct:
+        raise DomainError("Read the Icebolethu Group Code of Conduct and tick the box to accept it.")
+    have = already_submitted(offer.candidate)
+    ready = check_documents(uploads, have)
+    uploaded_now = {name for name, _f, _d in ready}
+    ready += [(name, stored.original_name, files.read(stored)) for name, stored in have.items()
+              if name not in uploaded_now]                    # copied onto the case from the application
+    offer.code_of_conduct_at = now()
     application, job, req = offer.application, offer.job, offer.requisition
     offer.status, offer.responded_at, offer.response_ip = "Accepted", now(), ip
     audit.record("status_change", "offer", offer.id, before={"status": "Sent"}, after={"status": "Accepted"})
@@ -417,19 +540,31 @@ def accept(offer, ip=None):
     db.session.flush()
     audit.record("create", "onboarding_case", case.id, after={"ref": case.reference, "employee":
                  employee.employee_number, "start_date": str(case.start_date)})
+    _store_documents(case, ready)
+    from app.services import starter_pack
+    pack = starter_pack.create(case)
 
     _notify_team(offer, "offer_accepted", start_date=documents.long_date(offer.start_date),
                  employee_number=employee.employee_number)
-    notify_candidate(offer, "candidate_offer_accepted")
+    hrbp = hrbp_for(case)
+    if hrbp is not None:
+        notify(hrbp, "contract_needed", link=f"/onboarding/cases/{case.id}", ref=case.reference,
+               name=employee.full_name, title=offer.job.title, start_date=documents.long_date(case.start_date),
+               department=employee.department.name if employee.department else "")
+    notify_candidate(offer, "candidate_offer_accepted", link=starter_pack.link(pack, base_url) if base_url else None)
     return case
 
 
 def _new_employee(offer, position, req):
-    parts = offer.candidate.full_name.split()
+    cand = offer.candidate
+    parts = cand.full_name.split()
     manager = position.reports_to.holder if position and position.reports_to else None
-    employee = Employee(employee_number=next_employee_number(), first_name=parts[0] if parts else "New",
-                        last_name=" ".join(parts[1:]) or "-", email=offer.candidate.email,
-                        phone=offer.candidate.phone,
+    ee = {k: getattr(cand, k) for k in ("gender", "race", "disability")
+          if getattr(cand, k) and getattr(cand, k) != careers.PREFER_NOT}       # from the application (16 Nov 2026)
+    employee = Employee(employee_number=next_employee_number(),
+                        first_name=cand.first_names or (parts[0] if parts else "New"),
+                        last_name=cand.surname or " ".join(parts[1:]) or "-", email=cand.email,
+                        phone=cand.phone, id_number=cand.id_number, date_of_birth=cand.date_of_birth, **ee,
                         department_id=req.department_id if req else None,
                         cost_centre_id=req.cost_centre_id if req else None,
                         job_grade_id=req.job_grade_id if req else None,
@@ -446,54 +581,59 @@ def _new_employee(offer, position, req):
     return employee
 
 
-def notify_candidate(offer, key):
+def notify_candidate(offer, key, link=None):
     context = {"name": offer.candidate.full_name, "title": offer.job.title, "ref": offer.reference,
                "start_date": documents.long_date(offer.start_date)}
     subject, body = render(key, context)
     from app.services.emails import designed
     try:
         get_adapter("email").send_email(offer.candidate.email, subject, body,
-                                        html=designed(key, subject, body, context=context))
+                                        html=designed(key, subject, body, link, context=context))
     except IntegrationError:
         pass                                                   # logged in the Integration Log
 
 
 # ------------------------------------------------------------------ onboarding cases and contracts
 
-def cases():
-    return OnboardingCase.query.order_by(OnboardingCase.start_date).all()
+def hrbp_for(case):
+    """The HR Business Partner of the new starter's department (attaches the signed contract)."""
+    dept = case.employee.department
+    user = dept.hrbp if dept is not None else None
+    return user if user is not None and user.active and user.has_role(HRBP) else None
 
 
-def contract_context(case):
-    offer, employee = case.offer, case.employee
-    context = letter_context(offer) if offer else {}
-    context.update({"today": documents.long_date(today()), "name": employee.full_name,
-                    "employee_number": employee.employee_number, "start_date": documents.long_date(case.start_date),
-                    "employment_type": employee.employment_type,
-                    "end_date": documents.long_date(employee.end_date) if employee.end_date else ""})
-    return context
+def is_case_hrbp(user, case):
+    hrbp = hrbp_for(case)
+    return hrbp is not None and hrbp.id == user.id
 
 
-def contract_pdf(case, user):
-    key = documents.CONTRACT_KEYS.get(case.employee.employment_type, "contract_permanent")
-    title, body = documents.render(key, contract_context(case))
-    pdf = documents.pdf(title, body, ref=case.employee.employee_number)
-    if case.contract_status == "Not generated":
-        case.contract_status = "Generated"
-    case.contract_generated_at = now()
-    audit.record("contract.generated", "onboarding_case", case.id, after={"template": key}, user=user)
-    return pdf
+def can_view_case(user, case):
+    return user.has_role(*VIEW_ROLES) or is_case_hrbp(user, case)
+
+
+def can_attach_contract(user, case):
+    return is_case_hrbp(user, case) and case.status != "Cancelled"
+
+
+def cases(user=None):
+    q = OnboardingCase.query.order_by(OnboardingCase.start_date)
+    if user is not None and not user.has_role(*VIEW_ROLES):        # an HR BP: their departments' new starters
+        dept_ids = [d.id for d in Department.query.filter_by(hrbp_user_id=user.id).all()]
+        q = q.join(Employee, OnboardingCase.employee_id == Employee.id).filter(Employee.department_id.in_(dept_ids))
+    return q.all()
 
 
 def upload_signed(case, file_storage, signed_on, user):
+    """Contracts aren't generated: the department's HR BP attaches the signed contract (10 Nov 2026)."""
+    if not can_attach_contract(user, case):
+        raise DomainError("Only the department's HR Business Partner can attach the contract.")
     if file_storage is None or not file_storage.filename:
         raise DomainError("Choose the signed contract to upload.")
     if signed_on is None:
         raise DomainError("Enter the date the contract was signed.")
     if signed_on > today():
         raise DomainError("The signing date can't be in the future.")
-    stored = files.save_upload(file_storage, CONTRACT_FILE, case.id, user=user, allowed={".pdf", ".jpg", ".jpeg",
-                                                                                          ".png"})
+    stored = files.save_upload(file_storage, CONTRACT_FILE, case.id, user=user, allowed=DOCUMENT_TYPES)
     case.contract_status, case.contract_signed_on = "Signed", signed_on
     audit.record("contract.signed", "onboarding_case", case.id, after={"file": stored.original_name,
                  "signed_on": str(signed_on)}, user=user)

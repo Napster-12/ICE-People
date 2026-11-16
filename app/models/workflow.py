@@ -10,6 +10,8 @@ DEPARTMENT_MANAGER = "@department_manager"
 DEPARTMENT_LINE_MANAGER = "@department_line_manager"
 FINANCE_DEPARTMENT_MANAGER = "@finance_department_manager"   # 8 Nov 2026: approves the positions register
 FINANCE_DEPARTMENT_CODE = "FIN"
+HR_DEPARTMENT_MANAGER = "@hr_department_manager"   # 10 Nov 2026: the Group HR Manager is the head of HR
+HR_DEPARTMENT_CODE = "HR"
 SPECIAL_APPROVERS = {
     LINE_MANAGER_OR_HOD: "Line Manager / Department Manager of the originator",
     ORIGINATOR_MANAGER: "Originator's manager",
@@ -17,6 +19,7 @@ SPECIAL_APPROVERS = {
     DEPARTMENT_MANAGER: "Department Manager of the request's department",
     DEPARTMENT_LINE_MANAGER: "Line Manager above the department's Department Manager",
     FINANCE_DEPARTMENT_MANAGER: "Finance Department Manager (head of the Finance department)",
+    HR_DEPARTMENT_MANAGER: "Group HR Manager (head of the HR department)",
 }
 
 INSTANCE_STATUSES = ["Pending", "Approved", "Returned", "Rejected", "Cancelled"]

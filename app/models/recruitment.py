@@ -1,7 +1,7 @@
 """Careers site and ATS (carried over from the original recruitment portal), plus job adverts and the JD library
 (spec §4.4). A Job is the advert: it's live on the careers site while its status is Open."""
 from app.extensions import db
-from app.models.base import MappingMixin, TimestampMixin
+from app.models.base import EncryptedString, MappingMixin, TimestampMixin
 from app.services.dates import today
 
 # "Not selected": shortlisted, but the Department Manager didn't pick them for interview (they get a regret).
@@ -135,6 +135,33 @@ class Candidate(MappingMixin, TimestampMixin, db.Model):
     consent = db.Column(db.Boolean, default=False, nullable=False)
     consent_at = db.Column(db.DateTime)
     is_demo = db.Column(db.Boolean, default=False, nullable=False)
+    # The applicant's profile (16 Nov 2026, at the user's request): carried to the offer, the employee record and
+    # the Take-On form if they're hired. full_name stays as first names + surname; location as "City, Province".
+    title = db.Column(db.String(10))
+    first_names = db.Column(db.String(100))
+    surname = db.Column(db.String(80))
+    sa_citizen = db.Column(db.String(3))
+    id_number = db.Column(EncryptedString)                 # SA ID, or passport number for non-citizens
+    date_of_birth = db.Column(db.Date)
+    nationality = db.Column(db.String(80))
+    work_permit_expiry = db.Column(db.Date)
+    alt_phone = db.Column(db.String(40))
+    street = db.Column(db.String(160))
+    suburb = db.Column(db.String(120))
+    city = db.Column(db.String(120))
+    postal_code = db.Column(db.String(10))
+    province = db.Column(db.String(40))
+    current_employer = db.Column(db.String(160))
+    notice_period = db.Column(db.String(20))
+    current_salary = db.Column(db.Numeric(14, 2))          # per month
+    expected_salary = db.Column(db.Numeric(14, 2))         # per month
+    drivers_licence = db.Column(db.String(30))
+    own_transport = db.Column(db.String(3))
+    languages = db.Column(db.String(255))
+    gender = db.Column(db.String(20))                      # EE, voluntary: never scored or shown to the panel
+    race = db.Column(db.String(20))
+    disability = db.Column(db.String(20))
+    documents = db.Column(db.JSON)                         # {document name: StoredFile id}
 
     cv_file = db.relationship("StoredFile")
     applications = db.relationship("Application", back_populates="candidate", cascade="all, delete-orphan")

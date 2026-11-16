@@ -11,7 +11,7 @@
 {% block heading %}{{ page_title }}{% endblock %}
 {% block subheading %}{% if ad_hoc %}For a position the business needs that isn't on the register. Approval: Finance (unbudgeted) → GCOO or Exco member; requests raised by HR go to the Department Manager first.
 {% elif planned %}Planned positions become vacant when the {{ fy_label(fy) }} register is approved.
-{% else %}HR can change the job grade and budgeted CTC at any time; the department and cost centre are fixed once approved.{% endif %}{% endblock %}
+{% else %}The department's HR Business Partner can change the job grade and budgeted CTC at any time; the department and cost centre are fixed once approved.{% endif %}{% endblock %}
 {% block content %}
 <form method="post" class="admin-split" novalidate>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero with context %}
+{% block title %}Thank you{% endblock %}
+
+{% block hero %}
+{% call page_hero("Thank you for your answer", compact=True, id='screening-done') %}
+  <p class="poster-lead">{{ screening.application.job.title }} at Icebolethu Group</p>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<div class="card status-card">
+  {% if screening.status == 'Consent refused' %}
+  <p>You refused consent to the background checks. We're sorry we can't continue with your application this time. Your CV stays in our talent pool.</p>
+  <p><a href="{{ url_for('careers.index') }}">See current vacancies</a></p>
+  {% else %}
+  <p>Thank you for your consent. We'll run the background checks now and contact you once they're done.</p>
+  {% endif %}
+</div>
+{% endblock %}

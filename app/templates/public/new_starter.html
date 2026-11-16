@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_poster.html" import page_hero with context %}
+{% set emp = pack.case.employee %}
+{% block title %}New starter pack{% endblock %}
+
+{% block hero %}
+{% call page_hero("Your new starter pack", compact=True, id='new-starter') %}
+  <p class="poster-lead">{{ emp.full_name }} · {{ emp.position_title }} at Icebolethu Group · starting {{ pack.case.start_date|dt }}</p>
+{% endcall %}
+{% endblock %}
+
+{% macro field(f) -%}
+{% set v = values.get(f.key, '') %}
+<div class="starter-field{{ ' wide' if f.kind == 'textarea' }}">
+  <label for="f_{{ f.key }}">{{ f.label }}{{ ' *' if f.required }}</label>
+  {% if not editable %}
+  <div class="starter-value">{{ v or '—' }}</div>
+  {% elif f.kind == 'choice' %}
+  <select id="f_{{ f.key }}" name="{{ f.key }}">
+    <option value="">Choose…</option>
+    {% for o in f.options %}<option {{ 'selected' if v == o }}>{{ o }}</option>{% endfor %}
+  </select>
+  {% elif f.kind == 'textarea' %}
+  <textarea id="f_{{ f.key }}" name="{{ f.key }}" rows="2" maxlength="600">{{ v }}</textarea>
+  {% else %}
+  <input id="f_{{ f.key }}" name="{{ f.key }}" value="{{ v }}" maxlength="160"
+         {% if f.kind == 'date' %}type="date"{% elif f.kind == 'number' %}type="number" min="0" max="30"{% endif %}>
+  {% endif %}
+  {% if f.hint and editable %}<span class="hint">{{ f.hint }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="card status-card">
+  <div class="status-result-head" style="margin-bottom:12px">
+    <div class="title-pill">{{ pack.case.reference }}</div>
+    <span class="status-badge st-{{ pack.status|replace(' ', '-') }}">{{ pack.status }}</span>
+  </div>
+
+  {% if pack.status == 'Submitted' %}
+  <p>Thank you. You submitted your pack on {{ pack.submitted_at|dtt }}. Our HR Business Partner is reviewing it, and we'll email you if anything needs to change.</p>
+  {% elif pack.status == 'Approved' %}
+  <p>Your new starter pack has been approved. We look forward to welcoming you on {{ pack.case.start_date|dt }}.</p>
+  {% elif pack.status == 'Returned' %}
+  <div class="alert alert-warning"><strong>Please correct the following, then submit again:</strong><br>{{ pack.review_comment }}</div>
+  {% else %}
+  <p>Please complete each section below. You can <strong>save</strong> and come back to this link at any time, then <strong>submit</strong> when everything is done. Fields marked * are required.</p>
+  {% endif %}
+
+  {% if issues %}
+  <div class="alert alert-error"><strong>Your answers were saved, but the pack can't be submitted yet:</strong>
+    <ul style="margin:6px 0 0 18px">{% for i in issues %}<li>{{ i }}</li>{% endfor %}</ul></div>
+  {% endif %}
+
+  <form class="igsp-form" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <h2 class="starter-heading">Part A · New Hire Take-On form</h2>
+    {% for title, help, fields in sections %}
+    <fieldset class="starter-section">
+      <legend>{{ title }}</legend>
+      {% if help %}<p class="small muted" style="margin:0 0 10px 0">{{ help }}</p>{% endif %}
+      <div class="starter-grid">{% for f in fields %}{{ field(f) }}{% endfor %}</div>
+    </fieldset>
+    {% endfor %}
+
+    <h2 class="starter-heading">Part B · Forms to download, complete and upload</h2>
+    <div class="starter-downloads">
+      <a class="pill-btn outline-dark" href="{{ url_for('careers.starter_form', token=token, key='disclosure') }}">Business and Financial Disclosure (PDF)</a>
+      <a class="pill-btn outline-dark" href="{{ url_for('careers.starter_form', token=token, key='liberty') }}">Liberty Nomination of Beneficiary (PDF)</a>
+      <a class="pill-btn outline-dark" href="{{ url_for('careers.starter_form', token=token, key='code_of_conduct') }}">Code of Conduct (PDF)</a>
+    </div>
+    <ul class="small" style="margin:0 0 14px 18px">
+      <li>The <strong>Business and Financial Disclosure</strong> is a sworn declaration: complete it, then sign it in front of a Commissioner of Oaths (for example at a police station).</li>
+      <li>Complete the <strong>Liberty</strong> form in black ink without changing it: Liberty doesn't accept modified forms.</li>
+    </ul>
+    <fieldset class="starter-section">
+      <legend>Documents</legend>
+      <div class="starter-grid">
+        {% for key, label, required in documents %}
+        <div class="starter-field">
+          <label for="d_{{ key }}">{{ label }}{{ ' *' if required }}</label>
+          {% if key in uploaded %}<span class="small" style="color:#1e6b34">✓ Received: {{ uploaded[key].original_name }}</span>{% endif %}
+          {% if editable %}<input id="d_{{ key }}" type="file" name="{{ key }}" accept=".pdf,.jpg,.jpeg,.png">
+          {% if key in uploaded %}<span class="hint">Attach again only to replace it.</span>{% endif %}{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    {% if editable %}
+    <fieldset class="starter-section">
+      <legend>Declaration</legend>
+      <label class="check-row" style="display:flex;gap:10px;align-items:flex-start;font-weight:500">
+        <input type="checkbox" name="confirm" value="1" style="width:auto;margin-top:3px">
+        <span>I verify that the information above is true and correct, and that the employment equity information is mine to declare.</span>
+      </label>
+      <label for="declared_name">Your full name (as your signature)</label>
+      <input id="declared_name" name="declared_name" maxlength="160" value="{{ request.form.get('declared_name', '') }}">
+      <span class="hint">Needed only to submit.</span>
+    </fieldset>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+      <button type="submit" name="action" value="save" class="starter-save">Save and finish later</button>
+      <button type="submit" name="action" value="submit">Submit my new starter pack</button>
+    </div>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

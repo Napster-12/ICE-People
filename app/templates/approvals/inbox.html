@@ -6,7 +6,39 @@
 {% block actions %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('approvals.delegations') }}">{{ icon('users') }} Delegation</a>{% endblock %}
 {% block content %}
 <section class="admin-panel">
-  <div class="admin-panel-head"><h3>Waiting for me</h3><span class="results-count">{{ pending|length }} item{{ '' if pending|length == 1 else 's' }}</span></div>
+  {% set total = pending|length + packs|length %}
+  <div class="admin-panel-head"><h3>Waiting for me</h3><span class="results-count">{{ total }} item{{ '' if total == 1 else 's' }}</span></div>
+  {% for p in packs %}{% set c = p.case %}
+  <div class="approval-card">
+    <div class="app-head">
+      <div>
+        <div class="small muted">New starter pack · Onboarding</div>
+        <h4 style="margin:2px 0 4px"><a href="{{ url_for('onboarding.case', case_id=c.id, _anchor='pack') }}">{{ c.reference }}</a> · {{ c.employee.full_name }}, {{ c.employee.position_title }}</h4>
+        <div class="small muted">Submitted {{ p.submitted_at|dtt }} · waiting {{ business_days_between(p.submitted_at, now) }} business day{{ '' if business_days_between(p.submitted_at, now) == 1 else 's' }}
+          · starts {{ c.start_date|dt }}</div>
+      </div>
+      <div>{{ status('Pending') }}</div>
+    </div>
+    <details style="margin-top:12px"><summary>Decide here</summary>
+      <p class="small muted" style="margin:8px 0">Check the <a href="{{ url_for('onboarding.case', case_id=c.id, _anchor='pack') }}">Take-On form and documents</a> first. Approving updates the employee record.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
+        <form method="post" action="{{ url_for('onboarding.case', case_id=c.id) }}" data-confirm-title="Approve the new starter pack?" data-confirm-ok="Approve"
+              data-confirm="The employee record is updated from the Take-On form.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="next" value="{{ url_for('approvals.inbox') }}">
+          <button class="admin-btn-sm admin-btn-primary" name="action" value="pack_approve">{{ icon('check') }} Approve</button>
+        </form>
+        <form method="post" action="{{ url_for('onboarding.case', case_id=c.id) }}" class="admin-form" style="padding:0;border:0;flex:1;min-width:240px">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="next" value="{{ url_for('approvals.inbox') }}">
+          <div class="admin-form-row" style="margin:0"><label for="comment-{{ p.id }}">Or return it: what must be corrected?</label>
+            <textarea id="comment-{{ p.id }}" name="comment" style="min-height:60px" maxlength="1000"></textarea></div>
+          <div><button class="admin-btn-sm admin-btn-secondary" name="action" value="pack_return">Return to the new starter</button></div>
+        </form>
+      </div>
+    </details>
+  </div>
+  {% endfor %}
   {% for r in pending %}{% set s = r.step %}
   <div class="approval-card {{ 'overdue' if r.overdue }}">
     <div class="app-head">
@@ -24,7 +56,7 @@
     <details style="margin-top:12px"><summary>Decide here</summary>{{ act_form(s, url_for('approvals.inbox')) }}</details>
   </div>
   {% else %}
-  <p class="empty-row">Nothing is waiting for you. 🎉</p>
+  {% if not packs %}<p class="empty-row">Nothing is waiting for you. 🎉</p>{% endif %}
   {% endfor %}
 </section>
 

@@ -55,12 +55,20 @@ META = {
     "interview_passed": ("Make an offer", "Prepare the offer"),
     "offer_accepted": ("Offer accepted", "Open the offer"),
     "offer_declined": ("Offer not accepted", "Open the offer"),
+    "contract_needed": ("Contract to attach", "Open the new starter"),
+    "screening_needed": ("Background checks", "Start the checks"),
+    "screening_update": ("Background checks", "Open the checks"),
+    "candidate_screening_consent": ("Background checks", "Give or refuse consent"),
     "candidate_offer": ("Congratulations", "Accept or decline the offer"),
-    "candidate_offer_accepted": ("Welcome", None),
+    "candidate_offer_accepted": ("Welcome", "Open your new starter pack"),
+    "starter_pack_update": ("New starter pack", "Open the onboarding case"),
+    "candidate_starter_pack_returned": ("New starter pack", "Update your new starter pack"),
+    "travel_status": ("Travel request", "Open the travel request"),
+    "travel_booking": ("Travel booking", "Open the travel request"),
     "test": ("Test email", "Open ICE People"),
 }
-APPROVED = {"approved", "approve", "filled", "live", "open", "advertised"}
-DECLINED = {"rejected", "reject", "declined", "cancelled", "returned", "abolished"}
+APPROVED = {"approved", "approve", "filled", "live", "open", "advertised", "clear"}
+DECLINED = {"rejected", "reject", "declined", "cancelled", "returned", "abolished", "adverse", "consent refused"}
 
 # Example values for previews and samples, by placeholder name.
 SAMPLE_VALUES = {
@@ -83,9 +91,18 @@ SAMPLE_VALUES = {
     "meeting_link": "https://teams.microsoft.com/meet/311602226638884?p=Example", "meeting_id": "311 602 226 638 884",
     "passcode": "bD6ac2sg", "decided_by": "Precious Naidoo", "employee_number": "ICE1037",
     "expires_on": "Friday, 13 November 2026", "start_date": "1 December 2026",
+    "message": "Your manager approved your travel request. It has gone to i-Travel to book.",
+    "traveller": "Thandeka Mokoena", "trip": "Durban → Johannesburg, 2 travellers", "requester": "Thandeka Mokoena",
+    "department": "Sales", "first_date": "11 November 2026", "approver": "Sipho Ndlovu",
+    "approved_on": "08 November 2026 at 10:15",
+    "checks": "- ID verification\n- Criminal record check\n- Credit check\n- Qualification verification\n"
+              "- Reference checks",
 }
-SAMPLE_LINKS = {"candidate_regret": None, "candidate_offer_accepted": None,
+SAMPLE_LINKS = {"candidate_regret": None,
+                "candidate_offer_accepted": "https://careers.icebolethu.co.za/new-starter/sample",
+                "candidate_starter_pack_returned": "https://careers.icebolethu.co.za/new-starter/sample",
                 "candidate_offer": "https://careers.icebolethu.co.za/offer/sample",
+                "candidate_screening_consent": "https://careers.icebolethu.co.za/background-checks/sample",
                 "candidate_interview_invite": "https://teams.microsoft.com/meet/311602226638884?p=Example", "candidate_application_received": "/status"}
 
 _LABEL = re.compile(r"^([A-Z][A-Za-z ()/]{1,24}):\s+(.+)$")

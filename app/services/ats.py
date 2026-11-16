@@ -471,7 +471,7 @@ def score_candidate(job, candidate):
     used below. Returns (score_percent, breakdown_dict).
     """
     cv_text = _normalise(candidate["cv_text"])
-    profile = _normalise(" ".join([
+    profile = _normalise("\n".join([          # separate lines: a skill never runs into the next one (16 Nov 2026)
         cv_text,
         candidate["skills"] or "",
         candidate["current_title"] or "",

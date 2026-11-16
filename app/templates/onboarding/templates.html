@@ -1,8 +1,8 @@
 {% extends "admin/base.html" %}
-{% block title %}Letter and contract templates{% endblock %}
+{% block title %}Offer letter and documents{% endblock %}
 {% block crumb %}<a class="admin-crumb" href="{{ url_for('onboarding.index') }}">← Onboarding</a>{% endblock %}
-{% block heading %}Letter and contract templates{% endblock %}
-{% block subheading %}The wording of the offer letter and the employment contracts. Each is printed on the Icebolethu letterhead.{% endblock %}
+{% block heading %}Offer letter and documents{% endblock %}
+{% block subheading %}The offer letter's wording and signatory, the background checks run before the offer, and the documents candidates attach when they accept. Contracts aren't generated: the department's HR Business Partner attaches the signed contract.{% endblock %}
 {% block content %}
 <div class="admin-split" style="margin-bottom:22px">
   <form method="post" class="admin-panel admin-form">
@@ -13,7 +13,7 @@
     <div class="admin-form-row"><label for="signatory_title">Job title *</label>
       <input id="signatory_title" name="signatory_title" value="{{ signatory.signatory_title }}" required></div>
     <div><button class="admin-btn-sm admin-btn-secondary" name="action" value="signatory">{{ icon('check') }} Save</button></div>
-    <p class="hint">Printed under "Yours sincerely" on offer letters and contracts.</p>
+    <p class="hint">Printed under "Yours sincerely" on offer letters.</p>
   </form>
   <section class="admin-panel admin-form">
     <div class="admin-panel-head" style="margin:0"><h3>Signature</h3></div>
@@ -53,7 +53,60 @@
     </tr>
     {% endfor %}
   </table></div>
-  <p class="hint" style="margin-top:12px">The contract used for a new starter follows their employment type: Permanent, Contract (fixed-term) or Casual.
-    Have the wording checked by HR and legal before you use it.</p>
+</section>
+
+<form method="post" class="admin-panel admin-form" style="margin-top:22px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="admin-panel-head" style="margin:0"><h3>Documents for onboarding</h3><span class="results-count">{{ required|length }} required</span></div>
+  <div class="admin-form-row"><label for="documents">Required documents (one per line)</label>
+    <textarea id="documents" name="documents" rows="8">{{ request.form.get('documents') or required|join('\n') }}</textarea>
+    <span class="hint">The candidate must attach each of these (PDF, JPG or PNG) to accept the offer. They're kept on the onboarding case.</span></div>
+  <div><button class="admin-btn-sm admin-btn-primary" name="action" value="documents">{{ icon('check') }} Save the list</button></div>
+</form>
+
+<form method="post" class="admin-panel admin-form" style="margin-top:22px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="admin-panel-head" style="margin:0"><h3>Background checks</h3><span class="results-count">{{ checks|length }} checks</span></div>
+  <div class="admin-form-row"><label for="checks">Checks run before the offer (one per line)</label>
+    <textarea id="checks" name="checks" rows="6">{{ request.form.get('checks') or checks|join('\n') }}</textarea>
+    <span class="hint">The candidate consents online, then HR Admin or the department's HR Business Partner records each result. The offer can only be sent once every check is clear. Changes apply to checks started from now on.</span></div>
+  <div><button class="admin-btn-sm admin-btn-primary" name="action" value="checks">{{ icon('check') }} Save the list</button></div>
+</form>
+
+<form method="post" class="admin-panel admin-form" style="margin-top:22px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="admin-panel-head" style="margin:0"><h3>Documents when applying</h3><span class="results-count">{{ app_required|length }} required · {{ app_optional|length }} optional</span></div>
+  <div class="admin-form-grid">
+    <div class="admin-form-row"><label for="required">Required (one per line)</label>
+      <textarea id="required" name="required" rows="6">{{ request.form.get('required') or app_required|join('\n') }}</textarea>
+      <span class="hint">Every job applicant must attach these (PDF, JPG or PNG) with their CV. Talent-pool submissions may skip them.</span></div>
+    <div class="admin-form-row"><label for="optional">Optional (one per line)</label>
+      <textarea id="optional" name="optional" rows="6">{{ request.form.get('optional') or app_optional|join('\n') }}</textarea>
+      <span class="hint">Offered, not required.</span></div>
+  </div>
+  <div><button class="admin-btn-sm admin-btn-primary" name="action" value="application_docs">{{ icon('check') }} Save the lists</button></div>
+</form>
+
+<section class="admin-panel" style="margin-top:22px">
+  <div class="admin-panel-head"><h3>Forms candidates download</h3><span class="results-count">{{ forms|length }}</span></div>
+  <p class="small muted" style="margin:0 0 10px 0">Upload a newer PDF to replace a form; candidates download the newest. The POPIA consent and the New Hire Take-On form are filled in online.</p>
+  <div class="table-responsive"><table class="admin-table">
+    <tr><th>Form</th><th>Candidate</th><th>Current copy</th><th>Replace</th></tr>
+    {% for f in forms %}
+    <tr>
+      <td><a href="{{ url_for('onboarding.blank_form', key=f.key) }}" target="_blank" rel="noopener"><strong>{{ f.title }}</strong></a></td>
+      <td class="small">{{ f.help }}</td>
+      <td class="small">{% if f.uploaded %}{{ f.uploaded.created_at|dtt }}{% if f.uploaded.uploaded_by %}<span class="sub">by {{ f.uploaded.uploaded_by.full_name }}</span>{% endif %}{% else %}As supplied{% endif %}</td>
+      <td>
+        <form method="post" enctype="multipart/form-data" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="key" value="{{ f.key }}">
+          <input type="file" name="form" accept=".pdf" required style="max-width:200px">
+          <button class="admin-btn-sm admin-btn-secondary" name="action" value="form">{{ icon('upload') }} Replace</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table></div>
 </section>
 {% endblock %}

@@ -41,7 +41,10 @@ def inbox():
             .filter(WorkflowStep.actor_id == current_user.id).order_by(WorkflowStep.acted_at.desc()))
     done, pager = paginate(done, 15)
     done = [{"step": s, "info": workflow.describe(s.instance)} for s in done]
-    return render_template("approvals/inbox.html", pending=pending, done=done, pager=pager)
+    from app.services import starter_pack
+    packs = starter_pack.to_review(current_user)               # 16 Nov 2026: new starter packs to approve
+    return render_template("approvals/inbox.html", pending=pending, done=done, pager=pager, packs=packs,
+                           business_days_between=business_days_between, now=now())
 
 
 @bp.route("/steps/<int:step_id>/act", methods=["POST"])

@@ -6,7 +6,7 @@ from app.extensions import db
 from app.models import RefSequence
 from app.services.dates import today
 
-PREFIXES = {"REQ", "POS", "ADV", "OFR", "ONB", "SKA", "EXT"}
+PREFIXES = {"REQ", "POS", "ADV", "OFR", "ONB", "SKA", "EXT", "TRF"}
 
 
 def next_reference(prefix, year=None):

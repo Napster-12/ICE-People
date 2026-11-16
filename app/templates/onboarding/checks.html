@@ -1,0 +1,150 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv with context %}
+{% block title %}Background checks{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('onboarding.index') }}">← Onboarding</a>{% endblock %}
+{% block heading %}Background checks · {{ application.candidate.full_name }}{% endblock %}
+{% block subheading %}{{ application.job.title }}{% if application.job.requisition %} · {{ application.job.requisition.reference }}{% if application.job.requisition.department %} · {{ application.job.requisition.department.name }}{% endif %}{% endif %} · run before the offer is sent{% endblock %}
+{% block actions %}
+{{ status(screening.status if screening else 'Not started') }}
+{% if sees_offers and offer %}<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('onboarding.offer', offer_id=offer.id) }}">{{ icon('file') }} {{ offer.reference }}</a>{% endif %}
+{% endblock %}
+{% block content %}
+{% if application.status != 'Offer' %}
+<div class="alert alert-info">{{ application.candidate.full_name }} is no longer waiting for an offer ({{ application.status }}).</div>
+{% elif not screening %}
+<div class="alert alert-warning">The background checks haven't started. The offer can only be sent once every check is clear.</div>
+{% elif screening.status == 'Awaiting consent' %}
+<div class="alert alert-info">Emailed to {{ application.candidate.email }} on {{ screening.consent_requested_at|dtt }}. Results can be recorded once the candidate consents.</div>
+{% elif screening.status == 'Consent refused' %}
+<div class="alert alert-warning">The candidate refused consent on {{ screening.consent_at|dtt }}, so the offer can't be sent. Mark them unsuccessful below, then mark the next-ranked candidate successful on the interview panel or re-advertise.</div>
+{% elif screening.status == 'Adverse' %}
+<div class="alert alert-warning">A check came back adverse, so the offer can't be sent. Mark the candidate unsuccessful below, then mark the next-ranked candidate successful on the interview panel or re-advertise.</div>
+{% elif screening.status == 'Clear' %}
+<div class="alert alert-success">Every check is clear{% if screening.completed_at %} ({{ screening.completed_at|dtt }}){% endif %}. HR Admin can send the offer.{% if locked %} The results are locked: the offer has been sent.{% endif %}</div>
+{% else %}
+<div class="alert alert-info">{{ problem }}</div>
+{% endif %}
+
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    {% if not screening %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Checks to run</h3></div>
+      <ul class="detail-list" style="margin-top:0;border-top:none;padding-top:0">
+        {% for name in config_checks %}<li>{{ name }}</li>{% endfor %}
+      </ul>
+      {% if can_manage and application.status == 'Offer' %}
+      <form method="post" data-confirm-title="Start the background checks?" data-confirm-ok="Start"
+            data-confirm="{{ application.candidate.full_name }} is emailed a secure link to give or refuse consent to these checks.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="filter-btn" name="action" value="start">{{ icon('mail') }} Start and ask for consent</button>
+      </form>
+      <p class="hint" style="margin-top:8px">HR Admin edits the list under Onboarding → Offer letter and documents.</p>
+      {% elif not can_manage %}
+      <p class="muted">HR Admin or the department's HR Business Partner{% if hrbp %} ({{ hrbp.full_name }}){% endif %} runs the checks.</p>
+      {% endif %}
+    </section>
+    {% else %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Results</h3>
+        <span class="results-count">{{ screening.checks|selectattr('status', 'equalto', 'Clear')|list|length }} of {{ screening.checks|length }} clear</span></div>
+      <div class="table-responsive"><table class="admin-table">
+        <tr><th>Check</th><th>Result</th><th>Completed</th><th>Notes</th><th>Report</th></tr>
+        {% for c in screening.checks %}
+        <tr>
+          <td><strong>{{ c.name }}</strong>{% if c.provider_reference %}<span class="sub">Ref {{ c.provider_reference }}</span>{% endif %}</td>
+          <td>{{ status(c.status) }}</td>
+          <td class="small">{{ c.completed_on|dt if c.completed_on else '—' }}{% if c.recorded_by %}<span class="sub">by {{ c.recorded_by.full_name }}</span>{% endif %}</td>
+          <td class="small">{{ c.notes or '—' }}</td>
+          <td class="small">{% for f in reports[c.id] %}{% if loop.first %}<a href="{{ url_for('portal.download', file_id=f.id) }}" target="_blank" rel="noopener">{{ icon('file') }} {{ f.original_name }}</a>{% if loop.length > 1 %}<span class="sub">{{ loop.length - 1 }} earlier</span>{% endif %}{% endif %}{% else %}—{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </table></div>
+    </section>
+
+    {% if can_record %}
+    <form method="post" enctype="multipart/form-data" class="admin-panel admin-form" data-confirm-title="Save this result?"
+          data-confirm-ok="Save" data-confirm="The result is final: it can't be edited once it's saved.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-panel-head" style="margin:0"><h3>Record a result</h3></div>
+      <div class="admin-form-grid">
+        <div class="admin-form-row"><label for="check_id">Check *</label>
+          <select id="check_id" name="check_id">
+            {% for c in screening.checks if c.status == 'Pending' %}<option value="{{ c.id }}" {{ 'selected' if request.form.get('check_id') == c.id|string }}>{{ c.name }}</option>{% endfor %}
+          </select></div>
+        <div class="admin-form-row"><label for="status">Result *</label>
+          <select id="status" name="status">
+            {% for r in ('Clear', 'Adverse') %}<option {{ 'selected' if request.form.get('status') == r }}>{{ r }}</option>{% endfor %}
+          </select></div>
+        <div class="admin-form-row"><label for="completed_on">Completed on *</label>
+          <input id="completed_on" type="date" name="completed_on" max="{{ today.isoformat() }}" value="{{ request.form.get('completed_on') or today.isoformat() }}" required></div>
+        <div class="admin-form-row"><label for="provider_reference">Provider's reference</label>
+          <input id="provider_reference" name="provider_reference" maxlength="80" value="{{ request.form.get('provider_reference', '') }}" placeholder="e.g. the screening provider's report number"></div>
+      </div>
+      <div class="admin-form-row"><label for="notes">Notes</label>
+        <textarea id="notes" name="notes" style="min-height:80px">{{ request.form.get('notes', '') }}</textarea>
+        <span class="hint">Required for an adverse result: say what was found.</span></div>
+      <div class="admin-form-row"><label for="report">Provider's report (PDF, JPG or PNG)</label>
+        <input id="report" type="file" name="report" accept=".pdf,.jpg,.jpeg,.png"></div>
+      <div><button class="admin-btn-sm admin-btn-primary" name="action" value="record">{{ icon('check') }} Save the result</button></div>
+      <p class="hint">Run each check with the screening provider, then record it here. <strong>A recorded result is final</strong> and can't be edited, so check it before saving.</p>
+    </form>
+    {% endif %}
+
+    {% if can_manage and application.status == 'Offer' and screening.status in ('Adverse', 'Consent refused') %}
+    <form method="post" class="admin-panel admin-form" data-confirm-title="Mark the candidate unsuccessful?" data-confirm-ok="Mark unsuccessful"
+          data-confirm="Any offer in progress is withdrawn and, with nobody else at offer stage, the requisition goes back to Interviewing.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-panel-head" style="margin:0"><h3>Mark unsuccessful</h3></div>
+      <div class="admin-form-row"><label for="reason">Reason (optional)</label><input id="reason" name="reason" maxlength="500"></div>
+      <div><button class="admin-btn-sm admin-btn-danger" name="action" value="reject">Mark unsuccessful</button></div>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Candidate</h3></div>
+      <div class="kv-grid">
+        {{ kv('Name', application.candidate.full_name) }}
+        {{ kv('Email', application.candidate.email) }}
+        {{ kv('Phone', application.candidate.phone) }}
+        {{ kv('Application', application.reference) }}
+        {{ kv('Passed the interview', (application.successful_at|dtt) if application.successful_at) }}
+        {{ kv('HR Business Partner', hrbp.full_name if hrbp else 'None assigned to the department') }}
+      </div>
+    </section>
+    {% if screening %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Consent (POPIA)</h3></div>
+      <div class="kv-grid">
+        {{ kv('Started by', screening.started_by.full_name if screening.started_by) }}
+        {{ kv('Requested', screening.consent_requested_at|dtt if screening.consent_requested_at) }}
+        {% if screening.status == 'Consent refused' %}
+        {{ kv('Refused', screening.consent_at|dtt) }}
+        {% elif screening.consent_at %}
+        {{ kv('Given', screening.consent_at|dtt) }}
+        {{ kv('Signed as', screening.consent_name) }}
+        {{ kv('Signed at', screening.consent_place) }}
+        {{ kv('From IP address', screening.consent_ip) }}
+        {% else %}
+        {{ kv('Given', 'Not yet') }}
+        {% endif %}
+      </div>
+      {% if consent_files %}
+      <ul style="margin:12px 0 0 0;padding-left:18px">
+        {% for f in consent_files %}<li><a href="{{ url_for('portal.download', file_id=f.id) }}" target="_blank" rel="noopener">{{ f.original_name }}</a></li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if can_manage and screening.status == 'Awaiting consent' %}
+      <form method="post" style="margin-top:14px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="admin-btn-sm admin-btn-secondary" name="action" value="resend">{{ icon('mail') }} Email the consent request again</button>
+      </form>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

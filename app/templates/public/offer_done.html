@@ -17,7 +17,10 @@
 {% block content %}
 <div class="card status-card">
   {% if outcome == 'accepted' %}
-  <p>We've emailed you a confirmation. Our HR team will contact you shortly about your employment contract and the documents we need before your first day on <strong>{{ offer.start_date|dt }}</strong>.</p>
+  <p>We've emailed you a confirmation with a link to your <strong>new starter pack</strong>: the New Hire Take-On form, plus the Business and Financial Disclosure and Liberty nomination of beneficiary forms to download, complete and upload. Please complete it before your first day on <strong>{{ offer.start_date|dt }}</strong>.</p>
+  {% if offer.onboarding_case and offer.onboarding_case.pack and offer.onboarding_case.pack.token %}
+  <p><a class="pill-btn" href="{{ url_for('careers.new_starter', token=offer.onboarding_case.pack.token) }}">Open your new starter pack</a></p>
+  {% endif %}
   {% else %}
   <p>We're sorry it didn't work out this time. Your CV stays in our talent pool, and we may contact you when a suitable position opens.</p>
   <p><a href="{{ url_for('careers.index') }}">See current vacancies</a></p>

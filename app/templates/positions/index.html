@@ -11,12 +11,14 @@
 {% endif %}
 {% endblock %}
 {% block content %}
+{% if is_hrbp and not can_edit %}<div class="alert alert-info">You aren't the HR Business Partner for any department yet. HR Admin assigns departments on the Departments page.</div>{% endif %}
 <section class="admin-panel app-block">
   <div class="admin-panel-head"><h3>{{ fy_label(fy) }} register</h3>{{ status(register.status if register else 'Draft') }}</div>
   {% if not register or register.status in ('Draft', 'Returned', 'Rejected') %}
     <p class="small">{% if register and register.status == 'Returned' %}The register was returned for changes. Update the positions and send it again.
       {% elif register and register.status == 'Rejected' %}The register was rejected. Update the positions and send it again.
-      {% else %}Load the positions approved with the budget for {{ fy_label(fy) }}, then send the register to Finance and the Group HR Manager for approval.{% endif %}
+      {% else %}Load the positions approved with the budget for {{ fy_label(fy) }}, then send the register to the Finance Department Manager and the Group HR Manager for approval.{% endif %}
+      Each department's HR Business Partner adds and maintains its positions.
       {{ planned }} planned position{{ '' if planned == 1 else 's' }} waiting.</p>
     {% if can_edit and planned %}
     <form method="post" action="{{ url_for('positions.submit_register', fy=fy) }}" style="margin-top:12px">

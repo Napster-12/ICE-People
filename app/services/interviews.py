@@ -384,6 +384,8 @@ def mark_successful(application, user, comment=""):
            name=application.candidate.full_name, title=application.job.title, ref=application.reference,
            average=row["average"], decided_by=user.full_name,
            comment=application.decision_comment)
+    from app.services import screening
+    screening.notify_hrbp(application, user)             # background checks before the offer (16 Nov 2026)
     return application
 
 

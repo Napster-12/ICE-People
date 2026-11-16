@@ -73,9 +73,13 @@ class Department(db.Model):
     business_unit_id = db.Column(db.Integer, db.ForeignKey("business_units.id"), index=True)
     # Pre-filled on a Department Manager's ad-hoc position request.
     job_family_id = db.Column(db.Integer, db.ForeignKey("job_families.id"), index=True)
+    # 10 Nov 2026: each department has its own HR Business Partner, who maintains its approved positions and
+    # attaches its new starters' signed contracts. One HR BP may cover several departments.
+    hrbp_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
     active = db.Column(db.Boolean, default=True, nullable=False)
 
     hod = db.relationship("Employee", foreign_keys=[hod_employee_id], post_update=True)
+    hrbp = db.relationship("User", foreign_keys=[hrbp_user_id])
     business_unit = db.relationship(BusinessUnit)
     job_family = db.relationship(JobFamily)
     cost_centres = db.relationship("CostCentre", back_populates="department", order_by="CostCentre.code")

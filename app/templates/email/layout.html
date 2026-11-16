@@ -28,10 +28,10 @@
         @media screen and (max-width: 620px) {
             .outer { padding: 12px 0 !important; }
             .card { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
-            .pad { padding-left: 22px !important; padding-right: 22px !important; }
-            .btn, .btn a { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box; }
-            .label-cell { display: block !important; width: auto !important; padding-bottom: 0 !important; }
-            .value-cell { display: block !important; padding-top: 2px !important; }
+            .pad { padding-left: 20px !important; padding-right: 20px !important; }
+            .detail-row { padding-left: 16px !important; padding-right: 16px !important; }
+            .btn { width: 100% !important; }
+            .btn td, .btn a { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box; }
         }
     </style>
 </head>
@@ -93,10 +93,17 @@
             {%- elif kind == "details" %}
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FAF8F6"
                    style="width:100%; margin:6px 0 20px 0; background-color:#FAF8F6; border:1px solid #EEE9E3; border-radius:12px;">
+                {#- Each row: label and value side by side when there's room, stacked on a phone. Inline blocks, so it
+                    works in mail apps that ignore <style> (16 Nov 2026); Outlook desktop gets a two-column table. -#}
                 {%- for label_, value in data %}
                 <tr>
-                    <td class="label-cell" valign="top" width="130" style="padding:12px 12px 12px 20px; {% if not loop.last %}border-bottom:1px solid #EEE9E3; {% endif %}font-family:{{ font }}; font-size:12px; line-height:20px; font-weight:600; color:#8A8580;">{{ label_ }}</td>
-                    <td class="value-cell" valign="top" style="padding:12px 20px 12px 0; {% if not loop.last %}border-bottom:1px solid #EEE9E3; {% endif %}font-family:{{ font }}; font-size:15px; line-height:20px; font-weight:600; color:#231F20; word-break:break-word;">{{ linkify(value) }}</td>
+                    <td class="detail-row" valign="top" style="padding:11px 20px; {% if not loop.last %}border-bottom:1px solid #EEE9E3; {% endif %}font-size:0; line-height:0;">
+                        <!--[if mso]><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="130" valign="top"><![endif]-->
+                        <div style="display:inline-block; width:100%; max-width:130px; vertical-align:top; font-family:{{ font }}; font-size:12px; line-height:20px; font-weight:600; color:#8A8580;">{{ label_ }}</div>
+                        <!--[if mso]></td><td valign="top"><![endif]-->
+                        <div style="display:inline-block; width:100%; max-width:335px; vertical-align:top; font-family:{{ font }}; font-size:15px; line-height:21px; font-weight:600; color:#231F20; word-break:break-word; overflow-wrap:anywhere;">{{ linkify(value) }}</div>
+                        <!--[if mso]></td></tr></table><![endif]-->
+                    </td>
                 </tr>
                 {%- endfor %}
             </table>

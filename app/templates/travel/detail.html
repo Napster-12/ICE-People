@@ -1,0 +1,193 @@
+{% extends "admin/base.html" %}
+{% from "_ui.html" import status, kv, approval_chain, act_form with context %}
+{% block title %}{{ tr.reference }}{% endblock %}
+{% block crumb %}<a class="admin-crumb" href="{{ url_for('travel.dashboard') if current_user.id != tr.requester_id and current_user.has_role('i-Travel', 'Finance') else url_for('travel.index') }}">← {{ 'i-Travel dashboard' if current_user.id != tr.requester_id and current_user.has_role('i-Travel', 'Finance') else 'My travel requests' }}</a>{% endblock %}
+{% block heading %}{{ tr.reference }} · {{ tr.lead_traveller }}{% endblock %}
+{% block subheading %}{{ tr.summary }} · requested by {{ tr.requester.full_name }}{% if tr.department %} ({{ tr.department.name }}){% endif %} on {{ tr.created_at|dt }}{% endblock %}
+{% block actions %}
+{{ status(tr.status) }}
+<a class="admin-btn-sm admin-btn-secondary" href="{{ url_for('portal.download', file_id=tr.form_file.id) if tr.form_file else url_for('travel.form_pdf', tr_id=tr.id) }}" target="_blank" rel="noopener">{{ icon('file') }} {{ 'Form as approved' if tr.form_file else 'Preview form' }}</a>
+{% if can_edit %}<a class="admin-btn-sm admin-btn-primary" href="{{ url_for('travel.edit', tr_id=tr.id) }}">{{ icon('edit') }} Edit</a>{% endif %}
+{% endblock %}
+{% block content %}
+{% if tr.status == 'Draft' %}
+<div class="alert alert-info">This is a draft. Submit it when it's complete; {{ approver.full_name if approver else 'your manager' }} approves it.</div>
+{% elif tr.status == 'In Approval' %}
+<div class="alert alert-info">With {{ approval.current_step.assignee.full_name if approval and approval.current_step and approval.current_step.assignee else 'the manager' }} for approval.</div>
+{% elif tr.status == 'Returned' %}
+<div class="alert alert-warning">Your manager returned it. Change it and submit it again.</div>
+{% elif tr.status == 'Rejected' %}
+<div class="alert alert-warning">Your manager rejected this travel request.</div>
+{% elif tr.status == 'Approved' %}
+<div class="alert alert-success">Approved by {{ tr.approver_name }} on {{ tr.approved_at|dtt }}{% if tr.sent_to_itravel_at %} and sent to i-Travel and Finance{% endif %}. i-Travel books it and sends the payment requisition to Finance.</div>
+{% elif tr.status == 'With Finance' %}
+<div class="alert alert-info">i-Travel booked it and sent {{ tr.amount|money }} to Finance for payment on {{ tr.sent_to_finance_at|dtt }}.</div>
+{% elif tr.status == 'Payment approved' %}
+<div class="alert alert-success">Finance approved the payment of {{ tr.amount|money }}. It's waiting to be paid.</div>
+{% elif tr.status == 'Payment rejected' %}
+<div class="alert alert-warning">Finance rejected the payment.</div>
+{% elif tr.status == 'Paid' %}
+<div class="alert alert-success">Paid {{ tr.amount|money }} on {{ tr.paid_on|dt }} (payment reference {{ tr.payment_reference }}).</div>
+{% elif tr.status == 'Cancelled' %}
+<div class="alert alert-warning">This travel request was cancelled.</div>
+{% endif %}
+
+{% if my_step %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>Your decision · {{ my_step.name }}</h3>
+    <span class="results-count">Due {{ my_step.due_at|dtt }}</span></div>
+  {% if tr.status == 'With Finance' %}
+  <p class="small muted" style="margin-bottom:10px">Payment requisition: {{ tr.amount|money }}, quote or invoice {{ tr.supplier_reference }}. The document is under "Payment requisition" below.</p>
+  {% endif %}
+  {{ act_form(my_step, url_for('travel.detail', tr_id=tr.id)) }}
+</section>
+{% endif %}
+
+{% if can_send %}
+<form method="post" enctype="multipart/form-data" class="admin-panel admin-form app-block">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="admin-panel-head" style="margin:0"><h3>Send to Finance for payment</h3></div>
+  <p class="small muted">Once you've booked the trip, enter the total cost and attach the quote or invoice. Finance approves the payment requisition.</p>
+  <div class="admin-form-grid">
+    <div class="admin-form-row"><label for="amount">Total cost (R) *</label>
+      <input id="amount" name="amount" inputmode="decimal" placeholder="e.g. 8450.00" required></div>
+    <div class="admin-form-row"><label for="supplier_reference">Quote or invoice number *</label>
+      <input id="supplier_reference" name="supplier_reference" required></div>
+    <div class="admin-form-row"><label for="invoice">Quote or invoice *</label>
+      <input id="invoice" name="invoice" type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx" required></div>
+  </div>
+  <div class="admin-form-row"><label for="payment_note">Note to Finance (optional)</label>
+    <textarea id="payment_note" name="payment_note" style="min-height:70px" placeholder="e.g. Pay before 20 Nov to hold the fares"></textarea></div>
+  <div><button class="filter-btn" name="action" value="send_to_finance">{{ icon('arrow') }} Send to Finance</button></div>
+</form>
+{% endif %}
+
+{% if can_pay %}
+<form method="post" class="admin-panel admin-form app-block">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="admin-panel-head" style="margin:0"><h3>Mark as paid</h3><span class="results-count">{{ tr.amount|money }}</span></div>
+  <div class="admin-form-grid">
+    <div class="admin-form-row"><label for="paid_on">Paid on *</label>
+      <input id="paid_on" name="paid_on" type="date" required></div>
+    <div class="admin-form-row"><label for="payment_reference">Payment reference *</label>
+      <input id="payment_reference" name="payment_reference" required></div>
+  </div>
+  <div><button class="filter-btn" name="action" value="mark_paid">{{ icon('check') }} Mark as paid</button></div>
+</form>
+{% endif %}
+
+<div class="admin-split">
+  <section class="admin-panel">
+    <div class="admin-panel-head"><h3>Client details</h3></div>
+    <div class="kv-grid">
+      {{ kv('Client name', tr.client_name) }}
+      {{ kv('Client code', tr.client_code) }}
+      {{ kv('Address', tr.client_address) }}
+      {{ kv('City', tr.client_city) }}
+      {{ kv('ZIP code', tr.client_zip) }}
+      {{ kv('Telephone', tr.client_phone) }}
+      {{ kv('Email address', tr.client_email) }}
+    </div>
+  </section>
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Travel booker</h3></div>
+      <div class="kv-grid">
+        {{ kv('Name and surname', tr.booker_name) }}
+        {{ kv('Telephone', tr.booker_phone) }}
+        {{ kv('Email address', tr.booker_email) }}
+      </div>
+    </section>
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Travel booking approver</h3></div>
+      <div class="kv-grid">
+        {% if tr.approver_name %}
+        {{ kv('Name and surname', tr.approver_name) }}
+        {{ kv('Telephone', tr.approver_phone) }}
+        {{ kv('Email address', tr.approver_email) }}
+        {{ kv('Approved', tr.approved_at|dtt) }}
+        {% else %}
+        {{ kv('Manager', approver.full_name if approver else 'HR Admin (no manager on record)') }}
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>{{ traveller_title }}</h3></div>
+  <div class="kv-grid">
+    {% for key, label in traveller_fields %}
+    {{ kv(label, mask(traveller.get(key)) if key == 'id_number' and not see_ids else traveller.get(key)) }}
+    {% endfor %}
+  </div>
+</section>
+
+{% for section, (title, max_rows, fields) in sections.items() %}
+{% set rows = tr.rows(section) %}
+{% if rows %}
+<section class="admin-panel app-block">
+  <div class="admin-panel-head"><h3>{{ title }}</h3><span class="results-count">{{ rows|length }}</span></div>
+  <div class="table-responsive"><table class="admin-table travel-table">
+    <tr><th>#</th>{% for key, label, kind, required, options in fields %}<th>{{ label }}</th>{% if section == 'accommodation' and key == 'check_out' %}<th>Nights</th>{% endif %}{% endfor %}</tr>
+    {% for row in rows %}
+    <tr><td>{{ loop.index }}</td>
+      {% for key, label, kind, required, options in fields %}
+      <td>{{ show(kind, row.get(key)) or '—' }}</td>
+      {% if section == 'accommodation' and key == 'check_out' %}<td>{{ row.get('nights') or '—' }}</td>{% endif %}
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% endif %}
+{% endfor %}
+
+<div class="admin-split">
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    {% if tr.amount is not none %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Payment requisition</h3>{% if payment %}{{ status(payment.status) }}{% endif %}</div>
+      <div class="kv-grid">
+        {{ kv('Total cost', tr.amount|money) }}
+        {{ kv('Quote or invoice number', tr.supplier_reference) }}
+        {{ kv('Sent by', (tr.sent_to_finance_by.full_name ~ ', ' ~ (tr.sent_to_finance_at|dtt)) if tr.sent_to_finance_by) }}
+        {{ kv('Note', tr.payment_note) }}
+        {{ kv('Paid on', tr.paid_on|dt if tr.paid_on) }}
+        {{ kv('Payment reference', tr.payment_reference) }}
+      </div>
+      {% for f in invoices %}
+      <p style="margin-top:10px"><a href="{{ url_for('portal.download', file_id=f.id) }}" target="_blank" rel="noopener">{{ icon('file') }} {{ f.original_name }}</a>
+        <span class="small muted">· {{ f.created_at|dtt }}{{ ' (current)' if loop.first and invoices|length > 1 }}</span></p>
+      {% endfor %}
+    </section>
+    {% endif %}
+    {% if can_cancel %}
+    <form method="post" class="admin-panel admin-form" data-confirm-title="Cancel the travel request?" data-confirm-ok="Cancel request"
+          data-confirm="{{ 'i-Travel already has it: they are told to cancel any bookings.' if tr.status == 'Approved' else 'It stops here and nobody can approve it.' }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="admin-panel-head" style="margin:0"><h3>Cancel</h3></div>
+      <div class="admin-form-row"><label for="reason">Reason (optional)</label><input id="reason" name="reason"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        {% if tr.status in ('Draft', 'Returned') %}<button class="filter-btn" name="action" value="submit" formnovalidate>{{ icon('arrow') }} Submit for approval</button>{% endif %}
+        <button class="admin-btn-sm admin-btn-danger" name="action" value="cancel">Cancel the request</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+  <div style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    {% if approval %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Manager approval</h3>{{ status(approval.status) }}</div>
+      {{ approval_chain(approval) }}
+    </section>
+    {% endif %}
+    {% if payment %}
+    <section class="admin-panel">
+      <div class="admin-panel-head"><h3>Finance approval</h3>{{ status(payment.status) }}</div>
+      {{ approval_chain(payment) }}
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
