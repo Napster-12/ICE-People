@@ -262,7 +262,8 @@ Read it in full before any build work and follow its §0 process:
   asset recovery should build on this register, with IT in the Asset Controller's place.
 - Every staff route uses `@roles_required` from `app/auth/decorators.py`.
   `tests/test_auth.py` fails if a staff route has no decorator.
-- The original portal is archived, unchanged, in `legacy/`. Its features now live in:
+- The original portal is archived, unchanged, in `legacy/` (local only: removed from GitHub and git-ignored on
+  16 Nov 2026, at the user's request; still in the repo's history). Its features now live in:
   - `app/recruitment/careers.py`: public careers site
   - `app/recruitment/routes.py`: ATS, at `/recruitment`
   - `app/services/ats.py`: scoring
